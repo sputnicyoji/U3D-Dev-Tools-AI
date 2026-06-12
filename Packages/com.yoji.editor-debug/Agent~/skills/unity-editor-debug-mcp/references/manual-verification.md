@@ -1,22 +1,22 @@
 # 手动端到端验证 Checklist
 
-代码已通过 40 条单元测试。以下步骤验证 HTTP 服务在真实 Editor 中跑通。
+单元测试位于 `Packages/com.yoji.editor-debug/Tests/Editor/`（73 条 EditMode 测试）。以下步骤验证 HTTP 服务在真实 Editor 中跑通。
 
 ## 前置
 
-1. Unity Hub 打开工程：`F:\git\x15_client_222\client`
-2. 等编译完成（首次会编译 `com.tfw.unity-editor-debug-mcp` 包）
+1. Unity Hub 打开工程：`E:\Yoji\U3D-Dev-Tools-AI\TestProjects\editor-debug`（或任意装了本包的工程），Unity 6000.3.16f1
+2. 等编译完成（首次会编译 `com.yoji.editor-debug` 包）
 3. 看 Console 出现：`[EditorDebugMCP] 服务已启动，监听 http://127.0.0.1:21891/`
 
 如果没看到，说明：
-- 包未被识别 → 检查 `Packages/com.tfw.unity-editor-debug-mcp/package.json` 是否存在
+- 包未被识别 → 检查 `Packages/com.yoji.editor-debug/package.json` 是否存在
 - 端口被占 → 看日志是否提示端口冲突，已自动 fallback 到 21892/21893
 - asmdef 编译失败 → 看 Console 是否有红字
 
 ## Phase A 验证：/ping 健康检查
 
 ```bash
-cd Packages/com.tfw.unity-editor-debug-mcp/Skill
+cd Packages/com.yoji.editor-debug/Agent~/skills/unity-editor-debug-mcp
 python client.py ping
 ```
 
@@ -28,8 +28,8 @@ python client.py ping
     "service": "EditorDebugMCP",
     "version": "0.1.0",
     "port": 21891,
-    "unityVersion": "2022.3.62f2c1",
-    "projectName": "Raft War"
+    "unityVersion": "6000.3.16f1",
+    "projectName": "editor-debug"
   },
   "elapsedMs": 0
 }
@@ -81,7 +81,7 @@ python client.py describe --type Foo.NotExist
 
 随便改一个工程脚本（加个空格也算）后：
 ```bash
-python client.py recompile --timeout 120
+python client.py --timeout 120 recompile
 ```
 预期：挂住 30-60 秒 → 返回 `result.success=true`，紧接着服务重启（再次 ping 可能短暂 connection refused，几秒后恢复）。
 

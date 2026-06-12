@@ -130,7 +130,7 @@ def cmd_recompile(args: argparse.Namespace) -> dict[str, Any]:
 
 
 def cmd_eval(args: argparse.Namespace) -> dict[str, Any]:
-    """/eval —— 表达式求值。当前阶段：会返回 NotImplemented 错误信封。"""
+    """/eval —— 轻量表达式求值（链式属性/方法访问；不支持 lambda/new/typeof）。"""
     payload = {"code": args.code}
     if args.usings:
         payload["usings"] = list(args.usings)

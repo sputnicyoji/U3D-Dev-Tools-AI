@@ -115,7 +115,7 @@ python client.py invoke --type UnityEngine.Resources --member FindObjectsOfTypeA
 ## 7. 触发重编译并等待完成
 
 ```bash
-python client.py recompile --timeout 120
+python client.py --timeout 120 recompile
 ```
 
 ```json

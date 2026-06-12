@@ -4,8 +4,8 @@
 
 | 现象 | 原因 | 处理 |
 |------|------|------|
-| `Connection refused` / 端口拒绝 | Editor 没开，或 UPM 包 `com.tfw.unity-editor-debug-mcp` 没装 | 让用户启 Editor；包路径 `Packages/com.tfw.unity-editor-debug-mcp/` |
-| `Connection refused` 但 Editor 开着 | 21891 被占，服务 fallback 到 21892 / 21893 | 加 `--port 21892` 重试，或 `client.py ping --port` 探活 |
+| `Connection refused` / 端口拒绝 | Editor 没开，或 UPM 包 `com.yoji.editor-debug` 没装 | 让用户启 Editor；包路径 `Packages/com.yoji.editor-debug/` |
+| `Connection refused` 但 Editor 开着 | 21891 被占，服务 fallback 到 21892 / 21893 | 加 `--port 21892` 重试（全局参数放子命令前，如 `client.py --port 21892 ping`）探活 |
 | `error.type=TypeAccessException` | 类型名拼错；或在非常用 dll，`Type.GetType` 找不到 | 给类型名加 `, AssemblyName` 后缀（如 `UnityEditor.LogEntries, UnityEditor`），或先 `describe` 父命名空间探查 |
 | `error.type=AmbiguousMatchException` | 方法有多个重载，dispatcher 无法消歧 | 加 `--arg-types` 指定具体重载（按参数个数无歧义时会自动选） |
 | `error.type=MissingMethodException` | 方法名拼错 / 重载不存在 | `describe` 该类型，挑出真实方法名再 invoke |

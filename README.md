@@ -3,16 +3,17 @@
 Unity3D development-tool assets for AI-assisted workflows.
 
 > [!IMPORTANT]
-> This repository is currently a migration workspace, not a complete public
-> distribution of all three Unity-side services. See the status table below
-> before trying to install or run a tool.
+> This repository is currently a migration workspace. The unity-editor-debug-mcp
+> Unity-side service is now included as a UPM package; the other two tools still
+> lack their Unity-side services. See the status table below before trying to
+> install or run a tool.
 
 ## Current Status
 
 | Tool | Agent-side assets in this repo | Unity-side service in this repo | Status |
 |------|--------------------------------|---------------------------------|--------|
 | test-runner-mcp | HTTP interface specification only | No | Planned; currently depends on the private `com.tfw.test-runner-mcp` package |
-| unity-editor-debug-mcp | Python client, skill, and references | No | Client-only; requires an existing EditorDebugMCP installation |
+| unity-editor-debug-mcp | Python client, skill, and references | Yes (`Packages/com.yoji.editor-debug`) | Usable: install the UPM package, agent assets included |
 | feval-runtime-debug | Python clients, skill, and references | No | Client-only; requires the target project's feval/HybridCLR listener |
 
 The planned public UPM packages and migration constraints are documented in
@@ -41,20 +42,31 @@ skill has been installed. There is no public package in this repository yet.
 Client assets for HTTP+JSON reflection on port **21891** (fallback
 21892/21893).
 
-- **Included here**: `client.py`, skill, and references
-- **Not included**: the Unity Editor service/package
+- **Included here**: the Unity Editor service as a UPM package
+  (`Packages/com.yoji.editor-debug`), plus `client.py`, skill, and references
+  under `Packages/com.yoji.editor-debug/Agent~/skills/unity-editor-debug-mcp/`
 - **References**: protocol spec, API cookbook, troubleshooting guide
-- **Docs**: [unity-editor-debug-mcp/SKILL.md](unity-editor-debug-mcp/SKILL.md)
+- **Docs**: [SKILL.md](Packages/com.yoji.editor-debug/Agent~/skills/unity-editor-debug-mcp/SKILL.md)
+
+**Install (Unity side)**: add to your project `Packages/manifest.json`:
+
+    "com.yoji.editor-debug": "file:<path-to-repo>/Packages/com.yoji.editor-debug"
+
+or copy `Packages/com.yoji.editor-debug/` into your project's `Packages/`.
+The HTTP service starts automatically with the Editor (look for
+`[EditorDebugMCP] 服务已启动` in the Console).
 
 ```bash
-python unity-editor-debug-mcp/client.py ping
-python unity-editor-debug-mcp/client.py describe --type UnityEngine.Application
-python unity-editor-debug-mcp/client.py invoke --type UnityEngine.Application --member isPlaying --kind get
-python unity-editor-debug-mcp/client.py recompile
+cd Packages/com.yoji.editor-debug/Agent~/skills/unity-editor-debug-mcp
+python client.py ping
+python client.py describe --type UnityEngine.Application
+python client.py invoke --type UnityEngine.Application --member isPlaying --kind get
+python client.py recompile
 ```
 
-These commands require an existing EditorDebugMCP service in the opened Unity
-project.
+These commands require the package to be installed in the opened Unity
+project. Note: global flags (`--host` / `--port` / `--timeout`) must come
+before the subcommand, e.g. `python client.py --timeout 120 recompile`.
 
 ### 3. feval-runtime-debug
 
@@ -79,8 +91,9 @@ python feval-runtime-debug/scripts/feval_runtime_debug.py --host 127.0.0.1 --por
 
 ## Quick Start
 
-There is no repository-wide quick start yet because the public Unity packages
-have not been migrated. For the current client-only tools:
+There is no repository-wide quick start yet; only unity-editor-debug-mcp ships
+its Unity-side package (see its install section above). For the remaining
+client-only tools:
 
 1. Install or enable the corresponding Unity-side service in the target project.
 2. Open the Unity project and verify that its listener is active.

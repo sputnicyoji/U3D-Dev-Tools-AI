@@ -1,5 +1,5 @@
 # 把本 Skill 同步到 ~/.claude/skills/unity-editor-debug-mcp/，让 Claude Code 加载。
-# 注意：UPM 包名仍是 com.tfw.unity-editor-debug-mcp（C# namespace 不变），仅 Skill 标识符冠以 unity- 前缀避免歧义。
+# 注意：UPM 包名是 com.yoji.editor-debug（C# namespace 不变），仅 Skill 标识符冠以 unity- 前缀避免歧义。
 #
 # 为什么需要：Claude Code 只从 ~/.claude/skills/ 读取 Skill；UPM 包里的 Skill/ 目录
 # 是源文件，不会被自动加载。每次改完 SKILL.md / client.py / references 后跑一次本脚本。
