@@ -99,5 +99,17 @@ namespace Yoji.EditorDebug.Tests
                 "{\"member\":\"GetActiveScene\",\"kind\":\"call\"},{\"member\":\"GetRootGameObjects\",\"kind\":\"call\"}]}");
             Assert.IsInstanceOf<GameObject[]>(r);
         }
+
+        [Test] public void Index_StringNumericArg_Coerced()
+            => Assert.AreEqual(2, Exec("{\"type\":\"" + Probe + "\",\"steps\":[" +
+                "{\"member\":\"Numbers\",\"kind\":\"call\"},{\"kind\":\"index\",\"args\":[\"1\"]}]}"));
+
+        [Test] public void Call_ArgTypes_NoMatch_ListsAvailable()
+        {
+            var ex = Assert.Throws<MissingMethodException>(() =>
+                Exec("{\"type\":\"" + Probe + "\",\"member\":\"Kind\",\"kind\":\"call\"," +
+                    "\"args\":[5],\"argTypes\":[\"System.Int64\"]}"));
+            StringAssert.Contains("available:", ex.Message);
+        }
     }
 }

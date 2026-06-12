@@ -128,7 +128,8 @@ namespace Yoji.EditorDebug
                 });
                 if (chosen == null)
                     throw new MissingMethodException(type.FullName,
-                        member + "(" + string.Join(",", wanted) + ")");
+                        member + "(" + string.Join(",", wanted) + ") -- available: " +
+                        string.Join(" | ", candidates.Select(DescribeHandler.Signature)));
             }
             else if (candidates.Count == 1)
             {
@@ -165,7 +166,7 @@ namespace Yoji.EditorDebug
         {
             if (target == null) throw new NullReferenceException("index on null target");
             if (args.Count != 1) throw new ArgumentException("index expects exactly 1 arg");
-            if (target is IList list) return list[args[0].Value<int>()];
+            if (target is IList list) return list[(int)ArgumentCoercer.Coerce(args[0], typeof(int))];
             if (target is IDictionary dict) return dict[args[0].Value<string>()];
             var indexer = target.GetType().GetProperty("Item", k_All);
             if (indexer != null)
