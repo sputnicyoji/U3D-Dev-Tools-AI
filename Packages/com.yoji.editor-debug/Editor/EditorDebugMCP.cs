@@ -15,7 +15,7 @@ namespace Yoji.EditorDebug
     internal static class EditorDebugMCP
     {
         private const string k_Version = "0.1.0";
-        private const bool c_AllowEval = true; // 关闭 /eval 改成 false
+        private static readonly bool c_AllowEval = true; // 关闭 /eval 改成 false
         private const int k_MaxBodyBytes = 4 * 1024 * 1024;
         private static readonly int[] k_Ports = { 21891, 21892, 21893 };
 
