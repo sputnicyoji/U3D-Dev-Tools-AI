@@ -1,0 +1,10 @@
+TestProjects/*/Library/
+TestProjects/*/Logs/
+TestProjects/*/UserSettings/
+TestProjects/*/TestResults/
+TestProjects/*/Temp/
+TestProjects/*/obj/
+TestProjects/*/Assets/
+TestProjects/*/.vs/
+*.csproj
+*.sln
