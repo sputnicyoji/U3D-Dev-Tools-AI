@@ -120,5 +120,21 @@ namespace Yoji.EditorDebug.Tests
             Assert.AreEqual("Button", (string)c["type"]);
             Assert.AreEqual("||", (string)c["text"]);
         }
+
+        [Test] public void FaultedTask_BecomesErrorNode()
+        {
+            var t = System.Threading.Tasks.Task.FromException<int>(new InvalidOperationException("boom"));
+            var j = (JObject)ResultSerializer.ToJson(t);
+            Assert.AreEqual("InvalidOperationException", (string)j["__error"]);
+            StringAssert.Contains("boom", (string)j["message"]);
+        }
+
+        [Test] public void HugeDictionary_TruncatesWithoutNonSpecKey()
+        {
+            var big = new Dictionary<string, int>();
+            for (int i = 0; i < 3000; i++) big["k" + i] = i;
+            var json = ResultSerializer.ToJson(big).ToString();
+            StringAssert.DoesNotContain("__truncated_entry", json);
+        }
     }
 }

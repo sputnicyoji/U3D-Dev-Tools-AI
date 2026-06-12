@@ -65,7 +65,7 @@ namespace Yoji.EditorDebug
                 var o = new JObject();
                 foreach (DictionaryEntry e in dict)
                 {
-                    if (m_Nodes > k_MaxNodes) { o["__truncated_entry"] = Truncated("maxNodes"); break; }
+                    if (m_Nodes > k_MaxNodes) break;
                     o[e.Key?.ToString() ?? "null"] = Serialize(e.Value, depth + 1);
                 }
                 return o;
@@ -111,7 +111,15 @@ namespace Yoji.EditorDebug
 
         private JToken SerializeTask(Task task, int depth)
         {
-            if (!task.Wait(k_TaskWaitMs)) return new JObject { ["__pending"] = true };
+            try
+            {
+                if (!task.Wait(k_TaskWaitMs)) return new JObject { ["__pending"] = true };
+            }
+            catch (AggregateException ae)
+            {
+                var inner = ae.InnerException ?? ae;
+                return new JObject { ["__error"] = inner.GetType().Name, ["message"] = inner.Message };
+            }
             var resultProp = task.GetType().GetProperty("Result");
             return resultProp != null && resultProp.PropertyType.Name != "VoidTaskResult"
                 ? Serialize(resultProp.GetValue(task), depth + 1)
