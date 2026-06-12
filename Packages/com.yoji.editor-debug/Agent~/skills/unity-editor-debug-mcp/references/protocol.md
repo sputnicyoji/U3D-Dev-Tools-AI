@@ -30,10 +30,11 @@
   },
   "elapsedMs": 12,
   "void":      true,                                // 仅 void 方法返回时
-  "__pending": true,                                // 仅 Task 在 3s 内未完成时
-  "__truncated": true                               // 仅响应被截断时
+  "__truncated": true                               // 仅响应 body 超 4MB 被截断时（附 fullSize）
 }
 ```
+
+注：`__pending` 不是信封字段。返回值是 3s 内未完成的 Task 时，`result` 的值为 `{"__pending":true}`（见下方特殊占位符表）。
 
 **HTTP 状态码恒为 200**。错误走 body 的 `error` 字段 —— 这样 Bash/Python 客户端不会因 4xx/5xx 状态码丢掉 body 内容。
 
@@ -75,7 +76,7 @@ VisualElement 派生类不走 ref 摘要，输出树状结构：
 }
 ```
 
-熔断：`maxDepth=16`、`maxNodes=500`。超限节点替换为 `{__truncated:true,reason:"maxDepth"|"maxNodes"}`。循环引用替换为 `{__cycle:"name"}`。
+熔断：VisualElement 树独立计数，`maxDepth=16`、`maxNodes=500`；其余所有类型走全局熔断 `maxDepth=12`、`maxNodes=2000`。超限节点替换为 `{__truncated:true,reason:"maxDepth"|"maxNodes"}`。循环引用替换为 `{__cycle:"name"}`。
 
 ## 特殊占位符
 

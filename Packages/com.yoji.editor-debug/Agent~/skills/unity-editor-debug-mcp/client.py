@@ -173,7 +173,7 @@ def build_parser() -> argparse.ArgumentParser:
 
     sp_eval = sub.add_parser("eval", help="表达式求值")
     sp_eval.add_argument("--code", required=True, help="C# 表达式字符串")
-    sp_eval.add_argument("--usings", nargs="*", help="额外 using 命名空间列表")
+    sp_eval.add_argument("--usings", nargs="*", help="额外 using 命名空间列表（当前服务端未实现，传入会被忽略；请写类型全名）")
     sp_eval.set_defaults(func=cmd_eval)
 
     return p
