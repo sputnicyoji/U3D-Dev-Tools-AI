@@ -28,7 +28,7 @@
       "depth": 0,
       "source": "local",
       "dependencies": {
-        "com.unity.nuget.newtonsoft-json": "3.2.1"
+        "com.unity.nuget.newtonsoft-json": "3.2.2"
       }
     },
     "com.unity.modules.hierarchycore": {
