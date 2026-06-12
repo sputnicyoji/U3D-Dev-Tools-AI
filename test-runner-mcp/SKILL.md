@@ -7,7 +7,12 @@ description: 在 Unity 工程中通过 HTTP 调用 Unity Test Runner——触发
 
 `com.tfw.test-runner-mcp` 是 Unity Editor 内的轻量 HTTP 服务，让 AI 不开 GUI 就能：触发重编译 → 等域重载 → 发起测试 → 轮询拿结果。`tdd-workflow` 在「执行测试」阶段调用的就是本接口。
 
-> 本 skill 只覆盖 **HTTP 接口规范**；测试代码怎么写、目录怎么放、断言怎么选，参考 `tdd-workflow`。
+> [!IMPORTANT]
+> 本目录当前只包含 **HTTP 接口规范**。仓库中没有 `client.py`，也没有
+> Unity 侧服务源码或公开 UPM 包。下文安装地址指向 Tap4fun 内部仓库；
+> 未具备该仓库权限时，本 skill 不能独立工作。
+>
+> 测试代码怎么写、目录怎么放、断言怎么选，参考 `tdd-workflow`。
 
 ## 服务地址
 

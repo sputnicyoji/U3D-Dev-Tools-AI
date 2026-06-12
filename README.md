@@ -1,62 +1,90 @@
 # U3D-Dev-Tools-AI
 
-Unity3D Development Tools for AI-assisted workflows. Three HTTP/TCP services that let AI agents interact with a running Unity Editor -- run tests, debug at runtime, and invoke arbitrary C# reflection -- without touching the GUI.
+Unity3D development-tool assets for AI-assisted workflows.
+
+> [!IMPORTANT]
+> This repository is currently a migration workspace, not a complete public
+> distribution of all three Unity-side services. See the status table below
+> before trying to install or run a tool.
+
+## Current Status
+
+| Tool | Agent-side assets in this repo | Unity-side service in this repo | Status |
+|------|--------------------------------|---------------------------------|--------|
+| test-runner-mcp | HTTP interface specification only | No | Planned; currently depends on the private `com.tfw.test-runner-mcp` package |
+| unity-editor-debug-mcp | Python client, skill, and references | No | Client-only; requires an existing EditorDebugMCP installation |
+| feval-runtime-debug | Python clients, skill, and references | No | Client-only; requires the target project's feval/HybridCLR listener |
+
+The planned public UPM packages and migration constraints are documented in
+[the U3D AI Linker design](docs/superpowers/specs/2026-06-12-u3d-ai-linker-design.md).
 
 ## Tools
 
 ### 1. test-runner-mcp
 
-HTTP service on port **21890** that triggers Unity recompilation and runs EditMode/PlayMode tests headlessly.
+Interface specification for a private HTTP service on port **21890** that
+triggers Unity recompilation and runs EditMode/PlayMode tests.
 
-- **Entry point**: `client.py` -- `recompile`, `run_editmode`, `run_playmode`, `status`, `cancel`
+- **Included here**: protocol and usage documentation only
+- **Not included**: `client.py` and the Unity Editor service/package
 - **Docs**: [test-runner-mcp/SKILL.md](test-runner-mcp/SKILL.md)
 
 ```bash
-python client.py recompile
-python client.py run_editmode --assembly MyGame.Editor.Tests
-python client.py status
+curl http://127.0.0.1:21890/ping
 ```
+
+This command works only after the private Unity package documented in the
+skill has been installed. There is no public package in this repository yet.
 
 ### 2. unity-editor-debug-mcp
 
-HTTP+JSON reflection on port **21891** (fallback 21892/21893). Call any Unity Editor API (including `internal`/`private`) from outside the process.
+Client assets for HTTP+JSON reflection on port **21891** (fallback
+21892/21893).
 
-- **Entry point**: `client.py` -- `invoke`, `describe`, `eval`, `recompile`, `ping`
+- **Included here**: `client.py`, skill, and references
+- **Not included**: the Unity Editor service/package
 - **References**: protocol spec, API cookbook, troubleshooting guide
 - **Docs**: [unity-editor-debug-mcp/SKILL.md](unity-editor-debug-mcp/SKILL.md)
 
 ```bash
-python client.py ping
-python client.py describe --type UnityEngine.Application
-python client.py invoke --type UnityEngine.Application --member isPlaying --kind get
-python client.py recompile
+python unity-editor-debug-mcp/client.py ping
+python unity-editor-debug-mcp/client.py describe --type UnityEngine.Application
+python unity-editor-debug-mcp/client.py invoke --type UnityEngine.Application --member isPlaying --kind get
+python unity-editor-debug-mcp/client.py recompile
 ```
+
+These commands require an existing EditorDebugMCP service in the opened Unity
+project.
 
 ### 3. feval-runtime-debug
 
-C# expression evaluator via feval TCP on port **9999**. Connects to Unity/HybridCLR runtime (Editor or Android device). Evaluate arbitrary C# expressions, read state, call project methods.
+C# expression-evaluator clients for a feval TCP listener on port **9999**.
+They connect to a Unity/HybridCLR runtime in the Editor or on an Android
+device.
 
 - **Entry points**:
-  - `feval_runtime_debug.py` -- core Python client
-  - `feval_runtime_debug.ps1` -- PowerShell wrapper
-  - `unity_bridge.py` -- auto-launches Unity Editor when needed
+  - `feval-runtime-debug/scripts/feval_runtime_debug.py` -- core Python client
+  - `feval-runtime-debug/scripts/unity_bridge.py` -- Unity Editor bridge
+- **Not included**: the target project's feval/HybridCLR listener
 - **Reference**: [feval-runtime-debug/references/feval-syntax.md](feval-runtime-debug/references/feval-syntax.md)
 - **Docs**: [feval-runtime-debug/SKILL.md](feval-runtime-debug/SKILL.md)
 
 ```bash
 # Local Unity Editor
-python feval_runtime_debug.py --expr "GameObject.Find(\"Main Camera\").name"
+python feval-runtime-debug/scripts/feval_runtime_debug.py --expr "GameObject.Find(\"Main Camera\").name"
 
 # Android device (needs adb forward tcp:9999 tcp:9999)
-python feval_runtime_debug.py --host 127.0.0.1 --port 9999 --expr "Time.time"
+python feval-runtime-debug/scripts/feval_runtime_debug.py --host 127.0.0.1 --port 9999 --expr "Time.time"
 ```
 
 ## Quick Start
 
-1. Open your Unity project.
-2. The Unity-side MCP server starts automatically with the Editor.
-3. For `feval-runtime-debug`, the feval listener must be active (built into HybridCLR hot-reload).
-4. Call any tool's `client.py` from your AI agent or terminal.
+There is no repository-wide quick start yet because the public Unity packages
+have not been migrated. For the current client-only tools:
+
+1. Install or enable the corresponding Unity-side service in the target project.
+2. Open the Unity project and verify that its listener is active.
+3. Run the included client using the repository-relative paths shown above.
 
 ## Port Map
 
@@ -68,7 +96,7 @@ python feval_runtime_debug.py --host 127.0.0.1 --port 9999 --expr "Time.time"
 
 ## Requirements
 
-- Unity 2022.3+ (Editor-side services)
+- Unity 2022.3+ (for the separately installed Editor-side services)
 - Python 3.8+
 - HybridCLR (for feval-runtime-debug runtime expression evaluation)
 - Android: adb + port forwarding (`adb forward tcp:9999 tcp:9999`)
