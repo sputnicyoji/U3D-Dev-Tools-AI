@@ -1,6 +1,7 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Linq;
 using System.Reflection;
 using System.Threading.Tasks;
@@ -89,7 +90,7 @@ namespace Yoji.EditorDebug
             var o = new JObject
             {
                 ["__ref"] = true,
-                ["instanceID"] = uo.GetInstanceID(),
+                ["instanceID"] = SerializeObjectId(uo),
                 ["type"] = uo.GetType().FullName,
                 ["name"] = uo.name,
             };
@@ -99,6 +100,16 @@ namespace Yoji.EditorDebug
             if (!string.IsNullOrEmpty(assetPath))
                 o["guid"] = UnityEditor.AssetDatabase.AssetPathToGUID(assetPath);
             return o;
+        }
+
+        private static JToken SerializeObjectId(UnityEngine.Object uo)
+        {
+#if UNITY_6000_4_OR_NEWER
+            return new JValue(EntityId.ToULong(uo.GetEntityId())
+                .ToString(CultureInfo.InvariantCulture));
+#else
+            return new JValue(uo.GetInstanceID());
+#endif
         }
 
         private static string HierarchyPath(Transform t)

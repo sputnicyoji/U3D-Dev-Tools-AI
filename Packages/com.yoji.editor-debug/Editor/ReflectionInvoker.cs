@@ -43,9 +43,9 @@ namespace Yoji.EditorDebug
             if (targetTok == null || targetTok.Type != JTokenType.Object) return null;
             var id = targetTok["instanceID"];
             if (id == null) return null;
-            var obj = EditorUtility.InstanceIDToObject(id.Value<int>());
+            var obj = ArgumentCoercer.ResolveUnityObject(id);
             if (obj == null)
-                throw new MissingReferenceException("no alive object with instanceID " + id.Value<int>());
+                throw new MissingReferenceException("no alive object with instanceID " + id);
             return obj;
         }
 

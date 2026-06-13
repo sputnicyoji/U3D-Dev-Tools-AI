@@ -13,7 +13,7 @@ Unity3D development-tool assets for AI-assisted workflows.
 | Tool | Agent-side assets in this repo | Unity-side service in this repo | Status |
 |------|--------------------------------|---------------------------------|--------|
 | test-runner-mcp | HTTP interface specification only | No | Planned; currently depends on the private `com.tfw.test-runner-mcp` package |
-| unity-editor-debug-mcp | Python client, skill, and references | Yes (`Packages/com.yoji.editor-debug`) | Usable: install the UPM package, agent assets included |
+| unity-editor-debug-mcp | Python client, skill, and references | Yes (`Packages/com.yoji.editor-debug`) | Usable; verified on Unity 6000.3.16f1 |
 | feval-runtime-debug | Python clients, skill, and references | No | Client-only; requires the target project's feval/HybridCLR listener |
 
 The planned public UPM packages and migration constraints are documented in
@@ -47,6 +47,9 @@ Client assets for HTTP+JSON reflection on port **21891** (fallback
   under `Packages/com.yoji.editor-debug/Agent~/skills/unity-editor-debug-mcp/`
 - **References**: protocol spec, API cookbook, troubleshooting guide
 - **Docs**: [SKILL.md](Packages/com.yoji.editor-debug/Agent~/skills/unity-editor-debug-mcp/SKILL.md)
+- **Compatibility**: Unity 2022.3+; Unity 6.4+ object references use the
+  full-width `EntityId` as a decimal string while retaining the existing
+  `instanceID` JSON field
 
 **Install (Unity side)**: add to your project `Packages/manifest.json`:
 
@@ -61,12 +64,20 @@ cd Packages/com.yoji.editor-debug/Agent~/skills/unity-editor-debug-mcp
 python client.py ping
 python client.py describe --type UnityEngine.Application
 python client.py invoke --type UnityEngine.Application --member isPlaying --kind get
+python client.py invoke --type UnityEngine.GameObject --target-entity-id <object-id> --member name --kind get
 python client.py recompile
 ```
 
 These commands require the package to be installed in the opened Unity
 project. Note: global flags (`--host` / `--port` / `--timeout`) must come
 before the subcommand, e.g. `python client.py --timeout 120 recompile`.
+`--target-instance-id` remains supported as an alias for
+`--target-entity-id`.
+
+Current verification baseline: 74 Unity EditMode tests and 13 HTTP end-to-end
+checks pass on Unity 6000.3.16f1. The Unity 6.4+ branch follows the official
+`EntityId.ToULong` / `EntityId.FromULong` API and still requires compilation
+on a Unity 6.4 installation before release.
 
 ### 3. feval-runtime-debug
 

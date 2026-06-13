@@ -43,6 +43,10 @@ namespace Yoji.EditorDebug.Tests
             finally { UnityEngine.Object.DestroyImmediate(go); }
         }
 
+        [Test] public void ParseEntityIdRaw_AcceptsFullUInt64String()
+            => Assert.AreEqual(ulong.MaxValue,
+                ArgumentCoercer.ParseEntityIdRaw(J("\"18446744073709551615\"")));
+
         [Test] public void Coerce_ToObject_KeepsNaturalJsonType()
         {
             Assert.AreEqual(5L, ArgumentCoercer.Coerce(J("5"), typeof(object)));

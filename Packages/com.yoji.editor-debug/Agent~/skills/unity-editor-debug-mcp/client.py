@@ -62,11 +62,13 @@ def cmd_ping(args: argparse.Namespace) -> dict[str, Any]:
     return http_post(f"{base_url(args)}/ping", payload={})
 
 
-def parse_target(target_instance_id: int | None) -> dict[str, Any] | None:
-    """把 --target-instance-id 翻译成 {instanceID:xxx}。"""
-    if target_instance_id is None:
+def parse_target(target_object_id: str | None) -> dict[str, Any] | None:
+    """把对象 ID 翻译成 {instanceID:xxx}，超出 Int32 时保留十进制字符串。"""
+    if target_object_id is None:
         return None
-    return {"instanceID": target_instance_id}
+    value = int(target_object_id)
+    wire_value: int | str = value if -(2**31) <= value < 2**31 else target_object_id
+    return {"instanceID": wire_value}
 
 
 def parse_args_list(raw: list[str]) -> list[Any]:
@@ -91,7 +93,7 @@ def cmd_invoke(args: argparse.Namespace) -> dict[str, Any]:
         payload["args"] = parse_args_list(args.args)
     if args.arg_types:
         payload["argTypes"] = list(args.arg_types)
-    target = parse_target(args.target_instance_id)
+    target = parse_target(args.target_object_id)
     if target is not None:
         payload["target"] = target
     return http_post(f"{base_url(args)}/invoke", payload, timeout=args.timeout)
@@ -113,7 +115,7 @@ def cmd_invoke_chain(args: argparse.Namespace) -> dict[str, Any]:
         steps.append(step)
 
     payload: dict[str, Any] = {"type": args.type, "steps": steps}
-    target = parse_target(args.target_instance_id)
+    target = parse_target(args.target_object_id)
     if target is not None:
         payload["target"] = target
     return http_post(f"{base_url(args)}/invoke", payload, timeout=args.timeout)
@@ -154,14 +156,18 @@ def build_parser() -> argparse.ArgumentParser:
     sp_invoke.add_argument("--kind", default="get", choices=["get", "set", "call", "index"], help="操作类型")
     sp_invoke.add_argument("--args", nargs="*", help="实参列表（每项尝试 JSON 解析，失败按字符串）")
     sp_invoke.add_argument("--arg-types", nargs="*", help="参数类型列表，重载决议用")
-    sp_invoke.add_argument("--target-instance-id", type=int, help="实例调用时的 InstanceID")
+    sp_invoke.add_argument("--target-instance-id", "--target-entity-id",
+                           dest="target_object_id",
+                           help="实例调用时的对象 ID；Unity 6.4+ 可传 UInt64 十进制字符串")
     sp_invoke.set_defaults(func=cmd_invoke)
 
     sp_chain = sub.add_parser("invoke-chain", help="反射链式调用（多步）")
     sp_chain.add_argument("--type", required=True, help="起点类型全名")
     sp_chain.add_argument("--steps", nargs="+", required=True,
                           help="形如 'member:kind' 或 'member:kind:arg1,arg2' 的步骤列表")
-    sp_chain.add_argument("--target-instance-id", type=int, help="起点实例 InstanceID")
+    sp_chain.add_argument("--target-instance-id", "--target-entity-id",
+                          dest="target_object_id",
+                          help="起点对象 ID；Unity 6.4+ 可传 UInt64 十进制字符串")
     sp_chain.set_defaults(func=cmd_invoke_chain)
 
     sp_desc = sub.add_parser("describe", help="列出类型成员清单")

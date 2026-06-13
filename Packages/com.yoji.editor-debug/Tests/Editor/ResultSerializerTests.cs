@@ -33,7 +33,13 @@ namespace Yoji.EditorDebug.Tests
             {
                 var j = (JObject)ResultSerializer.ToJson(child);
                 Assert.IsTrue((bool)j["__ref"]);
+#if UNITY_6000_4_OR_NEWER
+                Assert.AreEqual(
+                    EntityId.ToULong(child.GetEntityId()).ToString(System.Globalization.CultureInfo.InvariantCulture),
+                    (string)j["instanceID"]);
+#else
                 Assert.AreEqual(child.GetInstanceID(), (int)j["instanceID"]);
+#endif
                 Assert.AreEqual("UnityEngine.GameObject", (string)j["type"]);
                 Assert.AreEqual("Player", (string)j["name"]);
                 Assert.AreEqual("Root/Player", (string)j["path"]);

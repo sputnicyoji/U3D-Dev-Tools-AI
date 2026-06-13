@@ -255,7 +255,7 @@ POST /invoke
 ```
 {
   "type":      "UnityEditor.X" | "FullName, Assembly",
-  "target":    null | { "instanceID": <int> },
+  "target":    null | { "instanceID": <int|string> }, // Unity 6.4+ 为 UInt64 十进制字符串
   "member":    "MemberName",                   // 单步用
   "kind":      "get" | "set" | "call" | "index", // 单步用
   "args":      [ ... ],                         // 调用实参

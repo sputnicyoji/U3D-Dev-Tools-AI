@@ -5,7 +5,7 @@
 ```json
 {
   "type":      "UnityEditor.X" | "FullName, AssemblyName",
-  "target":    null | { "instanceID": <int> },     // 实例调用时反查 UnityEngine.Object
+  "target":    null | { "instanceID": <int|string> }, // 6.4+ 的 EntityId 使用 UInt64 十进制字符串
   "member":    "MemberName",                        // 单步用
   "kind":      "get" | "set" | "call" | "index",   // 单步用
   "args":      [ ... ],                             // 调用实参
@@ -53,7 +53,7 @@
 }
 ```
 
-拿到 `instanceID` 后用 `target:{instanceID}` 反查实例继续访问。Unity fake null（destroyed object）会被检测并写 `null`。
+拿到 `instanceID` 后用 `target:{instanceID}` 反查实例继续访问。Unity 6.3 及更早版本使用有符号整数；Unity 6.4+ 使用 `EntityId.ToULong` 产生的十进制字符串，服务端通过 `EntityId.FromULong` 还原。字段名保留为 `instanceID` 以兼容现有客户端。Unity fake null（destroyed object）会被检测并写 `null`。
 
 ## VisualElement 树摘要
 

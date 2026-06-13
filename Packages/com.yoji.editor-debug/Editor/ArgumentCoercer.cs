@@ -1,4 +1,5 @@
 using System;
+using System.Globalization;
 using Newtonsoft.Json.Linq;
 using UnityEditor;
 
@@ -32,7 +33,7 @@ namespace Yoji.EditorDebug
             if (typeof(UnityEngine.Object).IsAssignableFrom(targetType) && arg.Type == JTokenType.Object)
             {
                 var id = arg["instanceID"];
-                if (id != null) return EditorUtility.InstanceIDToObject(id.Value<int>());
+                if (id != null) return ResolveUnityObject(id);
             }
 
             if (targetType == typeof(object))
@@ -47,5 +48,21 @@ namespace Yoji.EditorDebug
             }
             return arg.ToObject(targetType);
         }
+
+        internal static UnityEngine.Object ResolveUnityObject(JToken objectId)
+        {
+#if UNITY_6000_4_OR_NEWER
+            return EditorUtility.EntityIdToObject(EntityId.FromULong(ParseEntityIdRaw(objectId)));
+#elif UNITY_6000_3_OR_NEWER
+            return EditorUtility.EntityIdToObject(objectId.Value<int>());
+#else
+            return EditorUtility.InstanceIDToObject(objectId.Value<int>());
+#endif
+        }
+
+        internal static ulong ParseEntityIdRaw(JToken objectId)
+            => objectId.Type == JTokenType.String
+                ? ulong.Parse(objectId.Value<string>(), NumberStyles.None, CultureInfo.InvariantCulture)
+                : objectId.Value<ulong>();
     }
 }
