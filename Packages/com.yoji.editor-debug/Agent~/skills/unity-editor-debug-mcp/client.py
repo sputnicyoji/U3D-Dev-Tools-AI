@@ -126,17 +126,32 @@ def cmd_describe(args: argparse.Namespace) -> dict[str, Any]:
     return http_post(f"{base_url(args)}/describe", payload={"type": args.type}, timeout=args.timeout)
 
 
+def cmd_console(args: argparse.Namespace) -> dict[str, Any]:
+    """/console —— 读 Console 真实日志条目（message/type/file/line/instanceID）。"""
+    payload: dict[str, Any] = {"count": args.count, "filter": args.filter}
+    if args.include_stack:
+        payload["includeStack"] = True
+    return http_post(f"{base_url(args)}/console", payload, timeout=args.timeout)
+
+
+def cmd_batch(args: argparse.Namespace) -> dict[str, Any]:
+    """/batch —— 一次主线程跳执行多个 invoke 请求（读 JSON 数组，省略 --file 则读 stdin）。"""
+    if args.file:
+        with open(args.file, "r", encoding="utf-8") as f:
+            requests = json.load(f)
+    else:
+        requests = json.load(sys.stdin)
+    return http_post(f"{base_url(args)}/batch", {"requests": requests}, timeout=args.timeout)
+
+
 def cmd_recompile(args: argparse.Namespace) -> dict[str, Any]:
     """/recompile —— 触发脚本重编译。挂住直到完成（typically 30-60s）。"""
     return http_post(f"{base_url(args)}/recompile", payload={}, timeout=args.timeout)
 
 
 def cmd_eval(args: argparse.Namespace) -> dict[str, Any]:
-    """/eval —— 轻量表达式求值（链式属性/方法访问；不支持 lambda/new/typeof）。"""
-    payload = {"code": args.code}
-    if args.usings:
-        payload["usings"] = list(args.usings)
-    return http_post(f"{base_url(args)}/eval", payload, timeout=args.timeout)
+    """/eval —— 轻量表达式求值（链式属性/方法访问；不支持 lambda/new/typeof）。请写类型全名。"""
+    return http_post(f"{base_url(args)}/eval", {"code": args.code}, timeout=args.timeout)
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -174,12 +189,23 @@ def build_parser() -> argparse.ArgumentParser:
     sp_desc.add_argument("--type", required=True, help="类型全名")
     sp_desc.set_defaults(func=cmd_describe)
 
+    sp_console = sub.add_parser("console", help="读 Console 日志条目")
+    sp_console.add_argument("--count", type=int, default=50, help="最多返回最近 N 条，默认 50")
+    sp_console.add_argument("--filter", default="all", choices=["all", "warning", "error"],
+                            help="all=全部 / warning=警告及以上 / error=仅错误")
+    sp_console.add_argument("--include-stack", action="store_true",
+                            help="尽力附带 stackTrace（无稳定字段时省略）")
+    sp_console.set_defaults(func=cmd_console)
+
+    sp_batch = sub.add_parser("batch", help="一次跳执行多个 invoke（读 JSON requests 数组）")
+    sp_batch.add_argument("--file", help="含 invoke 请求数组的 JSON 文件；省略则读 stdin")
+    sp_batch.set_defaults(func=cmd_batch)
+
     sp_rec = sub.add_parser("recompile", help="触发脚本重编译并等待完成")
     sp_rec.set_defaults(func=cmd_recompile)
 
     sp_eval = sub.add_parser("eval", help="表达式求值")
-    sp_eval.add_argument("--code", required=True, help="C# 表达式字符串")
-    sp_eval.add_argument("--usings", nargs="*", help="额外 using 命名空间列表（当前服务端未实现，传入会被忽略；请写类型全名）")
+    sp_eval.add_argument("--code", required=True, help="C# 表达式字符串（链式属性/方法访问，类型写全名）")
     sp_eval.set_defaults(func=cmd_eval)
 
     return p

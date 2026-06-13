@@ -199,6 +199,47 @@ def cases() -> list[TestCase]:
             expect_ok=False,
             expect_error_type="System.FormatException",
         ),
+        # ===== /ping editor state (ED-5) =====
+        TestCase(
+            name="14 /ping reports editor state fields (ED-5)",
+            endpoint="/ping",
+            payload={},
+            extra_check=lambda r: None
+            if isinstance(r.get("result", {}).get("isPlaying"), bool)
+            and isinstance(r.get("result", {}).get("isCompiling"), bool)
+            and (r.get("result", {}).get("timeSinceStartup") or 0) > 0
+            else f"missing editor-state fields: {r.get('result')}",
+        ),
+        # ===== /console (ED-1) =====
+        TestCase(
+            name="15 /console returns log entries array (ED-1)",
+            endpoint="/console",
+            payload={"count": 20, "filter": "all"},
+            extra_check=lambda r: None
+            if isinstance(r.get("result", {}).get("entries"), list)
+            else f"no entries array: {r.get('result')}",
+        ),
+        # ===== /batch (ED-2) =====
+        TestCase(
+            name="16 /batch runs two invokes in one hop (ED-2)",
+            endpoint="/batch",
+            payload={"requests": [
+                {"type": "UnityEditor.EditorApplication", "member": "applicationPath", "kind": "get"},
+                {"type": "UnityEditor.LogEntries", "member": "GetCount", "kind": "call"},
+            ]},
+            extra_check=lambda r: None
+            if isinstance(r.get("results"), list) and len(r["results"]) == 2
+            and all(x.get("ok") for x in r["results"])
+            else f"batch results unexpected: {r.get('results')}",
+        ),
+        TestCase(
+            name="17 /batch over 64 requests rejected (ED-2)",
+            endpoint="/batch",
+            payload={"requests": [
+                {"type": "UnityEditor.EditorApplication", "member": "applicationPath", "kind": "get"}
+            ] * 65},
+            expect_ok=False,
+        ),
     ]
 
 

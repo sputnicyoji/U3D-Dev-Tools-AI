@@ -25,18 +25,21 @@ POST /invoke
 
 ---
 
-## 2. Console 日志总数（internal API）
+## 2. 读 Console 日志条目（/console）
 
 ```bash
-python client.py invoke --type UnityEditor.LogEntries --member GetCount --kind call
+python client.py console --count 30 --filter error
 ```
 
-返回 `result` 为数字：
+返回最近若干条日志，每条含 message / type(Error|Warning|Log) / file / line / instanceID：
 ```json
-{ "ok": true, "result": 12, "elapsedMs": 3 }
+{ "ok": true, "result": { "count": 2, "total": 57, "entries": [
+  { "message": "NullReferenceException: ...", "type": "Error", "file": "Assets/Foo.cs", "line": 42 }
+] } }
 ```
 
-要进一步取条目，参考 `LogEntries.GetEntryInternal(int row, LogEntry outputEntry)` —— 需要 instance + ref 参数，建议改用 describe 探查实际签名后再 invoke。
+`--filter` 为级别及以上（error=仅错误，warning=警告+错误，all=全部）；`--include-stack` 尽力附 stackTrace。
+（旧法 `invoke LogEntries.GetCount` 只拿得到总数、取不到条目；现由 /console 直接读条目取代。）
 
 ---
 

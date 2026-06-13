@@ -112,6 +112,10 @@ namespace Yoji.EditorDebug
                     return RunOnMain(() => ReflectionInvoker.Execute(req));
                 case "/describe":
                     return RunOnMain(() => DescribeHandler.Describe(req.Value<string>("type")));
+                case "/console":
+                    return RunOnMain(() => ConsoleHandler.Read(req));
+                case "/batch":
+                    return RunBatch(req);
                 case "/eval":
                     if (!c_AllowEval)
                         return ErrorEnvelope(new NotSupportedException("eval is disabled (c_AllowEval=false)"));
@@ -130,6 +134,12 @@ namespace Yoji.EditorDebug
             ["port"] = s_Port,
             ["unityVersion"] = s_UnityVersion,
             ["projectName"] = s_ProjectName,
+            // 编辑器态从缓存读（EditorApplication.is* 仅主线程安全，/ping 在 HTTP 线程构信封）
+            ["isPlaying"] = EditorStateCache.IsPlaying,
+            ["isPaused"] = EditorStateCache.IsPaused,
+            ["isCompiling"] = EditorStateCache.IsCompiling,
+            ["isUpdating"] = EditorStateCache.IsUpdating,
+            ["timeSinceStartup"] = EditorStateCache.TimeSinceStartup,
         };
 
         /// 反射执行与结果序列化都必须发生在主线程（结果可能触碰 Unity API）。
@@ -137,18 +147,46 @@ namespace Yoji.EditorDebug
         {
             try
             {
-                var payload = (JObject)MainThreadDispatcher.Run(() =>
-                {
-                    var raw = work();
-                    var p = new JObject();
-                    if (raw is VoidResult) { p["void"] = true; p["result"] = null; }
-                    else if (raw is JToken jt) p["result"] = jt; // describe 等已是 JSON
-                    else p["result"] = ResultSerializer.ToJson(raw);
-                    return p;
-                }, out var elapsed);
+                var payload = (JObject)MainThreadDispatcher.Run(() => ResultSerializer.ToPayload(work()), out var elapsed);
                 payload["ok"] = true;
                 payload["elapsedMs"] = elapsed;
                 return payload;
+            }
+            catch (Exception e)
+            {
+                return ErrorEnvelope(e);
+            }
+        }
+
+        /// /batch：N 个 invoke 子请求在单次主线程跳内顺序执行，逐项独立 ok，单条失败不中止整批。
+        /// 仅放读类调用；>64 拒（4MB 信封上限下大批量会整体 __truncated，得不偿失）。
+        private static JObject RunBatch(JObject req)
+        {
+            if (!(req["requests"] is JArray requests))
+                return ErrorEnvelope(new ArgumentException("batch requires a 'requests' array"));
+            if (requests.Count > 64)
+                return ErrorEnvelope(new ArgumentException("batch too large (" + requests.Count + " > 64); split it"));
+            try
+            {
+                var results = (JArray)MainThreadDispatcher.Run(() =>
+                {
+                    var arr = new JArray();
+                    foreach (var sub in requests)
+                    {
+                        try
+                        {
+                            var payload = ResultSerializer.ToPayload(ReflectionInvoker.Execute((JObject)sub));
+                            payload["ok"] = true;
+                            arr.Add(payload);
+                        }
+                        catch (Exception e)
+                        {
+                            arr.Add(new JObject { ["ok"] = false, ["error"] = ErrorJson(e) });
+                        }
+                    }
+                    return arr;
+                }, out var elapsed);
+                return new JObject { ["ok"] = true, ["elapsedMs"] = elapsed, ["results"] = results };
             }
             catch (Exception e)
             {

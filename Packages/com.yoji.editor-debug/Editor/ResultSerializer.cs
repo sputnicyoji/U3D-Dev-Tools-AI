@@ -33,6 +33,18 @@ namespace Yoji.EditorDebug
 
         public static JToken ToJson(object value) => new ResultSerializer().Serialize(value, 0);
 
+        /// 单个反射结果 -> 信封内层 payload。/invoke 与 /batch 共用，避免两路整形发散。
+        /// VoidResult -> {void:true,result:null}；已是 JToken（如 describe）-> 透传；否则 ToJson。
+        /// 必须在主线程调用（ToJson 可能触碰 Unity API）。
+        public static JObject ToPayload(object raw)
+        {
+            var p = new JObject();
+            if (raw is VoidResult) { p["void"] = true; p["result"] = null; }
+            else if (raw is JToken jt) p["result"] = jt;
+            else p["result"] = ToJson(raw);
+            return p;
+        }
+
         private JToken Serialize(object value, int depth)
         {
             m_Nodes++;

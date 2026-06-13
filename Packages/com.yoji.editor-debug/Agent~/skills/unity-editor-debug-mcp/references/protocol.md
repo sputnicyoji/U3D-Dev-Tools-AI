@@ -107,6 +107,43 @@ internal 类型直接按 FullName 写即可（如 `UnityEditor.LogEntries`），
 - 不提供但方法名有多个重载 → 按 `args.Count` 与每个重载的参数个数过滤（考虑可选参数 `HasDefaultValue`）；过滤后唯一即用
 - 仍歧义 → 抛 `AmbiguousMatchException`，错误消息列出所有候选签名
 
+## 其它端点
+
+### /console —— 读 Console 日志条目
+
+请求 `{count?:int=50, filter?:'all'|'warning'|'error'='all', includeStack?:bool=false}`。
+`filter` 是「该级别及以上」：`error`=仅错误，`warning`=警告+错误，`all`=全部。`result` 形如：
+
+```json
+{
+  "count": 3, "total": 57,
+  "entries": [
+    {"message":"NullReferenceException: ...","type":"Error","file":"Assets/Foo.cs","line":42,"instanceID":0,"stackTrace":"..."}
+  ]
+}
+```
+
+`type` 由 LogEntry.mode 位掩码 best-effort 分类（Error/Warning/Log）。`stackTrace` 仅 `includeStack`
+且当前 Unity 版本有可读 callstack 字段时出现，否则省略。内部 API 不可用时 `result` 为
+`{"__unavailable":"<原因>"}`（不抛错，Console UI 不会被楔死）。只返回最近 `count` 条。
+
+### /batch —— 一次主线程跳批量 invoke
+
+请求 `{requests:[<invoke 请求>, ...]}`，最多 64 条（超出整批拒），全部在单次主线程跳内顺序执行。
+信封顶层多一个 `results` 数组，逐条独立 `ok`（单条失败不中止整批）：
+
+```json
+{ "ok": true, "elapsedMs": 8, "results": [ {"ok":true,"result":1}, {"ok":false,"error":{...}} ] }
+```
+
+只放读类调用；4MB 信封上限对整批生效。
+
+### /ping 的编辑器态字段
+
+`result` 除 service/version/port/unityVersion/projectName 外，附（从缓存读，HTTP 线程零主线程跳）：
+`isPlaying` / `isPaused` / `isCompiling` / `isUpdating` / `timeSinceStartup`。据此判断读到的是运行时态
+还是编辑态、或在 `isCompiling` 时退避轮询。
+
 ## 端口与服务
 
 - 默认 21891

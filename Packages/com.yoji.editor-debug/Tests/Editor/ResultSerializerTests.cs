@@ -18,6 +18,25 @@ namespace Yoji.EditorDebug.Tests
         [Test] public void Null_ReturnsJsonNull()
             => Assert.AreEqual(JTokenType.Null, ResultSerializer.ToJson(null).Type);
 
+        // ToPayload：/invoke 与 /batch 共用的结果整形，三分支不可发散。
+        [Test] public void ToPayload_VoidResult_SetsVoidFlag()
+        {
+            var p = ResultSerializer.ToPayload(VoidResult.Instance);
+            Assert.IsTrue((bool)p["void"]);
+            Assert.AreEqual(JTokenType.Null, p["result"].Type);
+        }
+
+        [Test] public void ToPayload_JToken_PassesThroughSameInstance()
+        {
+            var jt = new JObject { ["a"] = 1 };
+            var p = ResultSerializer.ToPayload(jt);
+            Assert.IsFalse(p.ContainsKey("void"));
+            Assert.AreSame(jt, p["result"]);
+        }
+
+        [Test] public void ToPayload_PlainObject_Serializes()
+            => Assert.AreEqual(42, (int)ResultSerializer.ToPayload(42)["result"]);
+
         [Test] public void Enum_AsName()
             => Assert.AreEqual("A", (string)ResultSerializer.ToJson(KeyCode.A));
 
