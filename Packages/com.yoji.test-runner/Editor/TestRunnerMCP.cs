@@ -106,9 +106,7 @@ namespace Yoji.TestRunner
                         req = string.IsNullOrWhiteSpace(raw) ? new JObject() : JObject.Parse(raw);
                     }
                 }
-                var routed = Route(path, method, req, ctx.Request.Url.Query);
-                status = routed.Item1;
-                body = routed.Item2;
+                (status, body) = Route(path, method, req, ctx.Request.QueryString["jobId"]);
             }
             catch (JsonException e)
             {
@@ -123,23 +121,19 @@ namespace Yoji.TestRunner
             WriteResponse(ctx, status, body);
         }
 
-        private static Tuple<int, JObject> Route(string path, string method, JObject req, string query)
+        private static (int status, JObject body) Route(string path, string method, JObject req, string jobId)
         {
             switch (path)
             {
-                case "/ping": return T(200, Ping());
-                case "/recompile":
-                    var rc = RecompileHandler.Run(s_Jobs);
-                    return T(rc.status, rc.body);
+                case "/ping": return (200, Ping());
+                case "/recompile": return RecompileHandler.Run(s_Jobs);
                 case "/run-tests":
-                    if (method != "POST") return T(400, Err("/run-tests requires POST"));
+                    if (method != "POST") return (400, Err("/run-tests requires POST"));
                     return RunTests(req);
-                case "/test-status": return TestStatus(query);
-                default: return T(404, Err("unknown endpoint: " + path));
+                case "/test-status": return TestStatus(jobId);
+                default: return (404, Err("unknown endpoint: " + path));
             }
         }
-
-        private static Tuple<int, JObject> T(int s, JObject b) => Tuple.Create(s, b);
 
         private static JObject Ping()
         {
@@ -154,19 +148,19 @@ namespace Yoji.TestRunner
             };
         }
 
-        private static Tuple<int, JObject> RunTests(JObject req)
+        private static (int status, JObject body) RunTests(JObject req)
         {
             FilterSpec spec;
             try { spec = TestFilterBuilder.Parse(req ?? new JObject()); }
-            catch (ArgumentException e) { return T(400, Err(e.Message)); }
+            catch (ArgumentException e) { return (400, Err(e.Message)); }
 
             if (spec.TestMode == "PlayMode")
-                return T(400, Err("PlayMode is not supported in phase 1 (EditMode only)"));
+                return (400, Err("PlayMode is not supported in phase 1 (EditMode only)"));
 
             try
             {
                 var jobId = (string)MainThreadDispatcher.Run(() => s_Service.StartRun(spec), out _);
-                return T(202, new JObject
+                return (202, new JObject
                 {
                     ["success"] = true,
                     ["jobId"] = jobId,
@@ -176,21 +170,20 @@ namespace Yoji.TestRunner
             }
             catch (InvalidOperationException)
             {
-                return T(409, Err("a test run or compilation is already in progress"));
+                return (409, Err("a test run or compilation is already in progress"));
             }
             catch (Exception e)
             {
-                return T(400, Err("failed to start run: " + e.Message));
+                return (400, Err("failed to start run: " + e.Message));
             }
         }
 
-        private static Tuple<int, JObject> TestStatus(string query)
+        private static (int status, JObject body) TestStatus(string jobId)
         {
             s_Jobs.SweepStale(k_StaleJobMs);
-            var jobId = QueryParam(query, "jobId");
             var rec = string.IsNullOrEmpty(jobId) ? s_Jobs.ActiveOrLast() : s_Jobs.Find(jobId);
-            if (rec == null) return T(404, Err("no such job: " + (jobId ?? "<none active or cached>")));
-            return T(200, JobJson(rec));
+            if (rec == null) return (404, Err("no such job: " + (jobId ?? "<none active or cached>")));
+            return (200, JobJson(rec));
         }
 
         private static JObject JobJson(JobRecord r)
@@ -211,19 +204,6 @@ namespace Yoji.TestRunner
                 o["skipped"] = r.Skipped;
             }
             return o;
-        }
-
-        private static string QueryParam(string query, string key)
-        {
-            if (string.IsNullOrEmpty(query)) return null;
-            var q = query.StartsWith("?") ? query.Substring(1) : query;
-            foreach (var pair in q.Split('&'))
-            {
-                var kv = pair.Split(new[] { '=' }, 2);
-                if (kv.Length == 2 && Uri.UnescapeDataString(kv[0]) == key)
-                    return Uri.UnescapeDataString(kv[1]);
-            }
-            return null;
         }
 
         private static JObject Err(string message) => new JObject { ["success"] = false, ["error"] = message };
