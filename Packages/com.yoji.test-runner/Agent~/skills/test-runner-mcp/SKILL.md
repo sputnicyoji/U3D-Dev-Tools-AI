@@ -5,14 +5,22 @@ description: 在 Unity 工程中通过 HTTP 调用 Unity Test Runner——触发
 
 # TestRunnerMCP（Unity Editor 在线时执行测试）
 
-`com.tfw.test-runner-mcp` 是 Unity Editor 内的轻量 HTTP 服务，让 AI 不开 GUI 就能：触发重编译 → 等域重载 → 发起测试 → 轮询拿结果。`tdd-workflow` 在「执行测试」阶段调用的就是本接口。
+`com.yoji.test-runner` 是 Unity Editor 内的轻量 HTTP 服务，让 AI 不开 GUI 就能：触发重编译 → 等域重载 → 发起测试 → 轮询拿结果。`tdd-workflow` 在「执行测试」阶段调用的就是本接口。
 
 > [!IMPORTANT]
-> 本目录当前只包含 **HTTP 接口规范**。仓库中没有 `client.py`，也没有
-> Unity 侧服务源码或公开 UPM 包。下文安装地址指向 Tap4fun 内部仓库；
-> 未具备该仓库权限时，本 skill 不能独立工作。
+> 本工具已具备公开的 Unity 侧实现（UPM 包 `com.yoji.test-runner`，阶段 1 仅
+> EditMode），随包附带 `client.py` 与 `references/run-e2e.py`。无需 Tap4fun
+> 私有仓库权限即可独立工作。
 >
 > 测试代码怎么写、目录怎么放、断言怎么选，参考 `tdd-workflow`。
+
+## 契约扩展（本实现相对原规范）
+
+本实现在原 HTTP 接口规范基础上做了以下扩展，调用时需注意：
+
+- **run-all**：`/run-tests` 请求体新增可选 `assemblyNames` / `categoryNames` / `groupNames`；当 `testNames` 与这些字段全空时，跑该 `testMode` 的全套件（原规范空 `testNames` 返 400，本实现放宽为 run-all）。
+- **PlayMode 阶段 2**：阶段 1 仅支持 EditMode；`testMode: "PlayMode"` 返 400 并在 `message` 中说明。PlayMode（含域重载存活）留待阶段 2。
+- **真 HTTP 状态码**：本实现用 200/202/400/404/409 真实状态码（非恒 200）；错误 body 形为 `{success: false, error: "..."}`。
 
 ## 服务地址
 
@@ -56,8 +64,8 @@ curl -s http://127.0.0.1:21890/ping
   "state": "Idle",
   "listening": true,
   "timestamp": "2026-05-11T11:00:00.000+08:00",
-  "unityVersion": "2022.3.62f2c1",
-  "projectName": "X1Client"
+  "unityVersion": "6000.3.16f1",
+  "projectName": "test-runner"
 }
 ```
 
@@ -227,9 +235,9 @@ print(json.dumps(s, ensure_ascii=False, indent=2))
 `Packages/manifest.json` 加：
 
 ```json
-"com.tfw.test-runner-mcp": "ssh://git@git.tap4fun.com/tfw/com.tfw.test-runner-mcp.git#v1.0.3"
+"com.yoji.test-runner": "file:<path-to-repo>/Packages/com.yoji.test-runner"
 ```
 
-或 Unity Editor → Package Manager → `+` → Add package from git URL → 填上面的 URL。
+或把 `Packages/com.yoji.test-runner/` 拷进目标工程 `Packages/`。
 
-装完 Editor 加载后服务自动启动，Console 出现 `[TestRunnerMCP] 服务已启动，监听 http://127.0.0.1:21890/` 即就绪。
+装好后 Editor 加载，服务自动启动，Console 出现 `[TestRunnerMCP] 服务已启动，监听 http://127.0.0.1:21890/` 即就绪。
