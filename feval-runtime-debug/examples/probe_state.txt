@@ -1,8 +1,0 @@
-# 通用占位示例：替换 Some.Ns 为目标项目实际命名空间
-# 一行一个表达式；# 开头为注释；不要在一行里写分号
-
-using Some.Ns
-var p = SomeMgr.I.GetSomeInfo()
-p.someField
-p._privateField
-`p

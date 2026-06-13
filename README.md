@@ -5,8 +5,8 @@ Unity3D development-tool assets for AI-assisted workflows.
 > [!IMPORTANT]
 > This repository is currently a migration workspace. The unity-editor-debug-mcp
 > test-runner-mcp, and lua-device-debug Unity-side services are now included as
-> UPM packages; feval-runtime-debug still lacks its Unity-side service. See the
-> status table below before trying to install or run a tool.
+> UPM packages. This toolset targets non-HybridCLR Unity projects; the old
+> client-only runtime expression debugger asset has been removed.
 
 ## Current Status
 
@@ -15,7 +15,6 @@ Unity3D development-tool assets for AI-assisted workflows.
 | test-runner-mcp | Python client, skill, and references | Yes (`Packages/com.yoji.test-runner`) | Usable (EditMode only; PlayMode planned); verified on Unity 6000.3.16f1 |
 | unity-editor-debug-mcp | Python client, skill, and references | Yes (`Packages/com.yoji.editor-debug`) | Usable; verified on Unity 6000.3.16f1 |
 | unity-lua-device-debug | Python client and skill | Yes (`Packages/com.yoji.lua-device-debug`) | Transport package started; targets Unity 6000.3.16f1; project Lua adapter still required |
-| feval-runtime-debug | Python clients, skill, and references | No | Client-only; requires the target project's feval/HybridCLR listener |
 
 The planned public UPM packages and migration constraints are documented in
 [the U3D AI Linker design](docs/superpowers/specs/2026-06-12-u3d-ai-linker-design.md).
@@ -118,39 +117,13 @@ python client.py ping
 python client.py adb-remove
 ```
 
-The package does not provide arbitrary Lua eval, C# reflection eval, Feval, or
+The package does not provide arbitrary Lua eval, C# reflection eval, or
 HybridCLR integration.
-
-### 4. feval-runtime-debug
-
-C# expression-evaluator clients for a feval TCP listener on port **9999**.
-They connect to a Unity/HybridCLR runtime in the Editor or on an Android
-device.
-
-- **Entry points**:
-  - `feval-runtime-debug/scripts/feval_runtime_debug.py` -- core Python client
-  - `feval-runtime-debug/scripts/unity_bridge.py` -- Unity Editor bridge
-- **Not included**: the target project's feval/HybridCLR listener
-- **Reference**: [feval-runtime-debug/references/feval-syntax.md](feval-runtime-debug/references/feval-syntax.md)
-- **Docs**: [feval-runtime-debug/SKILL.md](feval-runtime-debug/SKILL.md)
-
-```bash
-# Local Unity Editor
-python feval-runtime-debug/scripts/feval_runtime_debug.py --expr "GameObject.Find(\"Main Camera\").name"
-
-# Android device (needs adb forward tcp:9999 tcp:9999)
-python feval-runtime-debug/scripts/feval_runtime_debug.py --host 127.0.0.1 --port 9999 --expr "Time.time"
-```
 
 ## Quick Start
 
-For UPM-backed tools, add the package path to the target Unity project's
-`Packages/manifest.json`, open the project, then run the matching `client.py`.
-For client-only tools:
-
-1. Install or enable the corresponding Unity-side service in the target project.
-2. Open the Unity project and verify that its listener is active.
-3. Run the included client using the repository-relative paths shown above.
+Add the package path to the target Unity project's `Packages/manifest.json`,
+open the project, then run the matching `client.py`.
 
 ## Port Map
 
@@ -159,13 +132,11 @@ For client-only tools:
 | test-runner-mcp | 21890 | HTTP |
 | unity-editor-debug-mcp | 21891 (fallback 21892/21893) | HTTP+JSON |
 | unity-lua-device-debug | 21894 | HTTP+JSON |
-| feval-runtime-debug | 9999 | TCP (feval) |
 
 ## Requirements
 
 - Unity 6000.3.16f1 for `unity-lua-device-debug`; existing Editor tools also
   run on Unity 6000.3.16f1
 - Python 3.8+
-- HybridCLR (for feval-runtime-debug runtime expression evaluation)
 - Android: adb + port forwarding (`adb forward tcp:21894 tcp:21894` for
-  `unity-lua-device-debug`; `tcp:9999` for feval-runtime-debug)
+  `unity-lua-device-debug`)

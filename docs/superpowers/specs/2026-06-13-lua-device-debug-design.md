@@ -10,9 +10,9 @@
 
 ## 背景与决策
 
-现有 `feval-runtime-debug` 依赖目标工程接入 Feval Service，主要面向 C# 表达式求值和 HybridCLR 场景。它不适合薄 C#、Lua 业务层工程，也无法直接诊断 Lua Module、DataCenter、RedDot 和 Config facade。
+本仓库目标工程是薄 C#、Lua 业务层的非 HybridCLR 工程。调试入口应直接面向 Lua Module、DataCenter、RedDot 和 Config facade，而不是依赖运行时 C# 表达式求值。
 
-本设计放弃在当前工程接入 Feval，新增独立工具：
+本设计新增独立工具：
 
 - Package：`com.yoji.lua-device-debug`
 - Skill：`unity-lua-device-debug`
@@ -49,7 +49,7 @@
 - 切场景、打开 UI、FakeNetwork 操作等写命令。
 - iOS、Windows Player、macOS 和 Linux。
 - Release Build 调试服务。
-- HybridCLR 和 Feval。
+- HybridCLR。
 
 ## 总体架构
 

@@ -23,7 +23,7 @@ The generic package exposes:
 - `LuaDeviceDebugRuntime.UnregisterHost(...)`
 - HTTP endpoints on `127.0.0.1:21894`
 
-It does not reference xLua, SLG project types, Feval, HybridCLR, C# reflection eval, or arbitrary Lua eval.
+It does not reference xLua, SLG project types, HybridCLR, C# reflection eval, or arbitrary Lua eval.
 
 ## Endpoints
 

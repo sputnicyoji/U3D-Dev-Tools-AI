@@ -1827,7 +1827,7 @@ flag 放子命令前。阶段 1 仅 EditMode（PlayMode 返 400）。空 testNam
 
 - [ ] **Step 5: 更新 README 状态表与小节**
 
-`README.md`：test-runner-mcp 行的「Unity-side service in this repo」改为 Yes（`Packages/com.yoji.test-runner`），状态改为 "Usable (EditMode only; PlayMode planned)"。小节里把"仅接口规范 / 不含 client.py 与服务"改为已含公开 UPM 包 + client.py + run-e2e.py，端口路径同步为 `Packages/com.yoji.test-runner/Agent~/skills/test-runner-mcp/...`。保留 feval-runtime-debug 仍 client-only 的说明。
+`README.md`：test-runner-mcp 行的「Unity-side service in this repo」改为 Yes（`Packages/com.yoji.test-runner`），状态改为 "Usable (EditMode only; PlayMode planned)"。小节里把"仅接口规范 / 不含 client.py 与服务"改为已含公开 UPM 包 + client.py + run-e2e.py，端口路径同步为 `Packages/com.yoji.test-runner/Agent~/skills/test-runner-mcp/...`。
 
 - [ ] **Step 6: 跑 install.ps1 验证 + Commit**
 

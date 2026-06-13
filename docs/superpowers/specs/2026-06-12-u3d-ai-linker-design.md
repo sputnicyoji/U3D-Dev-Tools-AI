@@ -37,12 +37,6 @@ U3D-Dev-Tools-AI/
         skills/
         fragments/
       package.json
-    com.yoji.feval-runtime/
-      Runtime/
-      Agent~/
-        skills/
-        fragments/
-      package.json
   Registry/
     stable.json
     dev.json
@@ -91,7 +85,7 @@ Registry 顶层必须包含 `schemaVersion`。Linker 遇到不支持的版本时
 - `skill-only`：过渡态 Skill 随 Linker 的 `BundledSkills~/` 交付，不发起独立 UPM 安装。它随 Linker 版本更新，不具备独立版本。
 - `planned`：尚未完成迁移，只展示状态。
 
-当前仓库中的三个工具尚未形成公开 UPM 包，初始 Registry 必须标为 `planned` 或 `skill-only`。`Install All` 只处理 `ready` 项。
+当前仓库中的工具尚未形成公开 UPM 包时，初始 Registry 必须标为 `planned` 或 `skill-only`。`Install All` 只处理 `ready` 项。
 
 ## 安装模型
 
@@ -143,7 +137,6 @@ Monorepo Tag 使用唯一前缀：
 linker-v1.0.0
 editor-debug-v1.2.0
 test-runner-v1.1.0
-feval-runtime-v1.3.0
 ```
 
 ### Dev
