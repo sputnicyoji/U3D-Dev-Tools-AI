@@ -52,6 +52,8 @@ namespace Yoji.TestRunner
                     return (409, new JObject
                     {
                         ["success"] = false,
+                        // error 键与其它端点统一（契约：错误 body 含 error）；message/字段保留兼容 /recompile 形状
+                        ["error"] = "a compilation or test run is already in progress",
                         ["message"] = "a compilation or test run is already in progress",
                         ["compilationTime"] = 0,
                         ["hasErrors"] = false,
