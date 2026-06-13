@@ -55,5 +55,8 @@ namespace Yoji.TestRunner.Tests
             var s = P("{\"testMode\":\"PlayMode\",\"testNames\":[\"A.B.C\"]}");
             Assert.AreEqual("PlayMode", s.TestMode);
         }
+
+        [Test] public void Parse_NonStringTestMode_ThrowsArgumentException()
+            => Assert.Throws<ArgumentException>(() => P("{\"testMode\":true}"));
     }
 }

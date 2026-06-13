@@ -20,7 +20,8 @@ namespace Yoji.TestRunner
     {
         public static FilterSpec Parse(JObject req)
         {
-            var mode = (string)req["testMode"];
+            var modeToken = req["testMode"];
+            var mode = modeToken != null && modeToken.Type == JTokenType.String ? (string)modeToken : null;
             if (mode != "EditMode" && mode != "PlayMode")
                 throw new ArgumentException("testMode must be EditMode or PlayMode");
 

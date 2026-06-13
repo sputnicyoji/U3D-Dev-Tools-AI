@@ -110,5 +110,21 @@ namespace Yoji.TestRunner.Tests
             Assert.IsTrue(s.IsIdle);
             Assert.AreEqual("error", s.Find(id).Status);
         }
+
+        [Test] public void LateComplete_AfterSweep_PreservesStartedMs()
+        {
+            var s = New();
+            var id = JobStore.NewJobId();
+            s.StartJob(id);
+            long started = s.Find(id).StartedMs;
+            m_Now += 60_000;
+            s.SweepStale(30_000);            // 任务被扫成 error
+            m_Now += 1_000;
+            s.CompleteJob(id, 3, 0, 0, "Passed", "x"); // 晚到的真实结果
+            var rec = s.Find(id);
+            Assert.AreEqual("completed", rec.Status);
+            Assert.AreEqual(3, rec.Passed);
+            Assert.AreEqual(started, rec.StartedMs); // 原始 StartedMs 保留
+        }
     }
 }

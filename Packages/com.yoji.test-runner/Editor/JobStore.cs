@@ -134,11 +134,13 @@ namespace Yoji.TestRunner
             }
         }
 
-        // 已持锁：取当前任务或为该 jobId 新建一条
+        // 已持锁：取当前任务；晚到的 complete/fail 复用已落缓存的同 id 记录（保留 StartedMs）；都不匹配才新建
         private JobRecord Target(string jobId)
-            => (m_Current != null && m_Current.JobId == jobId)
-                ? m_Current
-                : new JobRecord { JobId = jobId, StartedMs = m_NowMs() };
+        {
+            if (m_Current != null && m_Current.JobId == jobId) return m_Current;
+            if (m_Last != null && m_Last.JobId == jobId) return m_Last;
+            return new JobRecord { JobId = jobId, StartedMs = m_NowMs() };
+        }
 
         // 已持锁：落缓存、清活跃、持久化
         private void Finish(JobRecord rec)
