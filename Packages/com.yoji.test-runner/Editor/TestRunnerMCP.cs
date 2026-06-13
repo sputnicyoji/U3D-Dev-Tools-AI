@@ -201,10 +201,11 @@ namespace Yoji.TestRunner
                 ["status"] = r.Status,
                 ["message"] = r.Message,
             };
+            if (!string.IsNullOrEmpty(r.OverallResult))
+                o["overallResult"] = r.OverallResult; // completed 与 error 都带（error -> "Error"）
             if (r.Status == "completed")
             {
                 o["resultFilePath"] = r.ResultFilePath;
-                o["overallResult"] = r.OverallResult;
                 o["passed"] = r.Passed;
                 o["failed"] = r.Failed;
                 o["skipped"] = r.Skipped;
