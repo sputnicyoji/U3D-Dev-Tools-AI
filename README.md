@@ -4,15 +4,15 @@ Unity3D development-tool assets for AI-assisted workflows.
 
 > [!IMPORTANT]
 > This repository is currently a migration workspace. The unity-editor-debug-mcp
-> Unity-side service is now included as a UPM package; the other two tools still
-> lack their Unity-side services. See the status table below before trying to
-> install or run a tool.
+> and test-runner-mcp Unity-side services are now included as UPM packages;
+> feval-runtime-debug still lacks its Unity-side service. See the status table
+> below before trying to install or run a tool.
 
 ## Current Status
 
 | Tool | Agent-side assets in this repo | Unity-side service in this repo | Status |
 |------|--------------------------------|---------------------------------|--------|
-| test-runner-mcp | HTTP interface specification only | No | Planned; currently depends on the private `com.tfw.test-runner-mcp` package |
+| test-runner-mcp | Python client, skill, and references | Yes (`Packages/com.yoji.test-runner`) | Usable (EditMode only; PlayMode planned); verified on Unity 6000.3.16f1 |
 | unity-editor-debug-mcp | Python client, skill, and references | Yes (`Packages/com.yoji.editor-debug`) | Usable; verified on Unity 6000.3.16f1 |
 | feval-runtime-debug | Python clients, skill, and references | No | Client-only; requires the target project's feval/HybridCLR listener |
 
@@ -23,19 +23,23 @@ The planned public UPM packages and migration constraints are documented in
 
 ### 1. test-runner-mcp
 
-Interface specification for a private HTTP service on port **21890** that
-triggers Unity recompilation and runs EditMode/PlayMode tests.
+HTTP service on port **21890** that triggers Unity recompilation and runs
+EditMode tests headlessly, returning results to AI agents (PlayMode planned).
 
-- **Included here**: protocol and usage documentation only
-- **Not included**: `client.py` and the Unity Editor service/package
-- **Docs**: [test-runner-mcp/SKILL.md](test-runner-mcp/SKILL.md)
+- **Included here**: the Unity Editor service as a UPM package
+  (`Packages/com.yoji.test-runner`), plus `client.py` and `references/run-e2e.py`
+  under `Packages/com.yoji.test-runner/Agent~/skills/test-runner-mcp/`
+- **Docs**: [SKILL.md](Packages/com.yoji.test-runner/Agent~/skills/test-runner-mcp/SKILL.md)
+- **Phase**: EditMode only; `testMode:"PlayMode"` returns 400 until phase 2.
+  Empty test filters run the whole suite (run-all). Real HTTP status codes
+  (200/202/400/404/409).
 
 ```bash
-curl http://127.0.0.1:21890/ping
+python Packages/com.yoji.test-runner/Agent~/skills/test-runner-mcp/client.py ping
 ```
 
-This command works only after the private Unity package documented in the
-skill has been installed. There is no public package in this repository yet.
+The HTTP service starts automatically with the Editor (look for
+`[TestRunnerMCP] 服务已启动` in the Console).
 
 ### 2. unity-editor-debug-mcp
 
