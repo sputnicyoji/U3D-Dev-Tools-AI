@@ -2,7 +2,7 @@
 """TestRunnerMCP 客户端 CLI。
 
 通过 HTTP 调本地 Unity Editor 内的 TestRunnerMCP 服务。全局 flag（--host/--port/--timeout）
-必须放在子命令之前，例如：python client.py --port 21894 ping。
+必须放在子命令之前，例如：python client.py --port 21890 ping。
 """
 from __future__ import annotations
 
@@ -76,6 +76,11 @@ def cmd_status(a):
     return http_get(url, a.timeout)
 
 
+def cmd_list_tests(a):
+    url = f"{base(a)}/list-tests?mode={a.mode}"
+    return http_get(url, a.timeout)
+
+
 def build_parser():
     p = argparse.ArgumentParser(prog="client.py", description="TestRunnerMCP CLI client")
     p.add_argument("--host", default=DEFAULT_HOST)
@@ -93,9 +98,13 @@ def build_parser():
     r.add_argument("--categories", nargs="*", help="按 NUnit Category 跑（run-all 扩展）")
     r.set_defaults(func=cmd_run)
 
-    s = sub.add_parser("status", help="轮询任务状态 / 取最近结果")
+    s = sub.add_parser("status", help="轮询任务状态 / 取最近结果（completed 时含 failures[]）")
     s.add_argument("--job-id", help="省略则返回活跃任务或最近一次缓存")
     s.set_defaults(func=cmd_status)
+
+    lt = sub.add_parser("list-tests", help="列出可发现的测试用例全名（拼 testNames 前先查）")
+    lt.add_argument("--mode", default="EditMode", choices=["EditMode"], help="阶段 1 仅 EditMode")
+    lt.set_defaults(func=cmd_list_tests)
     return p
 
 

@@ -1,10 +1,19 @@
 using System;
+using System.Collections.Generic;
 using System.IO;
 using Newtonsoft.Json;
 
 namespace Yoji.TestRunner
 {
     internal enum ServiceState { Idle, Running, Compiling }
+
+    /// 单个失败用例的详情。随 JobRecord 经 JsonConvert 持久化 round-trip。
+    internal sealed class FailureDetail
+    {
+        public string Name;        // 叶子用例全名（ITestResultAdaptor.Test.FullName）
+        public string Message;     // 断言/异常信息
+        public string StackTrace;  // 栈（已截断长度）
+    }
 
     /// 一次测试任务的可序列化记录。Status 用字符串以直接对外输出。
     internal sealed class JobRecord
@@ -19,6 +28,7 @@ namespace Yoji.TestRunner
         public int Skipped;
         public long StartedMs;
         public long UpdatedMs;
+        public List<FailureDetail> Failures;  // 仅 completed 且有失败时非空；passing run 省略
     }
 
     /// 状态机 + jobId 生成 + 任务持久化（Temp JSON）+ 最近一次结果缓存 + 孤儿任务清扫。
@@ -79,7 +89,7 @@ namespace Yoji.TestRunner
             }
         }
 
-        public void CompleteJob(string jobId, int passed, int failed, int skipped, string overallResult, string resultFilePath)
+        public void CompleteJob(string jobId, int passed, int failed, int skipped, string overallResult, string resultFilePath, List<FailureDetail> failures)
         {
             lock (m_Lock)
             {
@@ -87,6 +97,7 @@ namespace Yoji.TestRunner
                 rec.Status = "completed";
                 rec.Passed = passed; rec.Failed = failed; rec.Skipped = skipped;
                 rec.OverallResult = overallResult; rec.ResultFilePath = resultFilePath;
+                rec.Failures = failures != null && failures.Count > 0 ? failures : null;
                 rec.Message = "测试完成"; rec.UpdatedMs = m_NowMs();
                 Finish(rec);
             }

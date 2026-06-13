@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.IO;
 using NUnit.Framework;
 
@@ -56,7 +57,7 @@ namespace Yoji.TestRunner.Tests
             var s = New();
             var id = JobStore.NewJobId();
             s.StartJob(id);
-            s.CompleteJob(id, 2, 1, 0, "Failed", "C:/x/result.xml");
+            s.CompleteJob(id, 2, 1, 0, "Failed", "C:/x/result.xml", null);
             Assert.IsTrue(s.IsIdle);
             var found = s.Find(id);
             Assert.AreEqual("completed", found.Status);
@@ -82,7 +83,7 @@ namespace Yoji.TestRunner.Tests
             var id = JobStore.NewJobId();
             var s1 = New();
             s1.StartJob(id);
-            s1.CompleteJob(id, 5, 0, 1, "Passed", "C:/r.xml");
+            s1.CompleteJob(id, 5, 0, 1, "Passed", "C:/r.xml", null);
             var s2 = New(); // 新实例同目录，模拟域重载后重建
             var found = s2.Find(id);
             Assert.IsNotNull(found);
@@ -92,10 +93,45 @@ namespace Yoji.TestRunner.Tests
             Assert.AreEqual("Passed", found.OverallResult);
         }
 
+        [Test] public void CompleteJob_StoresFailures_AndRoundTripsAcrossInstances()
+        {
+            var id = JobStore.NewJobId();
+            var s1 = New();
+            s1.StartJob(id);
+            var failures = new List<FailureDetail>
+            {
+                new FailureDetail { Name = "Foo.Bar", Message = "expected 1 but was 2", StackTrace = "at Foo.Bar:42" },
+                new FailureDetail { Name = "Foo.Baz", Message = "null ref", StackTrace = "at Foo.Baz:7" },
+            };
+            s1.CompleteJob(id, 0, 2, 0, "Failed", "C:/r.xml", failures);
+
+            var first = s1.Find(id);
+            Assert.IsNotNull(first.Failures);
+            Assert.AreEqual(2, first.Failures.Count);
+            Assert.AreEqual("Foo.Bar", first.Failures[0].Name);
+            Assert.AreEqual("expected 1 but was 2", first.Failures[0].Message);
+
+            var s2 = New(); // 同目录新实例：模拟域重载后从磁盘读回
+            var found = s2.Find(id);
+            Assert.IsNotNull(found.Failures);
+            Assert.AreEqual(2, found.Failures.Count);
+            Assert.AreEqual("Foo.Baz", found.Failures[1].Name);
+            Assert.AreEqual("at Foo.Baz:7", found.Failures[1].StackTrace);
+        }
+
+        [Test] public void CompleteJob_EmptyFailures_OmitsList()
+        {
+            var s = New();
+            var id = JobStore.NewJobId();
+            s.StartJob(id);
+            s.CompleteJob(id, 3, 0, 0, "Passed", "x", new List<FailureDetail>());
+            Assert.IsNull(s.Find(id).Failures); // passing run 省略，不落空数组
+        }
+
         [Test] public void ActiveOrLast_PrefersActive()
         {
             var s = New();
-            var a = JobStore.NewJobId(); s.StartJob(a); s.CompleteJob(a, 1, 0, 0, "Passed", "x");
+            var a = JobStore.NewJobId(); s.StartJob(a); s.CompleteJob(a, 1, 0, 0, "Passed", "x", null);
             var b = JobStore.NewJobId(); s.StartJob(b);
             Assert.AreEqual(b, s.ActiveOrLast().JobId);
         }
@@ -120,7 +156,7 @@ namespace Yoji.TestRunner.Tests
             m_Now += 60_000;
             s.SweepStale(30_000);            // 任务被扫成 error
             m_Now += 1_000;
-            s.CompleteJob(id, 3, 0, 0, "Passed", "x"); // 晚到的真实结果
+            s.CompleteJob(id, 3, 0, 0, "Passed", "x", null); // 晚到的真实结果
             var rec = s.Find(id);
             Assert.AreEqual("completed", rec.Status);
             Assert.AreEqual(3, rec.Passed);

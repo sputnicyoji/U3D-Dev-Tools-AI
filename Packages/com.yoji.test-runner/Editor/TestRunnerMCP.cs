@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Specialized;
 using System.IO;
 using System.Net;
 using System.Text;
@@ -10,14 +11,15 @@ using UnityEngine;
 
 namespace Yoji.TestRunner
 {
-    /// TestRunnerMCP HTTP 服务。端口 21890（fallback 21894/21895），只绑 127.0.0.1。
+    /// TestRunnerMCP HTTP 服务。端口 21890（fallback 21896/21897），只绑 127.0.0.1。
     /// 真 HTTP 状态码 + 每端点独立 JSON 形状（与 editor-debug 恒 200 flat envelope 不同）。
     /// 阶段 1 仅 EditMode；PlayMode 在 /run-tests 被拒（400）。
     [InitializeOnLoad]
     internal static class TestRunnerMCP
     {
         private const int k_StaleJobMs = 600_000; // 孤儿任务清扫阈值
-        private static readonly int[] k_Ports = { 21890, 21894, 21895 };
+        // fallback 避开 lua-device-debug 钉死的 21894（无 fallback）与 editor-debug 的 21891-21893
+        private static readonly int[] k_Ports = { 21890, 21896, 21897 };
 
         private static HttpListener s_Listener;
         private static int s_Port;
@@ -60,7 +62,7 @@ namespace Yoji.TestRunner
             }
             if (s_Listener == null)
             {
-                Debug.LogError("[TestRunnerMCP] 21890/21894/21895 全部被占，服务未启动");
+                Debug.LogError("[TestRunnerMCP] 21890/21896/21897 全部被占，服务未启动");
                 return;
             }
 
@@ -106,7 +108,7 @@ namespace Yoji.TestRunner
                         req = string.IsNullOrWhiteSpace(raw) ? new JObject() : JObject.Parse(raw);
                     }
                 }
-                (status, body) = Route(path, method, req, ctx.Request.QueryString["jobId"]);
+                (status, body) = Route(path, method, req, ctx.Request.QueryString);
             }
             catch (JsonException e)
             {
@@ -121,7 +123,7 @@ namespace Yoji.TestRunner
             WriteResponse(ctx, status, body);
         }
 
-        private static (int status, JObject body) Route(string path, string method, JObject req, string jobId)
+        private static (int status, JObject body) Route(string path, string method, JObject req, NameValueCollection query)
         {
             switch (path)
             {
@@ -130,7 +132,8 @@ namespace Yoji.TestRunner
                 case "/run-tests":
                     if (method != "POST") return (400, Err("/run-tests requires POST"));
                     return RunTests(req);
-                case "/test-status": return TestStatus(jobId);
+                case "/test-status": return TestStatus(query["jobId"]);
+                case "/list-tests": return ListTests(query["mode"]);
                 default: return (404, Err("unknown endpoint: " + path));
             }
         }
@@ -186,6 +189,25 @@ namespace Yoji.TestRunner
             return (200, JobJson(rec));
         }
 
+        // 发现端点：列出可跑的 EditMode 测试用例全名。PlayMode 同 /run-tests 一样拒（阶段 1）。
+        private static (int status, JObject body) ListTests(string mode)
+        {
+            var m = string.IsNullOrEmpty(mode) ? "EditMode" : mode;
+            if (m != "EditMode")
+                return (400, Err("mode '" + m + "' not supported in phase 1 (EditMode only)"));
+            try
+            {
+                var names = s_Service.ListTests(m);
+                var arr = new JArray();
+                foreach (var n in names) arr.Add(n);
+                return (200, new JObject { ["tests"] = arr, ["count"] = names.Count });
+            }
+            catch (Exception e)
+            {
+                return (500, Err("list-tests failed: " + e.Message));
+            }
+        }
+
         private static JObject JobJson(JobRecord r)
         {
             var o = new JObject
@@ -202,6 +224,18 @@ namespace Yoji.TestRunner
                 o["passed"] = r.Passed;
                 o["failed"] = r.Failed;
                 o["skipped"] = r.Skipped;
+                if (r.Failures != null && r.Failures.Count > 0)
+                {
+                    var arr = new JArray();
+                    foreach (var f in r.Failures)
+                        arr.Add(new JObject
+                        {
+                            ["name"] = f.Name,
+                            ["message"] = f.Message,
+                            ["stackTrace"] = f.StackTrace,
+                        });
+                    o["failures"] = arr;
+                }
             }
             return o;
         }

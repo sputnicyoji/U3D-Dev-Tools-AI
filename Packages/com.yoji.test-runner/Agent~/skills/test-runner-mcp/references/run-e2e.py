@@ -91,6 +91,10 @@ def main(argv):
     check("03 run failing test -> failed==1 overall Failed",
           bool(st) and st.get("status") == "completed" and st.get("failed") == 1 and st.get("overallResult") == "Failed",
           f"st={st}")
+    fails = (st or {}).get("failures") or []
+    check("03b failing test -> failures[0] has name+message (TR-2)",
+          len(fails) >= 1 and FAIL_FIX in (fails[0].get("name") or "") and bool(fails[0].get("message")),
+          f"failures={fails}")
 
     code, _ = post(base, "/run-tests", {"testNames": [PASS_FIX]})
     check("04 missing testMode -> 400", code == 400, f"code={code}")
@@ -105,6 +109,26 @@ def main(argv):
     check("07 run-all EditMode -> completed passed>0 failed==0",
           bool(st) and st.get("status") == "completed" and (st.get("passed") or 0) > 0 and st.get("failed") == 0,
           f"st={st}")
+
+    # TR-3a: 拼错的 testName 命中 0 用例必须判 error（不是假绿 Passed），且晚到的 RunFinished 不得改回。
+    _, body8, st8 = run_and_wait(base, {"testMode": "EditMode", "testNames": ["Bogus.NoSuch.Test_xyz"]})
+    ok8 = bool(st8) and st8.get("status") == "error" and st8.get("overallResult") == "Error"
+    check("08 bogus testName -> status=error (TR-3a)", ok8, f"st={st8}")
+    job8 = (body8 or {}).get("jobId")
+    if ok8 and job8:
+        time.sleep(1)
+        _, st8b = get(base, f"/test-status?jobId={job8}")
+        check("08b error not reverted by late RunFinished",
+              st8b.get("status") == "error" and st8b.get("overallResult") == "Error", f"st={st8b}")
+
+    # TR-3b: /list-tests 发现端点
+    code9, body9 = get(base, "/list-tests?mode=EditMode", timeout=30)
+    tests9 = body9.get("tests") or []
+    check("09 /list-tests -> count>0 contains a known test (TR-3b)",
+          code9 == 200 and (body9.get("count") or 0) > 0 and any("JobStoreTests" in t for t in tests9),
+          f"code={code9} count={body9.get('count')}")
+    code9p, _ = get(base, "/list-tests?mode=PlayMode")
+    check("09b /list-tests PlayMode -> 400", code9p == 400, f"code={code9p}")
 
     if args.include_recompile:
         code, body = get(base, "/recompile", timeout=200)

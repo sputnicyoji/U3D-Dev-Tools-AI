@@ -35,9 +35,11 @@ description: 在 Unity 工程中通过 HTTP 调用 Unity Test Runner——触发
 | `/ping` | GET | 连通性 + state | 同步 |
 | `/recompile` | GET/POST | 触发重编译，**域重载前**回响应 | 同步（挂 HTTP 连接到编译完成） |
 | `/run-tests` | POST | 发起测试，**立即**返回 `jobId` + 202 | 异步 |
-| `/test-status` | GET | 轮询任务状态 / 取最近一次结果 | 同步 |
+| `/test-status` | GET | 轮询任务状态 / 取最近一次结果（completed 含 `failures[]`） | 同步 |
+| `/list-tests` | GET | 列出可发现的 EditMode 测试用例全名 | 同步 |
 
 state 取值：`Idle | Running | Compiling`。`/run-tests` 与 `/recompile` 在非 Idle 时返 409。
+`/list-tests` PlayMode 同 `/run-tests` 一样返 400（阶段 1 仅 EditMode）。
 
 ## 调用顺序（标准流程）
 
@@ -144,18 +146,37 @@ GET /test-status?jobId=<jobId>
   "status": "completed",
   "message": "测试完成，耗时 8.19s",
   "resultFilePath": "<projectPath>/Temp/TestRunnerMCP/result_a3f9bc12....xml",
-  "overallResult": "Passed",
-  "passed": 2,
-  "failed": 0,
-  "skipped": 0
+  "overallResult": "Failed",
+  "passed": 1,
+  "failed": 1,
+  "skipped": 0,
+  "failures": [
+    { "name": "Foo.Tests.BarTests.Baz", "message": "Expected: 1  But was: 2", "stackTrace": "at ..." }
+  ]
 }
 ```
 
 - `status`：`running | completed | error`
 - `overallResult`：`Passed | Failed | Error`
+- `failures`：仅 `completed` 且有失败时出现，每条 `{name,message,stackTrace}`（仅叶子用例，不含 suite）；
+  最多 50 条、字段截断 4000 字。agent 据此直接定位「哪个用例、为什么挂」，无需 parse XML。
+- **0 命中判错（TR-3a）**：非 run-all 的过滤（`testNames`/`assemblyNames`/`categoryNames`/`groupNames`）
+  若命中 0 个用例，返 `status=error` / `overallResult=Error`（而非假绿 Passed）。拼 `testNames` 前可先 `/list-tests` 核对。
 - 省略 `jobId` 时：优先返回当前活跃任务状态，无活跃任务则返回最近一次缓存结果
 - jobId 不匹配当前任务也不匹配上一次任务时返 404
 - 服务只缓存**最近一次**结果，重启 Editor / 域重载后内存丢失
+
+## /list-tests
+
+```
+GET /list-tests?mode=EditMode
+```
+
+```json
+{ "tests": ["Foo.Tests.BarTests.Baz", "Foo.Tests.BarTests.Qux"], "count": 2 }
+```
+
+列出可发现的 EditMode 测试用例全名（含 `[Explicit]`）。用于拼 `/run-tests` 的 `testNames` 前核对，避免拼错导致 0 命中。PlayMode 返 400。
 
 ## 调用范式（重要）
 
