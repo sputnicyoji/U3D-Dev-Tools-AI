@@ -4,9 +4,9 @@ Unity3D development-tool assets for AI-assisted workflows.
 
 > [!IMPORTANT]
 > This repository is currently a migration workspace. The unity-editor-debug-mcp
-> and test-runner-mcp Unity-side services are now included as UPM packages;
-> feval-runtime-debug still lacks its Unity-side service. See the status table
-> below before trying to install or run a tool.
+> test-runner-mcp, and lua-device-debug Unity-side services are now included as
+> UPM packages; feval-runtime-debug still lacks its Unity-side service. See the
+> status table below before trying to install or run a tool.
 
 ## Current Status
 
@@ -14,6 +14,7 @@ Unity3D development-tool assets for AI-assisted workflows.
 |------|--------------------------------|---------------------------------|--------|
 | test-runner-mcp | Python client, skill, and references | Yes (`Packages/com.yoji.test-runner`) | Usable (EditMode only; PlayMode planned); verified on Unity 6000.3.16f1 |
 | unity-editor-debug-mcp | Python client, skill, and references | Yes (`Packages/com.yoji.editor-debug`) | Usable; verified on Unity 6000.3.16f1 |
+| unity-lua-device-debug | Python client and skill | Yes (`Packages/com.yoji.lua-device-debug`) | Transport package started; targets Unity 6000.3.16f1; project Lua adapter still required |
 | feval-runtime-debug | Python clients, skill, and references | No | Client-only; requires the target project's feval/HybridCLR listener |
 
 The planned public UPM packages and migration constraints are documented in
@@ -83,7 +84,44 @@ checks pass on Unity 6000.3.16f1. The Unity 6.4+ branch follows the official
 `EntityId.ToULong` / `EntityId.FromULong` API and still requires compilation
 on a Unity 6.4 installation before release.
 
-### 3. feval-runtime-debug
+### 3. unity-lua-device-debug
+
+HTTP+JSON transport on port **21894** for Unity Lua runtime diagnostics in
+Editor and Android Development Build.
+
+- **Included here**: generic Unity package (`Packages/com.yoji.lua-device-debug`),
+  `client.py`, and skill under
+  `Packages/com.yoji.lua-device-debug/Agent~/skills/unity-lua-device-debug/`
+- **Docs**: [README.md](Packages/com.yoji.lua-device-debug/README.md) and
+  [SKILL.md](Packages/com.yoji.lua-device-debug/Agent~/skills/unity-lua-device-debug/SKILL.md)
+- **Compatibility**: Unity 6.3 LTS (`6000.3.x`), validated target
+  `6000.3.16f1`
+- **Boundary**: generic transport only; target projects must register an
+  `ILuaDeviceDebugHost` adapter for their Lua runtime
+
+**Install (Unity side)**: add to your project `Packages/manifest.json`:
+
+    "com.yoji.lua-device-debug": "file:<path-to-repo>/Packages/com.yoji.lua-device-debug"
+
+```bash
+cd Packages/com.yoji.lua-device-debug/Agent~/skills/unity-lua-device-debug
+python client.py ping
+python client.py commands
+python client.py execute config.get --arg table=Activity --arg id=1001
+```
+
+For Android Development Build:
+
+```bash
+python client.py adb-forward
+python client.py ping
+python client.py adb-remove
+```
+
+The package does not provide arbitrary Lua eval, C# reflection eval, Feval, or
+HybridCLR integration.
+
+### 4. feval-runtime-debug
 
 C# expression-evaluator clients for a feval TCP listener on port **9999**.
 They connect to a Unity/HybridCLR runtime in the Editor or on an Android
@@ -106,9 +144,9 @@ python feval-runtime-debug/scripts/feval_runtime_debug.py --host 127.0.0.1 --por
 
 ## Quick Start
 
-There is no repository-wide quick start yet; only unity-editor-debug-mcp ships
-its Unity-side package (see its install section above). For the remaining
-client-only tools:
+For UPM-backed tools, add the package path to the target Unity project's
+`Packages/manifest.json`, open the project, then run the matching `client.py`.
+For client-only tools:
 
 1. Install or enable the corresponding Unity-side service in the target project.
 2. Open the Unity project and verify that its listener is active.
@@ -120,11 +158,14 @@ client-only tools:
 |------|------|----------|
 | test-runner-mcp | 21890 | HTTP |
 | unity-editor-debug-mcp | 21891 (fallback 21892/21893) | HTTP+JSON |
+| unity-lua-device-debug | 21894 | HTTP+JSON |
 | feval-runtime-debug | 9999 | TCP (feval) |
 
 ## Requirements
 
-- Unity 2022.3+ (for the separately installed Editor-side services)
+- Unity 6000.3.16f1 for `unity-lua-device-debug`; existing Editor tools also
+  run on Unity 6000.3.16f1
 - Python 3.8+
 - HybridCLR (for feval-runtime-debug runtime expression evaluation)
-- Android: adb + port forwarding (`adb forward tcp:9999 tcp:9999`)
+- Android: adb + port forwarding (`adb forward tcp:21894 tcp:21894` for
+  `unity-lua-device-debug`; `tcp:9999` for feval-runtime-debug)

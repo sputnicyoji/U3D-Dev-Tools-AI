@@ -1,0 +1,9 @@
+{
+  "dependencies": {
+    "com.unity.test-framework": "1.5.1",
+    "com.yoji.lua-device-debug": "file:../../../Packages/com.yoji.lua-device-debug",
+    "com.unity.modules.imgui": "1.0.0",
+    "com.unity.modules.jsonserialize": "1.0.0"
+  },
+  "testables": ["com.yoji.lua-device-debug"]
+}

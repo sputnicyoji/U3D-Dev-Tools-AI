@@ -8,5 +8,6 @@ TestProjects/*/Assets/
 TestProjects/*/.vs/
 *.csproj
 *.sln
+_planning/
 __pycache__/
 *.pyc
