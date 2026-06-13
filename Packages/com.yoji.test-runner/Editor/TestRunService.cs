@@ -78,23 +78,14 @@ namespace Yoji.TestRunner
             // category/group 拼错。判为 error，避免「跑空 -> passed=0 -> 报 Passed」的假绿。
             var jobId = m_ActiveJobId;
             if (jobId == null || m_ActiveIsRunAll) return;
-            if (CountTestCases(testsToRun) > 0) return;
+            var planned = new List<string>();
+            CollectTestCaseNames(testsToRun, planned); // 计划树里的真实用例（非 suite）
+            if (planned.Count > 0) return;
             // 关键：清掉 m_ActiveJobId，使随后必到的 RunFinished 走早退路径，不会用同 jobId 调
             // CompleteJob 复用 m_Last 把 error 改回 completed/Passed（第二层假绿）。
             m_ActiveJobId = null;
             m_Failures = null;
             m_Jobs.FailJob(jobId, "filter matched 0 tests (check testNames/assemblyNames/categoryNames/groupNames)");
-        }
-
-        // 统计计划树里真实测试用例（非 suite）数；空 suite 不计。
-        private static int CountTestCases(ITestAdaptor t)
-        {
-            if (t == null) return 0;
-            if (!t.IsSuite) return 1;
-            int n = 0;
-            if (t.HasChildren)
-                foreach (var c in t.Children) n += CountTestCases(c);
-            return n;
         }
 
         public void TestStarted(ITestAdaptor test) { }

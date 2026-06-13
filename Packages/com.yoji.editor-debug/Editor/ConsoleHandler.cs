@@ -2,7 +2,6 @@ using System;
 using System.Collections.Generic;
 using System.Reflection;
 using Newtonsoft.Json.Linq;
-using UnityEditor;
 
 namespace Yoji.EditorDebug
 {
@@ -90,10 +89,8 @@ namespace Yoji.EditorDebug
             s_Resolved = true;
             try
             {
-                var asm = typeof(EditorApplication).Assembly;
-                var logEntries = asm.GetType("UnityEditor.LogEntries");
-                s_LogEntryType = asm.GetType("UnityEditor.LogEntry");
-                if (logEntries == null || s_LogEntryType == null)
+                if (!TypeResolver.TryResolve("UnityEditor.LogEntries", out var logEntries) ||
+                    !TypeResolver.TryResolve("UnityEditor.LogEntry", out s_LogEntryType))
                 {
                     err = "UnityEditor.LogEntries/LogEntry type not found";
                     return false;
@@ -129,15 +126,12 @@ namespace Yoji.EditorDebug
         private static string Classify(int mode)
             => (mode & k_ModeError) != 0 ? "Error" : (mode & k_ModeWarning) != 0 ? "Warning" : "Log";
 
-        private static bool PassesFilter(string type, string filter)
+        private static bool PassesFilter(string type, string filter) => filter switch
         {
-            switch (filter)
-            {
-                case "error": return type == "Error";
-                case "warning": return type == "Error" || type == "Warning";
-                default: return true; // all
-            }
-        }
+            "error" => type == "Error",
+            "warning" => type == "Error" || type == "Warning",
+            _ => true, // all
+        };
 
         private static T ReadField<T>(object obj, FieldInfo f)
         {
@@ -149,7 +143,7 @@ namespace Yoji.EditorDebug
         private static int ReadInt(JObject req, string key, int def)
         {
             var t = req?[key];
-            return t != null && (t.Type == JTokenType.Integer || t.Type == JTokenType.Float) ? t.Value<int>() : def;
+            return t != null && t.Type == JTokenType.Integer ? t.Value<int>() : def;
         }
     }
 }
