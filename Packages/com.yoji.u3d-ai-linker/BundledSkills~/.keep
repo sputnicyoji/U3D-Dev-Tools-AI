@@ -1,0 +1,7 @@
+# Placeholder so the transitional skill-only asset directory enters Git.
+# The ~ suffix keeps Unity from importing this folder as assets, while the
+# directory still ships in a git?path= install. LINK-0 (AgentAssetProbe)
+# probes whether this directory survives the Git Package Cache copy
+# (directory mode) vs needs zip-fallback. Empirically, editor-debug/test-runner
+# Agent~/ survive the cache on Unity 6000.3; BundledSkills~ (near-empty dir)
+# must be confirmed on a real git?path= install of the linker.

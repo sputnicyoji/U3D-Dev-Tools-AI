@@ -81,7 +81,7 @@
 
 ### TR-3 0 命中判错 + `/list-tests`
 
-(a) **0 命中守卫**：实现当前为空的 `RunStarted(ITestAdaptor testsToRun)`（`TestRunService.cs:66`），遍历 `testsToRun` 数实际叶子用例数；在 active run 上记 `IsRunAll` 以区分「故意空（run-all）」与「意外空（typo）」。若 `spec` 非 run-all（`TestNames/Assembly/Category/Group` 任一非空）但计划叶子数为 0，则 `m_Jobs.FailJob(jobId, "testNames matched 0 tests")`，`/test-status` 返 `status=error / overallResult=Error`。比在 `StartRun` 里先 `RetrieveTestList` 预校验简单（后者异步，复杂化同步 `StartRun`）。注意 `[Explicit]` fixture 的枚举语义需快速核（本包 `FixtureTests` 即 `[Explicit]`）。
+(a) **0 命中守卫**：实现当前为空的 `RunStarted(ITestAdaptor testsToRun)`（`TestRunService.cs:66`），遍历 `testsToRun` 数实际叶子用例数；在 active run 上记 `IsRunAll` 以区分「故意空（run-all）」与「意外空（typo）」。若 `spec` 非 run-all（`TestNames/Assembly/Category/Group` 任一非空）但计划叶子数为 0，则 `m_Jobs.FailJob(jobId, "testNames matched 0 tests")`，`/test-status` 返 `status=error / overallResult=Error`。**必须同时阻止后续 `RunFinished` 覆盖该 terminal error**：`RunStarted` 判 0 命中后清掉 `m_ActiveJobId` 或记录 `m_IgnoreRunFinishedJobId`，使晚到的 `RunFinished` 直接 return；否则现有 `JobStore.Target(jobId)` 会复用同 id 的 `m_Last`，`CompleteJob` 把 error 改回 completed/Passed，反而制造第二层假绿。比在 `StartRun` 里先 `RetrieveTestList` 预校验简单（后者异步，复杂化同步 `StartRun`）。注意 `[Explicit]` fixture 的枚举语义需快速核（本包 `FixtureTests` 即 `[Explicit]`）。
 
 (b) **`/list-tests` 发现端点**：`Route`（`TestRunnerMCP.cs:124-136`）加 `case "/list-tests"`，从 QueryString 取 `mode`（默认 EditMode，PlayMode 像 `/run-tests` 一样拒），在 `TestRunService` 上包一层调 `m_Api.RetrieveTestList(mode, root => ...)`，主线程跑、用 `ManualResetEvent` 或现有 `MainThreadDispatcher` 模式 marshal 回 HTTP 线程，扁平化叶子 `FullName` 成 `JArray`，返 `200 {tests:[...], count:N}`。大套件只回名字、不回 metadata。
 
@@ -89,11 +89,11 @@
 
 ### TR-4 端口修正
 
-`TestRunnerMCP.cs:20` 改为 `{ 21890, 21896, 21897 }`（确认 21896/21897 无第三个兄弟包占用；editor-debug 用 21891-21893）。同步改两处人面字符串：`TestRunnerMCP.cs:63` 的 LogError、class 顶部 XML doc（line 13），否则它们会说谎。lua-device-debug 的固定 21894 不动。无测试依赖 fallback 值。
+`TestRunnerMCP.cs:20` 改为 `{ 21890, 21896, 21897 }`（确认 21896/21897 无第三个兄弟包占用；editor-debug 用 21891-21893）。同步改所有人面字符串：`TestRunnerMCP.cs:63` 的 LogError、class 顶部 XML doc（line 13）、`Agent~/skills/test-runner-mcp/client.py` 顶部示例里误导性的 `--port 21894`、包内 `SKILL.md` 服务地址说明、repo 根 `README.md` 端口表。否则 agent 文档仍会把人引向冲突端口。lua-device-debug 的固定 21894 不动。无测试依赖 fallback 值。
 
 ### TR-1 PlayMode（分路径）
 
-**先 spike TR-1a。** `EditorSettings.asset` 已是 `m_EnterPlayModeOptionsEnabled: 1` 但 `m_EnterPlayModeOptions: 0`（None），即 fast-enter-playmode 已开、DisableDomainReload flag 未置。做法：`spec.TestMode == "PlayMode"` 时，进 run 前 snapshot 用户当前 `EditorSettings.enterPlayModeOptions`，设为 `EnterPlayModeOptions.DisableDomainReload`（可叠 `DisableSceneReload`），`RunFinished` 时还原；同时 `BuildFilter` 按 `spec.TestMode` 选 `TestMode.PlayMode`；移除 `TestRunnerMCP.cs:157-158` 的 400。因为不发生重载，现有 field-based `m_ActiveJobId` 与 `EnsureRegistered/RunFinished` 路径原样工作。务必 per-run scoped 改设置（非项目级），并对「`RunFinished` 不触发」加超时还原，避免污染用户 Editor 配置。前置守卫：`EditorApplication.isPlaying` 或脏未存场景时拒（409/400）。SKILL.md 注明 caveat：依赖静态状态跨域重置的测试在 DisableDomainReload 下行为不同（test-authoring 问题）。
+**先 spike TR-1a。** `EditorSettings.asset` 已是 `m_EnterPlayModeOptionsEnabled: 1` 但 `m_EnterPlayModeOptions: 0`（None），即 fast-enter-playmode 已开、DisableDomainReload flag 未置。做法：`spec.TestMode == "PlayMode"` 时，进 run 前同时 snapshot 用户当前 `EditorSettings.enterPlayModeOptionsEnabled` 与 `EditorSettings.enterPlayModeOptions`，临时设 `enterPlayModeOptionsEnabled = true`，并用 `oldOptions | EnterPlayModeOptions.DisableDomainReload` 叠加 flag（不要直接赋值丢掉用户已有选项；`DisableSceneReload` 只作为可选 spike 变量）。`RunFinished` 时完整还原两个设置；同时 `BuildFilter` 按 `spec.TestMode` 选 `TestMode.PlayMode`；移除 `TestRunnerMCP.cs:157-158` 的 400。因为不发生重载，现有 field-based `m_ActiveJobId` 与 `EnsureRegistered/RunFinished` 路径原样工作。务必 per-run scoped 改设置（非项目级），并对「`RunFinished` 不触发」加超时还原，避免污染用户 Editor 配置。前置守卫：`EditorApplication.isPlaying` 或脏未存场景时拒（409/400）。SKILL.md 注明 caveat：依赖静态状态跨域重置的测试在 DisableDomainReload 下行为不同（test-authoring 问题）。
 
 **仅当 DisableDomainReload 被判不可接受、且 live spike 证明 `RunFinished` 跨重载存活，才建 TR-1b + TR-1c：**
 
@@ -102,13 +102,13 @@
 
 ### ED-1 `/console`
 
-`EditorDebugMCP.Route`（line 105）加 `case "/console"` -> `RunOnMain(() => ConsoleHandler.Read(req))`。新建 `ConsoleHandler.cs`（主线程，`LogEntries` 是 editor-internal、仅主线程）：`int count = LogEntries.StartGettingEntries();` -> `for i in [max(0,count-N), count): var entry = new LogEntry(); LogEntries.GetEntryInternal(i, entry);` 读 `entry.message / entry.mode（int bitmask -> Error/Warning/Log）/ entry.line / entry.file / entry.instanceID` -> `LogEntries.EndGettingEntries();`，组 `JArray of {message,type,stackTrace,file,line}`。请求参数 `{count?:int=50, filter?:'error'|'warning'|'all'='all', includeStack?:bool}`。复用现有 `{ok,elapsedMs,result}` 信封，零协议改动。
+`EditorDebugMCP.Route`（line 105）加 `case "/console"` -> `RunOnMain(() => ConsoleHandler.Read(req))`。新建 `ConsoleHandler.cs`（主线程，`LogEntries` 是 editor-internal、仅主线程）：`int count = LogEntries.StartGettingEntries();` -> `for i in [max(0,count-N), count): var entry = new LogEntry(); LogEntries.GetEntryInternal(i, entry);` 读 `entry.message / entry.mode（int bitmask -> Error/Warning/Log）/ entry.line / entry.file / entry.instanceID` -> `LogEntries.EndGettingEntries();`，组 `JArray of {message,type,file,line,instanceID,stackTrace?}`。请求参数 `{count?:int=50, filter?:'error'|'warning'|'all'='all', includeStack?:bool}`。复用现有 `{ok,elapsedMs,result}` 信封，零协议改动。
 
-风险点：内部 API 形状（`StartGettingEntries/GetEntryInternal/EndGettingEntries` 与 `LogEntry` 字段名）随 Unity 版本敏感、无文档。缓解：全程经反射解析（不硬类型引用）、单条不可读时返 `{__unavailable:reason}` 而非抛、`Start/End` 必须 `try/finally` 配对否则 Console UI 会楔死。配套替换 `api-cookbook.md` #2 里那段「awkward dance」笔记。
+风险点：内部 API 形状（`StartGettingEntries/GetEntryInternal/EndGettingEntries` 与 `LogEntry` 字段名）随 Unity 版本敏感、无文档。Unity 6000.3.16f1 反射可见 `LogEntry` 有 `message/file/line/column/mode/instanceID/identifier/globalLineIndex/callstackTextStart*`，**没有稳定的 `stackTrace` 字段**，所以 `includeStack` 只能 best-effort：找得到可读 callstack 时填 `stackTrace`，找不到则省略或置 `null`，不得因栈不可用让 `/console` 整体失败。缓解：全程经反射解析（不硬类型引用）、单条不可读时返 `{__unavailable:reason}` 而非抛、`Start/End` 必须 `try/finally` 配对否则 Console UI 会楔死。配套替换 `api-cookbook.md` #2 里那段「awkward dance」笔记。
 
 ### ED-5 `/ping` 编辑器态
 
-扩 `Ping()`（`EditorDebugMCP.cs:126-133`）加 `isPlaying / isPaused / isCompiling / isUpdating / timeSinceStartup`。注意 `EditorApplication.is*` 仅主线程可读，而 `/ping` 当前在 HTTP 线程内联构信封（Route line 110，非经 `RunOnMain`）。**采用缓存 bool 方案**（零跳、线程安全，镜像 `RecompileHandler` 缓存 `s_CompilationStarted` 的做法）：在静态 ctor 订阅 `EditorApplication.update` 与 `playModeStateChanged`，把三个 bool 写进 volatile 字段，`Ping` 直接读。约 15 行，`protocol.md` 补字段说明。
+扩 `Ping()`（`EditorDebugMCP.cs:126-133`）加 `isPlaying / isPaused / isCompiling / isUpdating / timeSinceStartup`。注意 `EditorApplication.is*` 与 `EditorApplication.timeSinceStartup` 都按主线程 API 处理，而 `/ping` 当前在 HTTP 线程内联构信封（Route line 110，非经 `RunOnMain`）。**采用缓存方案**（零跳、线程安全，镜像 `RecompileHandler` 缓存 `s_CompilationStarted` 的做法）：在静态 ctor 订阅 `EditorApplication.update` 与 `playModeStateChanged`，把 bool 与 `timeSinceStartup` 写进 volatile/locked 字段，`Ping` 只读缓存；或把时间改为 `DateTimeOffset.UtcNow` 这类线程安全时间源，但不要在 HTTP 线程直读 `EditorApplication.timeSinceStartup`。约 15 行，`protocol.md` 补字段说明。
 
 ### ED-2 `/batch`
 
@@ -182,10 +182,10 @@ asmdef：core 为 Editor-only、仅依赖 newtonsoft-json；两工具 package.js
 ## 验证（落地后须覆盖）
 
 - TR-2：单测 `FailureDetail` round-trip 与 leaf/suite 不双计数；e2e case 03 断言 `failures[0].message` 含预期串。
-- TR-3：e2e 加「bogus testName -> `status=error`」用例；核 `[Explicit]` fixture 的 `RunStarted` 枚举语义。
-- TR-4：确认 21896/21897 无第三方占用；21890 主路径不变。
-- TR-1a：live PlayMode e2e（pass + fail 各一）证明 DisableDomainReload 下正确收尾且用户 `EditorSettings` 被还原。
-- ED-1：内部 API 经反射解析、不可用降级、`Start/End` 配对；cookbook 替换旧笔记。
-- ED-5：缓存 bool 与 `playModeStateChanged` 订阅，HTTP 线程读不触碰主线程 API。
+- TR-3：e2e 加「bogus testName -> `status=error`」用例，并断言后续轮询不会被晚到 `RunFinished` 改回 completed/Passed；核 `[Explicit]` fixture 的 `RunStarted` 枚举语义。
+- TR-4：确认 21896/21897 无第三方占用；21890 主路径不变；C# 日志、client 示例、SKILL.md、README 端口说明全同步。
+- TR-1a：live PlayMode e2e（pass + fail 各一）证明 DisableDomainReload 下正确收尾，且 `enterPlayModeOptionsEnabled` 与 `enterPlayModeOptions` 都被还原。
+- ED-1：内部 API 经反射解析、不可用降级、`Start/End` 配对；Unity 6000.3.16f1 下 `stackTrace` 缺失时不失败；cookbook 替换旧笔记。
+- ED-5：缓存 bool、`timeSinceStartup` 与 `playModeStateChanged` 订阅，HTTP 线程读不触碰主线程 API。
 - ED-2：单批一跳验证、`SerializeRaw` 两路径不发散、`>64` 拒绝、4MB 截断行为。
 - ARCH-1：两包 EditMode + e2e 全套在 6000.3.16f1 通过为无回归门禁；dispatcher 移动与 host/recompile 抽取分别验证。

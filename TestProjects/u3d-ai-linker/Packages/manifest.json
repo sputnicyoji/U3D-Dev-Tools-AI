@@ -1,0 +1,10 @@
+{
+  "dependencies": {
+    "com.unity.test-framework": "1.5.1",
+    "com.unity.nuget.newtonsoft-json": "3.2.2",
+    "com.yoji.u3d-ai-linker": "file:../../../Packages/com.yoji.u3d-ai-linker",
+    "com.unity.modules.imgui": "1.0.0",
+    "com.unity.modules.jsonserialize": "1.0.0"
+  },
+  "testables": ["com.yoji.u3d-ai-linker"]
+}

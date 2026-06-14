@@ -3,18 +3,22 @@
 Unity3D development-tool assets for AI-assisted workflows.
 
 > [!IMPORTANT]
-> This repository is currently a migration workspace. The unity-editor-debug-mcp
-> test-runner-mcp, and lua-device-debug Unity-side services are now included as
-> UPM packages. This toolset targets non-HybridCLR Unity projects; the old
+> This repository is a migration workspace. The unity-editor-debug-mcp,
+> test-runner-mcp, and lua-device-debug Unity-side services live here as
+> in-repo UPM source packages under `Packages/com.yoji.*`. They are NOT yet
+> published as public, Git-URL-installable UPM packages and carry no release
+> tags; today they are consumed via a local `file:` manifest entry. A planned
+> U3D AI Linker will orchestrate their public install once each tool reaches
+> the `ready` state. This toolset targets non-HybridCLR Unity projects; the old
 > client-only runtime expression debugger asset has been removed.
 
 ## Current Status
 
-| Tool | Agent-side assets in this repo | Unity-side service in this repo | Status |
+| Tool | Agent-side assets in this repo | Unity-side service in this repo | Status (in-repo `file:`, not yet public UPM) |
 |------|--------------------------------|---------------------------------|--------|
-| test-runner-mcp | Python client, skill, and references | Yes (`Packages/com.yoji.test-runner`) | Usable (EditMode only; PlayMode planned); verified on Unity 6000.3.16f1 |
-| unity-editor-debug-mcp | Python client, skill, and references | Yes (`Packages/com.yoji.editor-debug`) | Usable; verified on Unity 6000.3.16f1 |
-| unity-lua-device-debug | Python client and skill | Yes (`Packages/com.yoji.lua-device-debug`) | Transport package started; targets Unity 6000.3.16f1; project Lua adapter still required |
+| test-runner-mcp | Python client, skill, and references | Yes (`Packages/com.yoji.test-runner`) | Works via `file:` (EditMode only; PlayMode planned); verified on Unity 6000.3.16f1; Registry status: skill-only |
+| unity-editor-debug-mcp | Python client, skill, and references | Yes (`Packages/com.yoji.editor-debug`) | Works via `file:`; verified on Unity 6000.3.16f1; Registry status: skill-only |
+| unity-lua-device-debug | Python client and skill | Yes (`Packages/com.yoji.lua-device-debug`) | Transport-only via `file:`; targets Unity 6000.3.16f1; project Lua adapter still required; Registry status: planned |
 
 The planned public UPM packages and migration constraints are documented in
 [the U3D AI Linker design](docs/superpowers/specs/2026-06-12-u3d-ai-linker-design.md).
@@ -129,7 +133,7 @@ open the project, then run the matching `client.py`.
 
 | Tool | Port | Protocol |
 |------|------|----------|
-| test-runner-mcp | 21890 | HTTP |
+| test-runner-mcp | 21890 (fallback 21896/21897) | HTTP |
 | unity-editor-debug-mcp | 21891 (fallback 21892/21893) | HTTP+JSON |
 | unity-lua-device-debug | 21894 | HTTP+JSON |
 
