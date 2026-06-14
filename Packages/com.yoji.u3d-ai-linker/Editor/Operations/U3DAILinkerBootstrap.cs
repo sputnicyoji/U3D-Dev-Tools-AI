@@ -15,6 +15,11 @@ namespace Yoji.U3DAILinker.Operations
             if (log.CurrentIndex < 0 || log.CurrentIndex >= log.DependencyChanges.Count) return false;
             return log.Phase == OperationPhase.Pending || log.Phase == OperationPhase.PackageRequested;
         }
+
+        public static bool ShouldScheduleFollowUp(QueueStepResult result)
+        {
+            return false;
+        }
     }
 
     /// 域重载恢复入口。[InitializeOnLoad] 在每次域加载后运行静态构造，
@@ -46,9 +51,9 @@ namespace Yoji.U3DAILinker.Operations
             var runner = new UpmQueueRunner(store, new UnityUpmClient(), new UnityInstalledPackageProbe());
             var result = runner.Advance(log);
 
-            // Requested 表示又发了一次 Add：它可能触发新一轮域重载，
-            // 下次加载时本静态构造会再次运行并从落盘日志接续，无需在此自旋等待。
-            if (result == QueueStepResult.Requested)
+            // Requested 表示已经发出 Add。不要下一帧自旋探测；UPM 请求仍可能进行中。
+            // 域重载后静态构造会重新进入恢复路径，或由后续显式 Retry/Resume 接续。
+            if (RecoveryReconciler.ShouldScheduleFollowUp(result))
                 EditorApplication.delayCall += TryResume;
         }
 

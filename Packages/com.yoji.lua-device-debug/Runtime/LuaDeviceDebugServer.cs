@@ -17,6 +17,7 @@ namespace Yoji.LuaDeviceDebug
     {
         private readonly int m_Port;
         private readonly int m_TimeoutMs;
+        private const int k_MaxHeaderLineBytes = 8192;
         private TcpListener m_Listener;
         private Thread m_Thread;
         private volatile bool m_Running;
@@ -293,7 +294,11 @@ namespace Yoji.LuaDeviceDebug
                 var key = line.Substring(0, colon).Trim();
                 var value = line.Substring(colon + 1).Trim();
                 if (string.Equals(key, "Content-Length", StringComparison.OrdinalIgnoreCase))
-                    contentLength = int.Parse(value, CultureInfo.InvariantCulture);
+                {
+                    if (!int.TryParse(value, NumberStyles.Integer, CultureInfo.InvariantCulture, out contentLength) ||
+                        contentLength < 0)
+                        throw new LuaDeviceDebugException(400, "INVALID_REQUEST", "invalid Content-Length");
+                }
             }
 
             if (contentLength > JsonGuard.MaxRequestBytes)
@@ -323,7 +328,11 @@ namespace Yoji.LuaDeviceDebug
                 if (value == '\n')
                     break;
                 if (value != '\r')
+                {
                     bytes.WriteByte((byte)value);
+                    if (bytes.Length > k_MaxHeaderLineBytes)
+                        throw new LuaDeviceDebugException(400, "INVALID_REQUEST", "HTTP header line exceeds limit");
+                }
             }
             return Encoding.ASCII.GetString(bytes.ToArray());
         }
@@ -344,8 +353,25 @@ namespace Yoji.LuaDeviceDebug
 
         private static void WriteResponseSafe(TcpClient client, int status, JObject body)
         {
-            try { WriteResponse(client.GetStream(), status, body); }
+            try
+            {
+                DrainAvailable(client);
+                WriteResponse(client.GetStream(), status, body);
+            }
             catch (Exception) { }
+        }
+
+        private static void DrainAvailable(TcpClient client)
+        {
+            var stream = client.GetStream();
+            var buffer = new byte[1024];
+            var remaining = 8192;
+            while (client.Available > 0 && remaining > 0)
+            {
+                var read = stream.Read(buffer, 0, Math.Min(buffer.Length, remaining));
+                if (read <= 0) break;
+                remaining -= read;
+            }
         }
 
         private static void WriteResponse(Stream stream, int status, JObject body)

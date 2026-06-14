@@ -12,6 +12,7 @@ namespace Yoji.U3DAILinker.Settings
     internal static class U3DAILinkerSettingsProvider
     {
         internal const string ProviderPath = U3DAILinkerPackage.SettingsPath;
+        internal const bool ActionsWired = false;
 
         private static U3DAILinkerSettings _project;
         private static U3DAILinkerUserSettings _user;
@@ -168,7 +169,14 @@ namespace Yoji.U3DAILinker.Settings
         private static void DrawActionSection()
         {
             EditorGUILayout.LabelField("Actions", EditorStyles.boldLabel);
-            using (new EditorGUI.DisabledScope(_operationState == OperationState.Running))
+            if (!ActionsWired)
+            {
+                EditorGUILayout.HelpBox(
+                    "This build exposes registry/settings state only. Install, sync, repair, and rollback wiring is not connected yet.",
+                    MessageType.Info);
+            }
+
+            using (new EditorGUI.DisabledScope(!AreActionButtonsEnabled(_operationState)))
             using (new EditorGUILayout.VerticalScope())
             {
                 if (GUILayout.Button("Refresh Registry")) RequestRefreshRegistry();
@@ -180,6 +188,11 @@ namespace Yoji.U3DAILinker.Settings
                 if (GUILayout.Button("Open Generated Folder")) RequestOpenFolder();
                 if (GUILayout.Button("Copy Diagnostic Report")) RequestCopyDiagnostics();
             }
+        }
+
+        internal static bool AreActionButtonsEnabled(OperationState state)
+        {
+            return ActionsWired && state != OperationState.Running;
         }
 
         // --- 外部子系统注入点(由组装阶段接线;此切片提供默认空实现以保证编译与手动验证)。---

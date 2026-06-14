@@ -87,6 +87,9 @@ python client.py --timeout 120 recompile
 
 ## Phase C 验证：/eval
 
+`/eval` 默认关闭。若要验证轻量表达式解析器，先在 `EditorDebugMCP.cs` 临时改
+`c_AllowEval = true` 并重编译；验证后改回 `false`。
+
 ```bash
 python client.py eval --code "UnityEditor.EditorApplication.applicationPath"
 python client.py eval --code "UnityEditor.LogEntries.GetCount()"

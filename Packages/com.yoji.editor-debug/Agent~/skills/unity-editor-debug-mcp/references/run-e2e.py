@@ -169,35 +169,32 @@ def cases() -> list[TestCase]:
         ),
         # ===== /eval =====
         TestCase(
-            name="10 /eval property access",
+            name="10 /eval disabled by default (property access)",
             endpoint="/eval",
             payload={"code": "UnityEditor.EditorApplication.applicationPath"},
-            extra_check=lambda r: None
-            if isinstance(r.get("result"), str) and len(r["result"]) > 0
-            else f"expect non-empty string, got {r.get('result')!r}",
+            expect_ok=False,
+            expect_error_type="System.NotSupportedException",
         ),
         TestCase(
-            name="11 /eval method call",
+            name="11 /eval disabled by default (method call)",
             endpoint="/eval",
             payload={"code": "UnityEditor.LogEntries.GetCount()"},
-            extra_check=lambda r: None
-            if isinstance(r.get("result"), int)
-            else f"expect int, got {type(r.get('result')).__name__}",
+            expect_ok=False,
+            expect_error_type="System.NotSupportedException",
         ),
         TestCase(
-            name="12 /eval chained access",
+            name="12 /eval disabled by default (chained access)",
             endpoint="/eval",
             payload={"code": "UnityEditor.EditorApplication.applicationPath.Length"},
-            extra_check=lambda r: None
-            if isinstance(r.get("result"), int) and r["result"] > 0
-            else f"expect int>0, got {r.get('result')!r}",
+            expect_ok=False,
+            expect_error_type="System.NotSupportedException",
         ),
         TestCase(
-            name="13 /eval syntax error returns FormatException",
+            name="13 /eval disabled before parsing syntax errors",
             endpoint="/eval",
             payload={"code": 'UnityEditor.LogEntries.GetCount("unterminated'},
             expect_ok=False,
-            expect_error_type="System.FormatException",
+            expect_error_type="System.NotSupportedException",
         ),
         # ===== /ping editor state (ED-5) =====
         TestCase(

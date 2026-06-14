@@ -102,11 +102,8 @@ namespace Yoji.TestRunner
                 JObject req = null;
                 if (method == "POST")
                 {
-                    using (var reader = new StreamReader(ctx.Request.InputStream, Encoding.UTF8))
-                    {
-                        var raw = reader.ReadToEnd();
-                        req = string.IsNullOrWhiteSpace(raw) ? new JObject() : JObject.Parse(raw);
-                    }
+                    var raw = RequestBodyReader.ReadUtf8(ctx.Request.InputStream, ctx.Request.ContentLength64);
+                    req = string.IsNullOrWhiteSpace(raw) ? new JObject() : JObject.Parse(raw);
                 }
                 (status, body) = Route(path, method, req, ctx.Request.QueryString);
             }
@@ -114,6 +111,11 @@ namespace Yoji.TestRunner
             {
                 status = 400;
                 body = Err("bad JSON: " + e.Message);
+            }
+            catch (InvalidDataException e)
+            {
+                status = 413;
+                body = Err(e.Message);
             }
             catch (Exception e)
             {

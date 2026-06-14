@@ -122,6 +122,33 @@ namespace Yoji.LuaDeviceDebug.Tests
             Assert.AreEqual(0, m_Host.DescribeCount);
         }
 
+        [Test]
+        public void MalformedContentLength_ReturnsBadRequest()
+        {
+            var response = RawRequest(
+                "POST /ping HTTP/1.1\r\n" +
+                "Host: 127.0.0.1\r\n" +
+                "Content-Length: nope\r\n" +
+                "\r\n");
+
+            Assert.AreEqual(400, response.Status);
+            Assert.AreEqual("INVALID_REQUEST", response.Body["error"].Value<string>("code"));
+        }
+
+        [Test]
+        public void OversizedHeaderLine_ReturnsBadRequest()
+        {
+            var response = RawRequest(
+                "POST /ping HTTP/1.1\r\n" +
+                "Host: 127.0.0.1\r\n" +
+                "X-Large: " + new string('x', 9000) + "\r\n" +
+                "Content-Length: 2\r\n" +
+                "\r\n{}");
+
+            Assert.AreEqual(400, response.Status);
+            Assert.AreEqual("INVALID_REQUEST", response.Body["error"].Value<string>("code"));
+        }
+
         private IEnumerator PostAsync(string path, string json, Action<HttpResult> onResult)
         {
             Exception error = null;
@@ -164,6 +191,35 @@ namespace Yoji.LuaDeviceDebug.Tests
             {
                 using (var response = (HttpWebResponse)e.Response)
                     return ReadResponse(response);
+            }
+        }
+
+        private HttpResult RawRequest(string raw)
+        {
+            using (var client = new TcpClient())
+            {
+                client.Connect(IPAddress.Loopback, m_Port);
+                client.ReceiveTimeout = 5000;
+                client.SendTimeout = 5000;
+                var bytes = Encoding.ASCII.GetBytes(raw);
+                using (var stream = client.GetStream())
+                {
+                    stream.Write(bytes, 0, bytes.Length);
+                    client.Client.Shutdown(SocketShutdown.Send);
+                    using (var reader = new StreamReader(stream, Encoding.UTF8))
+                    {
+                        var statusLine = reader.ReadLine();
+                        Assert.IsNotNull(statusLine);
+                        var parts = statusLine.Split(' ');
+                        var status = int.Parse(parts[1]);
+
+                        string line;
+                        while (!string.IsNullOrEmpty(line = reader.ReadLine())) { }
+
+                        var body = reader.ReadToEnd();
+                        return new HttpResult(status, JObject.Parse(body));
+                    }
+                }
             }
         }
 

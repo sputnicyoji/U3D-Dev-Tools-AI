@@ -38,5 +38,12 @@ namespace Yoji.U3DAILinker.Tests
             SettingsProvider provider = U3DAILinkerSettingsProvider.CreateProvider();
             Assert.AreEqual(U3DAILinkerPackage.DisplayName, provider.label);
         }
+
+        [Test]
+        public void Actions_DefaultToDisabledUntilWired()
+        {
+            Assert.IsFalse(U3DAILinkerSettingsProvider.ActionsWired);
+            Assert.IsFalse(U3DAILinkerSettingsProvider.AreActionButtonsEnabled(OperationState.Idle));
+        }
     }
 }

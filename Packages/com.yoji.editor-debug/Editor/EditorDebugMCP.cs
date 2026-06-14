@@ -1,5 +1,4 @@
 using System;
-using System.IO;
 using System.Net;
 using System.Text;
 using System.Threading;
@@ -15,7 +14,7 @@ namespace Yoji.EditorDebug
     internal static class EditorDebugMCP
     {
         private const string k_Version = "0.1.0";
-        private static readonly bool c_AllowEval = true; // 关闭 /eval 改成 false
+        private static readonly bool c_AllowEval = false; // 需要 /eval 时显式改成 true
         private const int k_MaxBodyBytes = 4 * 1024 * 1024;
         private static readonly int[] k_Ports = { 21891, 21892, 21893 };
 
@@ -89,9 +88,7 @@ namespace Yoji.EditorDebug
             JObject envelope;
             try
             {
-                string body;
-                using (var reader = new StreamReader(ctx.Request.InputStream, Encoding.UTF8))
-                    body = reader.ReadToEnd();
+                var body = RequestBodyReader.ReadUtf8(ctx.Request.InputStream, ctx.Request.ContentLength64);
                 var req = string.IsNullOrWhiteSpace(body) ? new JObject() : JObject.Parse(body);
                 envelope = Route(ctx.Request.Url.AbsolutePath, req);
             }

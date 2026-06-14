@@ -50,5 +50,14 @@ namespace Yoji.U3DAILinker.Tests.Operations
             log.CurrentIndex = 5; // 越界（不应恢复，交由完成/失败处理）
             Assert.IsFalse(RecoveryReconciler.ShouldResume(log));
         }
+
+        [Test] public void ShouldScheduleFollowUp_Requested_False()
+            => Assert.IsFalse(RecoveryReconciler.ShouldScheduleFollowUp(QueueStepResult.Requested));
+
+        [Test] public void ShouldScheduleFollowUp_Faulted_False()
+            => Assert.IsFalse(RecoveryReconciler.ShouldScheduleFollowUp(QueueStepResult.Faulted));
+
+        [Test] public void ShouldScheduleFollowUp_AlreadySatisfied_False()
+            => Assert.IsFalse(RecoveryReconciler.ShouldScheduleFollowUp(QueueStepResult.AlreadySatisfied));
     }
 }
