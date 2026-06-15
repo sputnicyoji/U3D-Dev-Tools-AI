@@ -8,12 +8,13 @@ using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using UnityEditor;
 using UnityEngine;
+using Yoji.EditorCore;
 
 namespace Yoji.TestRunner
 {
     /// TestRunnerMCP HTTP 服务。端口 21890（fallback 21896/21897），只绑 127.0.0.1。
     /// 真 HTTP 状态码 + 每端点独立 JSON 形状（与 editor-debug 恒 200 flat envelope 不同）。
-    /// 阶段 1 仅 EditMode；PlayMode 在 /run-tests 被拒（400）。
+    /// EditMode 直接跑；PlayMode 经临时叠加 EnterPlayModeOptions.DisableDomainReload 跑（TR-1a），run 结束还原用户设置。
     [InitializeOnLoad]
     internal static class TestRunnerMCP
     {
@@ -30,9 +31,7 @@ namespace Yoji.TestRunner
 
         static TestRunnerMCP()
         {
-            EditorApplication.delayCall += Start;
-            AssemblyReloadEvents.beforeAssemblyReload += Stop;
-            EditorApplication.quitting += Stop;
+            EditorServiceLifecycle.Bind(Start, Stop);
         }
 
         private static void Start()
@@ -159,9 +158,6 @@ namespace Yoji.TestRunner
             try { spec = TestFilterBuilder.Parse(req ?? new JObject()); }
             catch (ArgumentException e) { return (400, Err(e.Message)); }
 
-            if (spec.TestMode == "PlayMode")
-                return (400, Err("PlayMode is not supported in phase 1 (EditMode only)"));
-
             try
             {
                 var jobId = (string)MainThreadDispatcher.Run(() => s_Service.StartRun(spec), out _);
@@ -173,9 +169,10 @@ namespace Yoji.TestRunner
                     ["message"] = "测试已发起，请轮询 /test-status?jobId=" + jobId,
                 });
             }
-            catch (InvalidOperationException)
+            catch (InvalidOperationException e)
             {
-                return (409, Err("a test run or compilation is already in progress"));
+                // 含：run/编译进行中（JobStore）、已在 Play 中、脏场景未存（PlayMode 前置守卫）。
+                return (409, Err(e.Message));
             }
             catch (Exception e)
             {
@@ -191,12 +188,12 @@ namespace Yoji.TestRunner
             return (200, JobJson(rec));
         }
 
-        // 发现端点：列出可跑的 EditMode 测试用例全名。PlayMode 同 /run-tests 一样拒（阶段 1）。
+        // 发现端点：列出可跑的测试用例全名（EditMode 或 PlayMode；仅枚举，不进 Play）。
         private static (int status, JObject body) ListTests(string mode)
         {
             var m = string.IsNullOrEmpty(mode) ? "EditMode" : mode;
-            if (m != "EditMode")
-                return (400, Err("mode '" + m + "' not supported in phase 1 (EditMode only)"));
+            if (m != "EditMode" && m != "PlayMode")
+                return (400, Err("mode '" + m + "' must be EditMode or PlayMode"));
             try
             {
                 var names = s_Service.ListTests(m);

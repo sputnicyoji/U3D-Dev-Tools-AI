@@ -51,7 +51,7 @@ namespace Yoji.TestRunner.Tests
 
         [Test] public void Parse_PlayMode_Accepted_AtParseLayer()
         {
-            // 解析层接受 PlayMode；阶段 1 的拒绝在 HTTP handler 层做
+            // 解析层接受 PlayMode；运行层负责 PlayMode 前置守卫和设置作用域
             var s = P("{\"testMode\":\"PlayMode\",\"testNames\":[\"A.B.C\"]}");
             Assert.AreEqual("PlayMode", s.TestMode);
         }

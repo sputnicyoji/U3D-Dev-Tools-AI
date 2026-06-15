@@ -6,6 +6,7 @@ using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using UnityEditor;
 using UnityEngine;
+using Yoji.EditorCore;
 
 namespace Yoji.EditorDebug
 {
@@ -25,9 +26,7 @@ namespace Yoji.EditorDebug
 
         static EditorDebugMCP()
         {
-            EditorApplication.delayCall += Start;
-            AssemblyReloadEvents.beforeAssemblyReload += Stop;
-            EditorApplication.quitting += Stop;
+            EditorServiceLifecycle.Bind(Start, Stop);
         }
 
         private static void Start()

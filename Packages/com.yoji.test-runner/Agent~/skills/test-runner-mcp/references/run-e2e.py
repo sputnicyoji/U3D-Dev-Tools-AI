@@ -99,8 +99,10 @@ def main(argv):
     code, _ = post(base, "/run-tests", {"testNames": [PASS_FIX]})
     check("04 missing testMode -> 400", code == 400, f"code={code}")
 
-    code, _ = post(base, "/run-tests", {"testMode": "PlayMode", "testNames": [PASS_FIX]})
-    check("05 PlayMode -> 400 (phase 1)", code == 400, f"code={code}")
+    code, _, st = run_and_wait(base, {"testMode": "PlayMode", "testNames": ["Bogus.NoSuch.PlayModeTest_xyz"]})
+    check("05 PlayMode no-match -> accepted then status=error",
+          code == 202 and bool(st) and st.get("status") == "error" and st.get("overallResult") == "Error",
+          f"code={code} st={st}")
 
     code, _ = get(base, "/test-status?jobId=deadbeefdeadbeefdeadbeefdeadbeef")
     check("06 unknown jobId -> 404", code == 404, f"code={code}")
@@ -127,8 +129,10 @@ def main(argv):
     check("09 /list-tests -> count>0 contains a known test (TR-3b)",
           code9 == 200 and (body9.get("count") or 0) > 0 and any("JobStoreTests" in t for t in tests9),
           f"code={code9} count={body9.get('count')}")
-    code9p, _ = get(base, "/list-tests?mode=PlayMode")
-    check("09b /list-tests PlayMode -> 400", code9p == 400, f"code={code9p}")
+    code9p, body9p = get(base, "/list-tests?mode=PlayMode")
+    check("09b /list-tests PlayMode -> 200 with test list",
+          code9p == 200 and isinstance(body9p.get("tests"), list) and isinstance(body9p.get("count"), int),
+          f"code={code9p} body={body9p}")
 
     if args.include_recompile:
         code, body = get(base, "/recompile", timeout=200)

@@ -3,13 +3,16 @@ using System.Collections.Generic;
 using System.IO;
 using System.Threading;
 using System.Xml;
+using UnityEditor;
+using UnityEditor.SceneManagement;
 using UnityEditor.TestTools.TestRunner.Api;
 using UnityEngine;
+using Yoji.EditorCore;
 
 namespace Yoji.TestRunner
 {
     /// TestRunnerApi 持有 + 单一 ICallbacks 收集器 + Execute + RunFinished 收尾。
-    /// 阶段 1 仅 EditMode（PlayMode 在 HTTP handler 层已拒）。
+    /// 运行 EditMode/PlayMode 测试，并把 Unity Test Runner 回调映射为 JobStore 状态。
     /// RunFinished 是唯一可靠完成信号：在此写 NUnit XML + 通过 JobStore 落 JSON 状态。
     internal sealed class TestRunService : ICallbacks
     {
@@ -22,6 +25,10 @@ namespace Yoji.TestRunner
         private string m_ActiveJobId;
         private bool m_ActiveIsRunAll;           // 当前 run 是否 run-all（决定 0 命中是否判错）
         private List<FailureDetail> m_Failures;  // 当前 run 的失败详情，StartRun 重置、TestFinished 累积
+        // TR-1a PlayMode：临时置 DisableDomainReload 的设置快照，run 结束无条件还原
+        private bool m_PlayModeSettingsSaved;
+        private bool m_SavedEnterPlayModeOptionsEnabled;
+        private EnterPlayModeOptions m_SavedEnterPlayModeOptions;
 
         public TestRunService(JobStore jobs, string resultDir)
         {
@@ -42,11 +49,22 @@ namespace Yoji.TestRunner
         public string StartRun(FilterSpec spec)
         {
             EnsureRegistered();
+            bool playMode = spec.TestMode == "PlayMode";
+            if (playMode)
+            {
+                // 前置守卫：已在 Play 中、或有未存脏场景时拒（进 Play 会重载场景丢未存改动）。映射 409。
+                if (EditorApplication.isPlaying)
+                    throw new InvalidOperationException("editor is already in play mode; exit play mode before a PlayMode test run");
+                if (HasDirtyLoadedScene())
+                    throw new InvalidOperationException("save open scene(s) first: entering play mode reloads the scene and would discard unsaved changes");
+            }
+
             var jobId = JobStore.NewJobId();
             m_Jobs.StartJob(jobId);
             m_ActiveJobId = jobId;
             m_ActiveIsRunAll = spec.IsRunAll;
             m_Failures = new List<FailureDetail>();
+            if (playMode) ApplyPlayModeSettings(); // 临时 DisableDomainReload：PlayMode run 不触发域重载，沿用 field-based 收尾路径
             try
             {
                 m_Api.Execute(new ExecutionSettings(BuildFilter(spec)));
@@ -54,6 +72,7 @@ namespace Yoji.TestRunner
             catch (Exception e)
             {
                 m_ActiveJobId = null;
+                RestorePlayModeSettings();
                 m_Jobs.FailJob(jobId, "execute failed: " + e.Message);
                 throw;
             }
@@ -62,7 +81,8 @@ namespace Yoji.TestRunner
 
         private static Filter BuildFilter(FilterSpec spec)
         {
-            var filter = new Filter { testMode = TestMode.EditMode };
+            var testMode = spec.TestMode == "PlayMode" ? TestMode.PlayMode : TestMode.EditMode;
+            var filter = new Filter { testMode = testMode };
             if (spec.IsRunAll) return filter; // 全空 = 跑全套件
             if (spec.TestNames.Length > 0) filter.testNames = spec.TestNames;
             if (spec.AssemblyNames.Length > 0) filter.assemblyNames = spec.AssemblyNames;
@@ -110,6 +130,8 @@ namespace Yoji.TestRunner
 
         public void RunFinished(ITestResultAdaptor result)
         {
+            // PlayMode 设置在 run 结束无条件还原（no-op if 未置；也覆盖 0 命中 RunStarted 早退、jobId 已清的路径）。
+            RestorePlayModeSettings();
             var jobId = m_ActiveJobId;
             if (string.IsNullOrEmpty(jobId)) return;
             m_ActiveJobId = null;
@@ -133,6 +155,35 @@ namespace Yoji.TestRunner
             string overall = NUnitResultMapper.OverallResult(failed, errored);
             m_Jobs.CompleteJob(jobId, passed, failed, skipped, overall, xmlPath, m_Failures);
             m_Failures = null;
+        }
+
+        // ===== TR-1a PlayMode 设置作用域 =====
+        // 临时叠加 EnterPlayModeOptions.DisableDomainReload：PlayMode run 期间不发生域重载，
+        // 现有 field-based m_ActiveJobId / RunFinished 路径无需 SessionState 即可可靠收尾（见设计 TR-1a）。
+        // 用户原有 enterPlayModeOptionsEnabled / enterPlayModeOptions 完整快照、run 结束还原。
+        private void ApplyPlayModeSettings()
+        {
+            m_SavedEnterPlayModeOptionsEnabled = EditorSettings.enterPlayModeOptionsEnabled;
+            m_SavedEnterPlayModeOptions = EditorSettings.enterPlayModeOptions;
+            m_PlayModeSettingsSaved = true;
+            EditorSettings.enterPlayModeOptionsEnabled = true;
+            // 叠加而非覆盖：保留用户已选项（如 DisableSceneReload），只追加 DisableDomainReload。
+            EditorSettings.enterPlayModeOptions = m_SavedEnterPlayModeOptions | EnterPlayModeOptions.DisableDomainReload;
+        }
+
+        private void RestorePlayModeSettings()
+        {
+            if (!m_PlayModeSettingsSaved) return;
+            m_PlayModeSettingsSaved = false;
+            EditorSettings.enterPlayModeOptionsEnabled = m_SavedEnterPlayModeOptionsEnabled;
+            EditorSettings.enterPlayModeOptions = m_SavedEnterPlayModeOptions;
+        }
+
+        private static bool HasDirtyLoadedScene()
+        {
+            for (int i = 0; i < EditorSceneManager.sceneCount; i++)
+                if (EditorSceneManager.GetSceneAt(i).isDirty) return true;
+            return false;
         }
 
         /// 列出可发现的测试用例全名。HTTP 线程调用：经 dispatcher 在主线程发起 RetrieveTestList，

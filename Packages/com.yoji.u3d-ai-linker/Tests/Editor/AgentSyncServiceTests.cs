@@ -76,6 +76,57 @@ namespace Yoji.U3DAILinker.Tests
             }
         }
 
+        [Test] public void Sync_ExistingPlainSkillLinkDir_RefusesAndPreservesUserDir()
+        {
+            var req = Request();
+            var link = req.JunctionLinks[0];
+            Directory.CreateDirectory(link);
+            File.WriteAllText(Path.Combine(link, "SKILL.md"), "USER SKILL");
+
+            var result = new AgentSyncService(m_Junctions).Sync(req);
+
+            Assert.IsFalse(result.Success);
+            Assert.AreEqual("junction", result.FailureStage);
+            Assert.AreEqual("USER SKILL", File.ReadAllText(Path.Combine(link, "SKILL.md")));
+            Assert.IsFalse(m_Junctions.IsJunction(link));
+        }
+
+        [Test] public void Sync_SecondPlainSkillLinkDir_RefusesBeforeCreatingAnyJunction()
+        {
+            var req = Request();
+            var firstLink = req.JunctionLinks[0];
+            var secondLink = req.JunctionLinks[1];
+            Directory.CreateDirectory(secondLink);
+            File.WriteAllText(Path.Combine(secondLink, "SKILL.md"), "USER SKILL");
+
+            var result = new AgentSyncService(m_Junctions).Sync(req);
+
+            Assert.IsFalse(result.Success);
+            Assert.AreEqual("junction", result.FailureStage);
+            Assert.AreEqual("USER SKILL", File.ReadAllText(Path.Combine(secondLink, "SKILL.md")));
+            Assert.IsFalse(m_Junctions.IsJunction(firstLink));
+            Assert.IsFalse(m_Junctions.IsJunction(secondLink));
+            Assert.AreEqual(0, m_Junctions.CreateCalls);
+            Assert.IsFalse(Directory.Exists(ToolDir()));
+        }
+
+        [Test] public void Sync_JunctionFailureAfterFirstCreate_RemovesCreatedLink()
+        {
+            var req = Request();
+            var firstLink = req.JunctionLinks[0];
+            var secondLink = req.JunctionLinks[1];
+            var throwing = new ThrowOnCreateLinkJunctionManager(m_Junctions, secondLink);
+
+            var result = new AgentSyncService(throwing).Sync(req);
+
+            Assert.IsFalse(result.Success);
+            Assert.AreEqual("junction", result.FailureStage);
+            Assert.IsFalse(m_Junctions.IsJunction(firstLink));
+            Assert.IsFalse(m_Junctions.IsJunction(secondLink));
+            Assert.IsFalse(Directory.Exists(ToolDir()));
+            Assert.IsFalse(Directory.Exists(Path.Combine(m_SkillsRoot, ".staging", "test-runner-op1")));
+        }
+
         [Test] public void Sync_LeavesNoStagingOrBackup_OnSuccess()
         {
             new AgentSyncService(m_Junctions).Sync(Request());
@@ -170,6 +221,30 @@ namespace Yoji.U3DAILinker.Tests
             public string GetTarget(string linkPath) => null;
             public void Create(string linkPath, string targetDir) => throw new IOException("simulated junction failure");
             public void Delete(string linkPath) { }
+        }
+
+        private sealed class ThrowOnCreateLinkJunctionManager : IJunctionManager
+        {
+            private readonly FakeJunctionManager m_Inner;
+            private readonly string m_ThrowLink;
+
+            public ThrowOnCreateLinkJunctionManager(FakeJunctionManager inner, string throwLink)
+            {
+                m_Inner = inner;
+                m_ThrowLink = throwLink;
+            }
+
+            public bool IsJunction(string linkPath) => m_Inner.IsJunction(linkPath);
+            public string GetTarget(string linkPath) => m_Inner.GetTarget(linkPath);
+
+            public void Create(string linkPath, string targetDir)
+            {
+                if (linkPath == m_ThrowLink)
+                    throw new IOException("simulated junction failure");
+                m_Inner.Create(linkPath, targetDir);
+            }
+
+            public void Delete(string linkPath) => m_Inner.Delete(linkPath);
         }
     }
 }

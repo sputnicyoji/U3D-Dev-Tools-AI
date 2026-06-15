@@ -1,5 +1,6 @@
 using UnityEditor;
 using UnityEngine;
+using Yoji.EditorCore;
 
 namespace Yoji.LuaDeviceDebug.Editor
 {
@@ -10,9 +11,7 @@ namespace Yoji.LuaDeviceDebug.Editor
 
         static LuaDeviceDebugEditorBootstrap()
         {
-            EditorApplication.delayCall += Start;
-            AssemblyReloadEvents.beforeAssemblyReload += Stop;
-            EditorApplication.quitting += Stop;
+            EditorServiceLifecycle.Bind(Start, Stop);
         }
 
         private static void Start()

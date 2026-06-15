@@ -3,6 +3,7 @@
   "rootNamespace": "Yoji.EditorDebug.Tests",
   "references": [
     "Yoji.EditorDebug.Editor",
+    "Yoji.EditorCore.Editor",
     "UnityEngine.TestRunner",
     "UnityEditor.TestRunner"
   ],

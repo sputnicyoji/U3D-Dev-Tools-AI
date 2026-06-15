@@ -1,7 +1,7 @@
 {
-  "name": "Yoji.EditorDebug.Editor",
-  "rootNamespace": "Yoji.EditorDebug",
-  "references": ["Yoji.EditorCore.Editor"],
+  "name": "Yoji.EditorCore.Editor",
+  "rootNamespace": "Yoji.EditorCore",
+  "references": [],
   "includePlatforms": ["Editor"],
   "excludePlatforms": [],
   "allowUnsafeCode": false,

@@ -5,11 +5,12 @@ using System.Runtime.ExceptionServices;
 using System.Threading;
 using UnityEditor;
 
-namespace Yoji.EditorDebug
+namespace Yoji.EditorCore
 {
     /// 把 HTTP 线程的工作派发到 Editor 主线程执行并阻塞等待结果。
     /// 注意：不能在主线程上经队列调用（update 无法重入）；主线程调用直接执行。
-    internal static class MainThreadDispatcher
+    /// 共享基础设施（editor-core）：editor-debug 与 test-runner 的 HTTP 服务都经此跳主线程。
+    public static class MainThreadDispatcher
     {
         private sealed class Job
         {

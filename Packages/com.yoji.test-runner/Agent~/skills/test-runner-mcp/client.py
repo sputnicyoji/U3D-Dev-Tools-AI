@@ -103,7 +103,7 @@ def build_parser():
     s.set_defaults(func=cmd_status)
 
     lt = sub.add_parser("list-tests", help="列出可发现的测试用例全名（拼 testNames 前先查）")
-    lt.add_argument("--mode", default="EditMode", choices=["EditMode"], help="阶段 1 仅 EditMode")
+    lt.add_argument("--mode", default="EditMode", choices=["EditMode", "PlayMode"])
     lt.set_defaults(func=cmd_list_tests)
     return p
 

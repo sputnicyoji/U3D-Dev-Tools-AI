@@ -23,11 +23,18 @@
         "com.unity.modules.jsonserialize": "1.0.0"
       }
     },
+    "com.yoji.editor-core": {
+      "version": "file:../../../Packages/com.yoji.editor-core",
+      "depth": 0,
+      "source": "local",
+      "dependencies": {}
+    },
     "com.yoji.test-runner": {
       "version": "file:../../../Packages/com.yoji.test-runner",
       "depth": 0,
       "source": "local",
       "dependencies": {
+        "com.yoji.editor-core": "0.1.0",
         "com.unity.test-framework": "1.5.1",
         "com.unity.nuget.newtonsoft-json": "3.2.2"
       }

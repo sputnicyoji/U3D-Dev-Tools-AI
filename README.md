@@ -16,7 +16,7 @@ Unity3D development-tool assets for AI-assisted workflows.
 
 | Tool | Agent-side assets in this repo | Unity-side service in this repo | Status (in-repo `file:`, not yet public UPM) |
 |------|--------------------------------|---------------------------------|--------|
-| test-runner-mcp | Python client, skill, and references | Yes (`Packages/com.yoji.test-runner`) | Works via `file:` (EditMode only; PlayMode planned); verified on Unity 6000.3.16f1; Registry status: skill-only |
+| test-runner-mcp | Python client, skill, and references | Yes (`Packages/com.yoji.test-runner`) | Works via `file:` (EditMode and PlayMode via DisableDomainReload); verified on Unity 6000.3.16f1; Registry status: skill-only |
 | unity-editor-debug-mcp | Python client, skill, and references | Yes (`Packages/com.yoji.editor-debug`) | Works via `file:`; verified on Unity 6000.3.16f1; Registry status: skill-only |
 | unity-lua-device-debug | Python client and skill | Yes (`Packages/com.yoji.lua-device-debug`) | Transport-only via `file:`; targets Unity 6000.3.16f1; project Lua adapter still required; Registry status: planned |
 
@@ -28,15 +28,17 @@ The planned public UPM packages and migration constraints are documented in
 ### 1. test-runner-mcp
 
 HTTP service on port **21890** that triggers Unity recompilation and runs
-EditMode tests headlessly, returning results to AI agents (PlayMode planned).
+EditMode and PlayMode tests headlessly, returning results to AI agents.
 
 - **Included here**: the Unity Editor service as a UPM package
   (`Packages/com.yoji.test-runner`), plus `client.py` and `references/run-e2e.py`
   under `Packages/com.yoji.test-runner/Agent~/skills/test-runner-mcp/`
 - **Docs**: [SKILL.md](Packages/com.yoji.test-runner/Agent~/skills/test-runner-mcp/SKILL.md)
-- **Phase**: EditMode only; `testMode:"PlayMode"` returns 400 until phase 2.
-  Empty test filters run the whole suite (run-all). Real HTTP status codes
-  (200/202/400/404/409).
+- **Phase**: EditMode and PlayMode. PlayMode runs with a temporary
+  `EnterPlayModeOptions.DisableDomainReload` overlay and restores the user's
+  enterPlayMode settings when the run ends; already playing or dirty scenes
+  return 409. Empty test filters run the whole suite (run-all). Real HTTP
+  status codes (200/202/400/404/409).
 
 ```bash
 python Packages/com.yoji.test-runner/Agent~/skills/test-runner-mcp/client.py ping

@@ -2,6 +2,7 @@ using System.IO;
 using System.Reflection;
 using System.Text;
 using NUnit.Framework;
+using Yoji.EditorCore;
 
 namespace Yoji.EditorDebug.Tests
 {

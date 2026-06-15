@@ -5,6 +5,7 @@
   "description": "HTTP service to trigger Unity recompilation and run EditMode tests headlessly for AI agents.",
   "unity": "2022.3",
   "dependencies": {
+    "com.yoji.editor-core": "0.1.0",
     "com.unity.test-framework": "1.5.1",
     "com.unity.nuget.newtonsoft-json": "3.2.2"
   }

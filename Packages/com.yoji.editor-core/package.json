@@ -1,0 +1,7 @@
+{
+  "name": "com.yoji.editor-core",
+  "version": "0.1.0",
+  "displayName": "Editor Core",
+  "description": "Shared Editor-only infrastructure (main-thread dispatcher, bounded HTTP request-body reader) for the Yoji Unity dev-tools. Owns lifecycle/transport primitives; tools keep their own routing and (intentionally divergent) response envelopes.",
+  "unity": "2022.3"
+}

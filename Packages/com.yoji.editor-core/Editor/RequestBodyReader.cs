@@ -1,9 +1,11 @@
 using System.IO;
 using System.Text;
 
-namespace Yoji.EditorDebug
+namespace Yoji.EditorCore
 {
-    internal static class RequestBodyReader
+    /// 有界读取 HTTP 请求体：按 Content-Length 早拒超限，流式读入时再次守卫，
+    /// 避免无界 StreamReader.ReadToEnd。共享基础设施（editor-core），供各 dev-tool 的 HTTP 服务复用。
+    public static class RequestBodyReader
     {
         public const int MaxBodyBytes = 1024 * 1024;
 

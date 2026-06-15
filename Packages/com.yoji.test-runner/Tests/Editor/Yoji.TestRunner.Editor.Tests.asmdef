@@ -1,7 +1,7 @@
 {
   "name": "Yoji.TestRunner.Editor.Tests",
   "rootNamespace": "Yoji.TestRunner.Tests",
-  "references": ["Yoji.TestRunner.Editor", "UnityEngine.TestRunner", "UnityEditor.TestRunner"],
+  "references": ["Yoji.TestRunner.Editor", "Yoji.EditorCore.Editor", "UnityEngine.TestRunner", "UnityEditor.TestRunner"],
   "includePlatforms": ["Editor"],
   "excludePlatforms": [],
   "allowUnsafeCode": false,

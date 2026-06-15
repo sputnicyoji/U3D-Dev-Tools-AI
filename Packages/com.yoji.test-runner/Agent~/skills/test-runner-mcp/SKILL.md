@@ -8,8 +8,8 @@ description: 在 Unity 工程中通过 HTTP 调用 Unity Test Runner——触发
 `com.yoji.test-runner` 是 Unity Editor 内的轻量 HTTP 服务，让 AI 不开 GUI 就能：触发重编译 → 等域重载 → 发起测试 → 轮询拿结果。`tdd-workflow` 在「执行测试」阶段调用的就是本接口。
 
 > [!IMPORTANT]
-> 本工具已具备公开的 Unity 侧实现（UPM 包 `com.yoji.test-runner`，阶段 1 仅
-> EditMode），随包附带 `client.py` 与 `references/run-e2e.py`。无需 Tap4fun
+> 本工具已具备公开的 Unity 侧实现（UPM 包 `com.yoji.test-runner`，EditMode +
+> PlayMode via DisableDomainReload），随包附带 `client.py` 与 `references/run-e2e.py`。无需 Tap4fun
 > 私有仓库权限即可独立工作。
 >
 > 测试代码怎么写、目录怎么放、断言怎么选，参考 `tdd-workflow`。
@@ -19,7 +19,7 @@ description: 在 Unity 工程中通过 HTTP 调用 Unity Test Runner——触发
 本实现在原 HTTP 接口规范基础上做了以下扩展，调用时需注意：
 
 - **run-all**：`/run-tests` 请求体新增可选 `assemblyNames` / `categoryNames` / `groupNames`；当 `testNames` 与这些字段全空时，跑该 `testMode` 的全套件（原规范空 `testNames` 返 400，本实现放宽为 run-all）。
-- **PlayMode 阶段 2**：阶段 1 仅支持 EditMode；`testMode: "PlayMode"` 返 400 并在 `message` 中说明。PlayMode（含域重载存活）留待阶段 2。
+- **PlayMode（TR-1a，已支持）**：`testMode: "PlayMode"` 经临时叠加 `EnterPlayModeOptions.DisableDomainReload` 跑——**不触发域重载**，服务全程在线；run 结束完整还原用户的 enterPlayMode 设置。前置守卫：已在 Play 中或有未存脏场景时返 409。**caveat**：依赖静态状态跨域重置的测试在 DisableDomainReload 下行为不同（test-authoring 问题，非本工具 bug）。
 - **真 HTTP 状态码**：本实现用 200/202/400/404/409 真实状态码（非恒 200）；错误 body 形为 `{success: false, error: "..."}`。
 
 ## 服务地址
@@ -36,10 +36,10 @@ description: 在 Unity 工程中通过 HTTP 调用 Unity Test Runner——触发
 | `/recompile` | GET/POST | 触发重编译，**域重载前**回响应 | 同步（挂 HTTP 连接到编译完成） |
 | `/run-tests` | POST | 发起测试，**立即**返回 `jobId` + 202 | 异步 |
 | `/test-status` | GET | 轮询任务状态 / 取最近一次结果（completed 含 `failures[]`） | 同步 |
-| `/list-tests` | GET | 列出可发现的 EditMode 测试用例全名 | 同步 |
+| `/list-tests` | GET | 列出可发现的 EditMode/PlayMode 测试用例全名 | 同步 |
 
 state 取值：`Idle | Running | Compiling`。`/run-tests` 与 `/recompile` 在非 Idle 时返 409。
-`/list-tests` PlayMode 同 `/run-tests` 一样返 400（阶段 1 仅 EditMode）。
+`/list-tests` 支持 `mode=EditMode` 与 `mode=PlayMode`（仅枚举，不进 Play）。
 
 ## 调用顺序（标准流程）
 
@@ -176,7 +176,7 @@ GET /list-tests?mode=EditMode
 { "tests": ["Foo.Tests.BarTests.Baz", "Foo.Tests.BarTests.Qux"], "count": 2 }
 ```
 
-列出可发现的 EditMode 测试用例全名（含 `[Explicit]`）。用于拼 `/run-tests` 的 `testNames` 前核对，避免拼错导致 0 命中。PlayMode 返 400。
+列出可发现的 EditMode 或 PlayMode（`?mode=PlayMode`）测试用例全名（含 `[Explicit]`）。用于拼 `/run-tests` 的 `testNames` 前核对，避免拼错导致 0 命中。仅枚举，不进 Play。
 
 ## 调用范式（重要）
 
@@ -249,7 +249,7 @@ print(json.dumps(s, ensure_ascii=False, indent=2))
 | `/run-tests` 返 409 | 上个任务没完，先 `/test-status` 看进度，或等 state 回 Idle |
 | `/test-status` 返 404 | jobId 写错；或 Editor 域重载冲掉了内存中的缓存结果，重发测试 |
 | 编译后 `/ping` 久久不回 | 编译错误堵在 Editor 顶部弹窗，去 Unity 看 Console；或者域重载耗时长（首次加载大工程） |
-| PlayMode 测试中途断连 | PlayMode 进入会触发域重载，服务短暂不可用；轮 `/ping` 等恢复后再查 `/test-status` |
+| PlayMode 测试 | 本工具用 `DisableDomainReload` 跑 PlayMode——**不触发域重载**，服务全程在线，可连续轮 `/test-status`；run 结束自动退出 Play 并还原 enterPlayMode 设置。返 409 多因已在 Play 中或有未存脏场景（守卫） |
 
 ## 安装
 

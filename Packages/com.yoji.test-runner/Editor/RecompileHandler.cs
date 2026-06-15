@@ -4,6 +4,7 @@ using System.Threading;
 using Newtonsoft.Json.Linq;
 using UnityEditor;
 using UnityEditor.Compilation;
+using Yoji.EditorCore;
 
 namespace Yoji.TestRunner
 {

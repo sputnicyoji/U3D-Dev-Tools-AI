@@ -1,7 +1,7 @@
 {
   "name": "Yoji.LuaDeviceDebug.Editor",
   "rootNamespace": "Yoji.LuaDeviceDebug.Editor",
-  "references": ["Yoji.LuaDeviceDebug.Runtime"],
+  "references": ["Yoji.LuaDeviceDebug.Runtime", "Yoji.EditorCore.Editor"],
   "includePlatforms": ["Editor"],
   "excludePlatforms": [],
   "allowUnsafeCode": false,

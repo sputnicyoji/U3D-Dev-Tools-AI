@@ -94,6 +94,17 @@ namespace Yoji.U3DAILinker.Operations
                 return Fail("validate", "ownership stamp failed: " + e.Message, stagingDir, backupDir, false);
             }
 
+            // ---- junction 前置校验：普通文件/目录冲突必须在目录替换前拒绝 ----
+            List<JunctionSnapshot> junctionSnapshots;
+            try
+            {
+                junctionSnapshots = CaptureJunctionSnapshots(request.JunctionLinks);
+            }
+            catch (Exception e)
+            {
+                return Fail("junction", e.Message, stagingDir, backupDir, false);
+            }
+
             // ---- 步骤 4：backup 旧目标（此后失败需恢复 backup）----
             bool backedUp = false;
             try
@@ -139,7 +150,8 @@ namespace Yoji.U3DAILinker.Operations
                     }
                     else
                     {
-                        if (Directory.Exists(link)) SafeDelete(link); // 空壳/旧目录，避免 Create 撞名
+                        if (Directory.Exists(link) || File.Exists(link))
+                            throw new IOException("refusing to overwrite non-junction skill link: " + link);
                         m_Junctions.Create(link, toolDir);
                     }
                 }
@@ -149,6 +161,7 @@ namespace Yoji.U3DAILinker.Operations
                 // junction 失败：把新目标退回 staging 名，恢复旧 backup
                 try { SafeDelete(stagingDir); Directory.Move(toolDir, stagingDir); } catch { }
                 RestoreBackup(backedUp, backupDir, toolDir);
+                RestoreJunctionSnapshots(junctionSnapshots);
                 SafeDelete(stagingDir);
                 return new AgentSyncResult { Success = false, FailureStage = "junction", Message = e.Message, ToolDir = toolDir };
             }
@@ -166,6 +179,48 @@ namespace Yoji.U3DAILinker.Operations
                 Directory.Move(backupDir, toolDir);
             }
             catch { /* 恢复尽力而为；FailureStage 已告知调用方需人工介入 */ }
+        }
+
+        private List<JunctionSnapshot> CaptureJunctionSnapshots(IReadOnlyList<string> links)
+        {
+            var snapshots = new List<JunctionSnapshot>();
+            foreach (var link in links)
+            {
+                var wasJunction = m_Junctions.IsJunction(link);
+                snapshots.Add(new JunctionSnapshot
+                {
+                    LinkPath = link,
+                    WasJunction = wasJunction,
+                    TargetPath = wasJunction ? m_Junctions.GetTarget(link) : null,
+                });
+
+                if (!wasJunction && (Directory.Exists(link) || File.Exists(link)))
+                    throw new IOException("refusing to overwrite non-junction skill link: " + link);
+            }
+            return snapshots;
+        }
+
+        private void RestoreJunctionSnapshots(IReadOnlyList<JunctionSnapshot> snapshots)
+        {
+            foreach (var snapshot in snapshots)
+            {
+                try
+                {
+                    var isJunction = m_Junctions.IsJunction(snapshot.LinkPath);
+                    if (!snapshot.WasJunction)
+                    {
+                        if (isJunction) m_Junctions.Delete(snapshot.LinkPath);
+                        continue;
+                    }
+
+                    if (isJunction && m_Junctions.GetTarget(snapshot.LinkPath) == snapshot.TargetPath)
+                        continue;
+
+                    if (isJunction) m_Junctions.Delete(snapshot.LinkPath);
+                    m_Junctions.Create(snapshot.LinkPath, snapshot.TargetPath);
+                }
+                catch { /* 尽力恢复；FailureStage=junction 会让调用方知道需要人工介入 */ }
+            }
         }
 
         private AgentSyncResult Fail(string stage, string message, string stagingDir, string backupDir, bool backedUp)
@@ -188,6 +243,13 @@ namespace Yoji.U3DAILinker.Operations
         private static void SafeDelete(string dir)
         {
             try { if (Directory.Exists(dir)) Directory.Delete(dir, true); } catch { }
+        }
+
+        private struct JunctionSnapshot
+        {
+            public string LinkPath;
+            public bool WasJunction;
+            public string TargetPath;
         }
     }
 }
