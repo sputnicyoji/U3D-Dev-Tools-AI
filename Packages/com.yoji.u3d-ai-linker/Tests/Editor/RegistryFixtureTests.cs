@@ -98,7 +98,13 @@ namespace Yoji.U3DAILinker.Tests
             Assume.That(root, Is.Not.Null);
             var doc = RegistryParser.Parse(ReadRegistry(root, "Registry/stable.json"));
 
-            var expectedReady = new HashSet<string> { "editor-core", "editor-debug", "test-runner" };
+            var expectedReady = new HashSet<string>
+            {
+                "editor-core",
+                "editor-debug",
+                "test-runner",
+                "u3d-ai-linker",
+            };
             foreach (var entry in doc.Entries)
             {
                 if (expectedReady.Contains(entry.Id))

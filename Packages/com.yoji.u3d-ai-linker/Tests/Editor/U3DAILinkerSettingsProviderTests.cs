@@ -94,6 +94,47 @@ namespace Yoji.U3DAILinker.Tests
             Assert.IsFalse(snapshot.ContainsKey("com.yoji.missing"));
         }
 
+        [Test]
+        public void BuildDiagnosticReport_IncludesRowsAndSelfStatusInputs()
+        {
+            var project = ScriptableObjectFactory.CreateSettings(LinkerChannel.Stable, "editor-debug");
+            var user = ScriptableObjectFactory.CreateUserSettings("E:/Yoji/U3D-Dev-Tools-AI");
+            var registry = new LinkerRegistry
+            {
+                Channel = LinkerChannel.Stable,
+                Entries =
+                {
+                    Entry("editor-debug", "com.yoji.editor-debug"),
+                }
+            };
+            var installed = new System.Collections.Generic.Dictionary<string, InstalledPackageInfo>
+            {
+                ["com.yoji.editor-debug"] = new InstalledPackageInfo(
+                    "com.yoji.editor-debug",
+                    "https://github.com/sputnicyoji/U3D-Dev-Tools-AI.git?path=/Packages/com.yoji.editor-debug#editor-debug-v0.1.0",
+                    true),
+            };
+
+            var report = U3DAILinkerSettingsProvider.BuildDiagnosticReport(
+                project,
+                user,
+                registry,
+                installed,
+                new System.Collections.Generic.Dictionary<string, AgentState>(),
+                RegistrySource.BundledSnapshot,
+                OperationState.Idle,
+                "stable",
+                null,
+                "E:/Project",
+                "E:/Project/Library/PackageCache/com.yoji.u3d-ai-linker");
+
+            StringAssert.Contains("U3D AI Linker Diagnostic Report", report);
+            StringAssert.Contains("Channel: Stable", report);
+            StringAssert.Contains("editor-debug", report);
+            StringAssert.Contains("install=Installed", report);
+            StringAssert.Contains("SelfPackage:", report);
+        }
+
         private static RegistryEntryView Entry(string id, string packageName)
         {
             return new RegistryEntryView
@@ -105,6 +146,24 @@ namespace Yoji.U3DAILinker.Tests
                 Kind = ToolKind.Tool,
                 Revision = id + "-v0.1.0",
             };
+        }
+
+        private static class ScriptableObjectFactory
+        {
+            public static U3DAILinkerSettings CreateSettings(LinkerChannel channel, params string[] enabled)
+            {
+                var settings = UnityEngine.ScriptableObject.CreateInstance<U3DAILinkerSettings>();
+                settings.Channel = channel;
+                settings.EnabledToolIds.AddRange(enabled);
+                return settings;
+            }
+
+            public static U3DAILinkerUserSettings CreateUserSettings(string localRepoRoot)
+            {
+                var settings = UnityEngine.ScriptableObject.CreateInstance<U3DAILinkerUserSettings>();
+                settings.LocalRepoRoot = localRepoRoot;
+                return settings;
+            }
         }
     }
 }

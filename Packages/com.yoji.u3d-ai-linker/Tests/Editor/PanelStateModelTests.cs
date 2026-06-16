@@ -60,6 +60,7 @@ namespace Yoji.U3DAILinker.Tests
             Assert.IsTrue(Row(rows, "test-runner").EnabledVisible);
             Assert.IsTrue(Row(rows, "test-runner").Enabled);
             Assert.IsFalse(Row(rows, "editor-core").EnabledVisible);
+            Assert.AreEqual(ToolStatus.Ready, Row(rows, "test-runner").Status);
         }
 
         [Test]
@@ -106,6 +107,42 @@ namespace Yoji.U3DAILinker.Tests
             var r = Row(rows, "test-runner");
             Assert.AreEqual(InstallState.Installed, r.Installed);
             Assert.AreEqual(r.Desired, r.Current);
+        }
+
+        [Test]
+        public void InstalledManagedDifferentDesired_IsOutdated()
+        {
+            var installed = new Dictionary<string, InstalledPackageInfo>
+            {
+                ["com.yoji.test-runner"] = new InstalledPackageInfo(
+                    "com.yoji.test-runner",
+                    "https://github.com/sputnicyoji/U3D-Dev-Tools-AI.git?path=/Packages/com.yoji.test-runner#test-runner-v1.0.0",
+                    true),
+            };
+            var rows = PanelStateModel.Build(
+                SampleRegistry(LinkerChannel.Stable), installed,
+                new[] { "test-runner" }, new Dictionary<string, AgentState>(),
+                LinkerChannel.Stable, null);
+
+            Assert.AreEqual(InstallState.Outdated, Row(rows, "test-runner").Installed);
+        }
+
+        [Test]
+        public void InstalledLocalUrl_NormalizesSlashesBeforeComparingDesired()
+        {
+            var installed = new Dictionary<string, InstalledPackageInfo>
+            {
+                ["com.yoji.test-runner"] = new InstalledPackageInfo(
+                    "com.yoji.test-runner",
+                    @"file:E:\Yoji\U3D-Dev-Tools-AI\Packages\com.yoji.test-runner",
+                    true),
+            };
+            var rows = PanelStateModel.Build(
+                SampleRegistry(LinkerChannel.Local), installed,
+                new[] { "test-runner" }, new Dictionary<string, AgentState>(),
+                LinkerChannel.Local, @"E:\Yoji\U3D-Dev-Tools-AI");
+
+            Assert.AreEqual(InstallState.Installed, Row(rows, "test-runner").Installed);
         }
 
         [Test]

@@ -21,7 +21,7 @@ if ($stableText -ne $snapshotText) {
 }
 
 $ready = @($stable.entries | Where-Object { $_.status -eq "ready" })
-$requiredReadyIds = @("editor-core", "editor-debug", "test-runner")
+$requiredReadyIds = @("editor-core", "editor-debug", "test-runner", "u3d-ai-linker")
 $requiredNotReadyIds = @("lua-device-debug")
 $readyIds = @($ready | ForEach-Object { $_.id })
 

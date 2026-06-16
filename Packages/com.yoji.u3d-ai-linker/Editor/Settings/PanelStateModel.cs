@@ -9,6 +9,7 @@ namespace Yoji.U3DAILinker.Settings
     {
         Missing,
         Installed,
+        Outdated,
         Conflict,
     }
 
@@ -27,6 +28,7 @@ namespace Yoji.U3DAILinker.Settings
         public string Id;
         public string DisplayName;
         public ToolKind Kind;
+        public ToolStatus Status;
         public bool EnabledVisible;
         public bool Enabled;
         public InstallState Installed;
@@ -60,9 +62,10 @@ namespace Yoji.U3DAILinker.Settings
                     Id = entry.Id,
                     DisplayName = string.IsNullOrEmpty(entry.DisplayName) ? entry.Id : entry.DisplayName,
                     Kind = entry.Kind,
+                    Status = entry.Status,
                     EnabledVisible = entry.Kind == ToolKind.Tool && entry.UserToggle,
                     Enabled = enabled.Contains(entry.Id),
-                    Installed = ResolveInstallState(installed, entry.PackageName),
+                    Installed = ResolveInstallState(installed, entry.PackageName, desired),
                     Desired = desired,
                     Current = current,
                     Agent = ResolveAgentState(agentStates, entry.Id),
@@ -102,11 +105,25 @@ namespace Yoji.U3DAILinker.Settings
         }
 
         private static InstallState ResolveInstallState(
-            IReadOnlyDictionary<string, InstalledPackageInfo> installed, string packageName)
+            IReadOnlyDictionary<string, InstalledPackageInfo> installed, string packageName, string desired)
         {
             if (installed == null || !installed.TryGetValue(packageName, out var info))
                 return InstallState.Missing;
-            return info.IsManaged ? InstallState.Installed : InstallState.Conflict;
+            if (!info.IsManaged)
+                return InstallState.Conflict;
+            if (string.IsNullOrEmpty(desired))
+                return InstallState.Installed;
+            return UrlEquals(info.ResolvedUrl, desired) ? InstallState.Installed : InstallState.Outdated;
+        }
+
+        private static bool UrlEquals(string a, string b)
+        {
+            return string.Equals(NormalizeUrl(a), NormalizeUrl(b), System.StringComparison.Ordinal);
+        }
+
+        private static string NormalizeUrl(string value)
+        {
+            return value == null ? null : value.Replace('\\', '/');
         }
 
         private static AgentState ResolveAgentState(

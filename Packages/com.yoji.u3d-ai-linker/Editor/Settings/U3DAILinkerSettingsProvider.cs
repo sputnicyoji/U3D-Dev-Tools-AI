@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Text;
 using UnityEditor;
 using UnityEngine;
 using Yoji.U3DAILinker.Operations;
@@ -64,6 +65,8 @@ namespace Yoji.U3DAILinker.Settings
                     _registry = null;
                     _currentRevision = null;
                     _devSha = null;
+                    _installed.Clear();
+                    _agentStates.Clear();
                     if (U3DAILinkerSettingsStore.TrySaveProjectSettings(_project, out var error))
                     {
                         // saved
@@ -119,26 +122,36 @@ namespace Yoji.U3DAILinker.Settings
 
         private static void DrawToolRow(ToolRow row)
         {
-            using (new EditorGUILayout.HorizontalScope("box"))
+            using (new EditorGUILayout.VerticalScope("box"))
             {
-                if (row.EnabledVisible)
+                using (new EditorGUILayout.HorizontalScope())
                 {
-                    var enabled = EditorGUILayout.Toggle(row.Enabled, GUILayout.Width(20));
-                    if (enabled != row.Enabled)
-                        ToggleTool(row.Id, enabled);
-                }
-                else
-                {
-                    GUILayout.Space(24);
+                    if (row.EnabledVisible)
+                    {
+                        var enabled = EditorGUILayout.Toggle(row.Enabled, GUILayout.Width(20));
+                        if (enabled != row.Enabled)
+                            ToggleTool(row.Id, enabled);
+                    }
+                    else
+                    {
+                        GUILayout.Space(24);
+                    }
+
+                    EditorGUILayout.LabelField(row.DisplayName, GUILayout.Width(160));
+                    EditorGUILayout.LabelField(row.Kind.ToString(), GUILayout.Width(60));
+                    EditorGUILayout.LabelField(row.Status.ToString(), GUILayout.Width(70));
+                    EditorGUILayout.LabelField(row.Installed.ToString(), GUILayout.Width(80));
+                    EditorGUILayout.LabelField(row.Agent.ToString(), GUILayout.Width(90));
+
+                    if (row.Kind == ToolKind.Infra && row.RequiredBy != null && row.RequiredBy.Length > 0)
+                        EditorGUILayout.LabelField("req by: " + string.Join(",", row.RequiredBy));
                 }
 
-                EditorGUILayout.LabelField(row.DisplayName, GUILayout.Width(160));
-                EditorGUILayout.LabelField(row.Kind.ToString(), GUILayout.Width(60));
-                EditorGUILayout.LabelField(row.Installed.ToString(), GUILayout.Width(80));
-                EditorGUILayout.LabelField(row.Agent.ToString(), GUILayout.Width(90));
-
-                if (row.Kind == ToolKind.Infra && row.RequiredBy != null && row.RequiredBy.Length > 0)
-                    EditorGUILayout.LabelField("req by: " + string.Join(",", row.RequiredBy));
+                using (new EditorGUI.IndentLevelScope())
+                {
+                    EditorGUILayout.LabelField("Current", string.IsNullOrEmpty(row.Current) ? "-" : row.Current);
+                    EditorGUILayout.LabelField("Target", string.IsNullOrEmpty(row.Desired) ? "-" : row.Desired);
+                }
             }
         }
 
@@ -175,7 +188,7 @@ namespace Yoji.U3DAILinker.Settings
         {
             EditorGUILayout.LabelField("Actions", EditorStyles.boldLabel);
             EditorGUILayout.HelpBox(
-                "Install/Update, Restore, and Rollback are wired. Agent asset sync and junction repair remain read-only in this build.",
+                "Install/Update, Restore, Rollback, Agent asset sync, junction repair, folder reveal, and diagnostics are wired.",
                 MessageType.Info);
 
             using (new EditorGUI.DisabledScope(!AreActionButtonsEnabled(_operationState)))
@@ -355,8 +368,31 @@ namespace Yoji.U3DAILinker.Settings
             ReportAction("Rollback Manifest", result);
         }
 
-        private static void RequestOpenFolder() { Debug.Log("[U3DAILinker] Open Generated Folder requested."); }
-        private static void RequestCopyDiagnostics() { Debug.Log("[U3DAILinker] Copy Diagnostic Report requested."); }
+        private static void RequestOpenFolder()
+        {
+            var path = Path.Combine(ProjectRoot, ".u3d-ai-linker");
+            if (!Directory.Exists(path))
+                Directory.CreateDirectory(path);
+            EditorUtility.RevealInFinder(path);
+        }
+
+        private static void RequestCopyDiagnostics()
+        {
+            var report = BuildDiagnosticReport(
+                _project,
+                _user,
+                _registry,
+                _installed,
+                _agentStates,
+                _registrySource,
+                _operationState,
+                _currentRevision,
+                _devSha,
+                ProjectRoot,
+                PackageRoot);
+            EditorGUIUtility.systemCopyBuffer = report;
+            Debug.Log("[U3DAILinker] Diagnostic report copied to clipboard.");
+        }
 
         private static bool EnsureRegistryLoaded()
         {
@@ -424,8 +460,100 @@ namespace Yoji.U3DAILinker.Settings
                 ? OperationState.Running
                 : OperationState.Idle;
 
+            if (_registry != null)
+                RefreshInstalledSnapshot(_registry, new UnityInstalledPackageProbe());
+
             var queue = result.QueueResult.HasValue ? " queue=" + result.QueueResult.Value : string.Empty;
             Debug.Log("[U3DAILinker] " + action + " succeeded." + queue);
+        }
+
+        internal static string BuildDiagnosticReport(
+            U3DAILinkerSettings project,
+            U3DAILinkerUserSettings user,
+            LinkerRegistry registry,
+            IReadOnlyDictionary<string, InstalledPackageInfo> installed,
+            IReadOnlyDictionary<string, AgentState> agentStates,
+            RegistrySource registrySource,
+            OperationState operationState,
+            string currentRevision,
+            string devSha,
+            string projectRoot,
+            string packageRoot)
+        {
+            var sb = new StringBuilder();
+            sb.AppendLine("U3D AI Linker Diagnostic Report");
+            sb.AppendLine("GeneratedUtc: " + System.DateTime.UtcNow.ToString("o"));
+            sb.AppendLine("ProjectRoot: " + (projectRoot ?? "-"));
+            sb.AppendLine("PackageRoot: " + (packageRoot ?? "-"));
+            sb.AppendLine("ProviderPath: " + ProviderPath);
+            sb.AppendLine("Channel: " + (project != null ? project.Channel.ToString() : "-"));
+            sb.AppendLine("EnabledToolIds: " + (project != null ? string.Join(",", project.EnabledToolIds) : "-"));
+            sb.AppendLine("LocalRepoRootSet: " + (user != null && !string.IsNullOrEmpty(user.LocalRepoRoot) ? "yes" : "no"));
+            sb.AppendLine("RegistrySource: " + registrySource);
+            sb.AppendLine("RegistryEntries: " + (registry != null ? registry.Entries.Count.ToString() : "-"));
+            sb.AppendLine("CurrentRevision: " + (currentRevision ?? "-"));
+            sb.AppendLine("DevSha: " + (devSha ?? "-"));
+            sb.AppendLine("Operation: " + operationState);
+            sb.AppendLine("SelfPackage: " + BuildSelfPackageSummary());
+            sb.AppendLine();
+
+            if (registry == null)
+            {
+                sb.AppendLine("Rows: registry not loaded");
+                return sb.ToString();
+            }
+
+            var rows = PanelStateModel.Build(
+                registry,
+                installed,
+                project != null ? project.EnabledToolIds : null,
+                agentStates,
+                project != null ? project.Channel : LinkerChannel.Stable,
+                user != null ? user.LocalRepoRoot : null);
+
+            sb.AppendLine("Rows:");
+            foreach (var row in rows)
+            {
+                sb.AppendLine("- " + row.Id +
+                              " kind=" + row.Kind +
+                              " status=" + row.Status +
+                              " enabled=" + row.Enabled +
+                              " install=" + row.Installed +
+                              " agent=" + row.Agent);
+                sb.AppendLine("  current=" + (row.Current ?? "-"));
+                sb.AppendLine("  target=" + (row.Desired ?? "-"));
+            }
+            return sb.ToString();
+        }
+
+        private static string BuildSelfPackageSummary()
+        {
+            var info = UnityEditor.PackageManager.PackageInfo.FindForAssembly(
+                typeof(U3DAILinkerPackage).Assembly);
+            if (info == null)
+                return "-";
+
+            var git = ReadMember(info, "git");
+            var hash = ReadMember(git, "hash") ?? "-";
+            var revision = ReadMember(git, "revision") ?? "-";
+            return "name=" + info.name +
+                   " source=" + info.source +
+                   " packageId=" + info.packageId +
+                   " resolvedPath=" + info.resolvedPath +
+                   " gitHash=" + hash +
+                   " gitRevision=" + revision;
+        }
+
+        private static string ReadMember(object instance, string name)
+        {
+            if (instance == null)
+                return null;
+            var type = instance.GetType();
+            var prop = type.GetProperty(name);
+            if (prop != null)
+                return prop.GetValue(instance, null) as string;
+            var field = type.GetField(name);
+            return field != null ? field.GetValue(instance) as string : null;
         }
 
         private static bool TryLoadBundledRegistry(

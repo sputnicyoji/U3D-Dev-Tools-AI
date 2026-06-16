@@ -58,6 +58,20 @@
       "agentAssets": "Agent~",
       "minUnity": "6000.3",
       "dependsOn": []
+    },
+    {
+      "id": "u3d-ai-linker",
+      "status": "ready",
+      "kind": "linker",
+      "order": 1000,
+      "packageName": "com.yoji.u3d-ai-linker",
+      "packagePath": "Packages/com.yoji.u3d-ai-linker",
+      "revision": "0000000000000000000000000000000000000000",
+      "defaultEnabled": false,
+      "userToggle": false,
+      "agentAssets": null,
+      "minUnity": "2022.3",
+      "dependsOn": []
     }
   ]
 }
