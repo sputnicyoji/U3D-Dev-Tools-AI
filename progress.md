@@ -126,9 +126,9 @@ Claude Code 与 Codex。首版仅 Windows、仅 Unity 2022.3+，不涉及 Hybrid
   (`editor-core`/`editor-debug`/`test-runner`/`u3d-ai-linker`) 先从 Git SHA
   `a2a0201413bcb40719b30a809be8078441e9f691` 解析到 `Library/PackageCache`，随后验证
   stable tag URL (`editor-core-v0.1.0` / `editor-debug-v0.1.0` /
-  `test-runner-v0.1.0` / `u3d-ai-linker-v0.1.0`) 也能解析，lock hash 为
-  `3b618c148a539e7e6ed9ef5d6357c454799cb405`；`lua-device-debug` 因不进 stable
-  ready 范围且项目编译依赖其 host 契约，验证时保留本地 `file:` 依赖。`Tools > U3D AI Linker > Run Agent Asset Probe` 写出
+  `test-runner-v0.1.0` / `u3d-ai-linker-v0.1.0`) 也能解析为 `source=git`；
+  `lua-device-debug` 因不进 stable ready 范围且项目编译依赖其 host 契约，验证时保留本地
+  `file:` 依赖。`Tools > U3D AI Linker > Run Agent Asset Probe` 写出
   `Library/U3DAILinker/probe-result.json`（2026-06-16T17:48:00Z，3/3 readable，
   `recommendedMode=directory`，editor-debug/test-runner/linker 路径均在 Git PackageCache）。
 - Project Settings 动作接线 (2026-06-17): `Refresh Registry` 读取包内快照；
