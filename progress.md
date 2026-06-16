@@ -2,7 +2,7 @@
 
 > U3D-Dev-Tools-AI - 面向 AI 辅助工作流的 Unity3D 开发工具集
 >
-> 最后更新: 2026-06-17 (u3d-ai-linker UI 状态深查完成：Missing/Outdated/诊断面板修复；stable 0.1.0 tag 待更新到本次 UI 修复提交；batchmode EditMode 更新为 264/264；lua-device-debug 仍保留本地/Dev 范围)
+> 最后更新: 2026-06-17 (u3d-ai-linker UI review 修复完成：tag/hash stale 检测、Restore 通道同步、Open Folder 无副作用；batchmode EditMode 更新为 266/266；lua-device-debug 仍保留本地/Dev 范围)
 
 本仓库是一个迁移工作区 (migration workspace)，把三个 Unity 调试工具的 Agent 侧资产与
 Unity 侧服务整合为可安装的 UPM 包，并新增一个 Editor-only 编排包 `com.yoji.u3d-ai-linker`：
@@ -112,7 +112,7 @@ Claude Code 与 Codex。首版仅 Windows、仅 Unity 2022.3+，不涉及 Hybrid
   `.claude`/`.agents`；跨域重载的安装/同步以持久化 `operation.json` 记账、`[InitializeOnLoad]`
   域重载恢复。
 - **本次实现 (mission-runner，2026-06-14 至 2026-06-17)：8 个子系统 / 50 Task 中 48 个 headless 落地；
-  当前 batchmode EditMode `total=264 passed=264 failed=0`（2026-06-17，含 Project Settings Install/Update、Agent Sync/Junction Repair、release gate/UI 状态补测）：**
+  当前 batchmode EditMode `total=266 passed=266 failed=0`（2026-06-17，含 Project Settings Install/Update、Agent Sync/Junction Repair、release gate/UI 状态补测）：**
   - LINK-0 资产探针决策门 (directory vs zip-fallback)
   - LINK-1 包骨架 + 包常量 + Project Settings 入口
   - LINK-2 Registry 解析/白名单校验/URL 生成/拓扑排序

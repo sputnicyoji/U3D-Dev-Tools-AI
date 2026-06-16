@@ -22,10 +22,22 @@ namespace Yoji.U3DAILinker.Operations
             if (branch != "main")
                 throw new InvalidOperationException("Dev channel only allows branch 'main', got: " + branch);
 
+            return ResolveRefSha("refs/heads/" + branch);
+        }
+
+        public string ResolveTagSha(string tag)
+        {
+            if (string.IsNullOrEmpty(tag))
+                throw new InvalidOperationException("tag missing");
+            return ResolveRefSha("refs/tags/" + tag);
+        }
+
+        private string ResolveRefSha(string gitRef)
+        {
             var psi = new ProcessStartInfo
             {
                 FileName = "git",
-                Arguments = "ls-remote " + _repoUrl + " refs/heads/" + branch,
+                Arguments = "ls-remote " + _repoUrl + " " + gitRef,
                 RedirectStandardOutput = true,
                 RedirectStandardError = true,
                 UseShellExecute = false,

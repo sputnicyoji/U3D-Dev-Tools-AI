@@ -151,6 +151,8 @@ namespace Yoji.U3DAILinker.Settings
                 {
                     EditorGUILayout.LabelField("Current", string.IsNullOrEmpty(row.Current) ? "-" : row.Current);
                     EditorGUILayout.LabelField("Target", string.IsNullOrEmpty(row.Desired) ? "-" : row.Desired);
+                    EditorGUILayout.LabelField("Current Hash", string.IsNullOrEmpty(row.CurrentHash) ? "-" : row.CurrentHash);
+                    EditorGUILayout.LabelField("Target Hash", string.IsNullOrEmpty(row.ExpectedHash) ? "-" : row.ExpectedHash);
                 }
             }
         }
@@ -233,6 +235,8 @@ namespace Yoji.U3DAILinker.Settings
             new Dictionary<string, InstalledPackageInfo>();
         private static readonly Dictionary<string, AgentState> _agentStates =
             new Dictionary<string, AgentState>();
+        private static readonly Dictionary<string, string> _expectedHashesByPackageName =
+            new Dictionary<string, string>();
 
         private static void ToggleTool(string toolId, bool enabled)
         {
@@ -265,6 +269,8 @@ namespace Yoji.U3DAILinker.Settings
                 _installed,
                 acceptConflicts: false);
             ReportAction("Restore " + target, result);
+            if (result != null && result.Success)
+                ApplyRestoredChannel(target, targetRegistry);
         }
 
         private static void RequestRefreshRegistry()
@@ -273,7 +279,6 @@ namespace Yoji.U3DAILinker.Settings
             {
                 _registry = registry;
                 _registrySource = RegistrySource.BundledSnapshot;
-                RefreshInstalledSnapshot(_registry, new UnityInstalledPackageProbe());
                 if (_project != null && _project.Channel == LinkerChannel.Dev)
                 {
                     if (!TryResolveDevSha(registry, out _devSha, out error))
@@ -288,6 +293,8 @@ namespace Yoji.U3DAILinker.Settings
                     _devSha = null;
                     _currentRevision = registry.Branch ?? registry.Channel.ToString();
                 }
+                RefreshExpectedHashes(_registry, _project != null ? _project.Channel : LinkerChannel.Stable, _devSha);
+                RefreshInstalledSnapshot(_registry, new UnityInstalledPackageProbe());
                 Debug.Log("[U3DAILinker] Registry refreshed: " + _registry.Entries.Count + " entries.");
             }
             else
@@ -372,7 +379,10 @@ namespace Yoji.U3DAILinker.Settings
         {
             var path = Path.Combine(ProjectRoot, ".u3d-ai-linker");
             if (!Directory.Exists(path))
-                Directory.CreateDirectory(path);
+            {
+                Debug.LogWarning("[U3DAILinker] Generated folder does not exist yet: " + path);
+                return;
+            }
             EditorUtility.RevealInFinder(path);
         }
 
@@ -411,9 +421,28 @@ namespace Yoji.U3DAILinker.Settings
                 _devSha);
         }
 
+        private static void ApplyRestoredChannel(LinkerChannel target, LinkerRegistry targetRegistry)
+        {
+            _project.Channel = target;
+            _registry = targetRegistry;
+            _registry.Channel = target;
+            if (target != LinkerChannel.Dev)
+                _devSha = null;
+            _currentRevision = target == LinkerChannel.Dev
+                ? _devSha
+                : targetRegistry.Branch ?? targetRegistry.Channel.ToString();
+
+            if (!U3DAILinkerSettingsStore.TrySaveProjectSettings(_project, out var error))
+                Debug.LogError("[U3DAILinker] " + error);
+
+            RefreshExpectedHashes(_registry, target, _devSha);
+            RefreshInstalledSnapshot(_registry, new UnityInstalledPackageProbe());
+        }
+
         internal static Dictionary<string, InstalledPackageInfo> BuildInstalledSnapshot(
             LinkerRegistry registry,
-            IInstalledPackageProbe probe)
+            IInstalledPackageProbe probe,
+            IReadOnlyDictionary<string, string> expectedHashes = null)
         {
             var result = new Dictionary<string, InstalledPackageInfo>();
             if (registry == null || probe == null)
@@ -421,24 +450,75 @@ namespace Yoji.U3DAILinker.Settings
 
             foreach (var entry in registry.Entries)
             {
-                var url = probe.GetInstalledUrl(entry.PackageName);
-                if (string.IsNullOrEmpty(url))
-                    continue;
-
-                result[entry.PackageName] = new InstalledPackageInfo(
-                    entry.PackageName,
-                    url,
-                    ToolUrlBuilder.IsManagedUrl(url));
+                var expectedHash = expectedHashes != null && expectedHashes.TryGetValue(entry.PackageName, out var hash)
+                    ? hash
+                    : null;
+                var info = BuildInstalledPackageInfo(probe, entry.PackageName, expectedHash);
+                if (info != null && !string.IsNullOrEmpty(info.ResolvedUrl))
+                    result[entry.PackageName] = info;
             }
 
             return result;
         }
 
+        private static InstalledPackageInfo BuildInstalledPackageInfo(
+            IInstalledPackageProbe probe,
+            string packageName,
+            string expectedHash)
+        {
+            if (probe is UnityInstalledPackageProbe unityProbe)
+                return unityProbe.GetInstalledPackageInfo(packageName, expectedHash);
+
+            var url = probe.GetInstalledUrl(packageName);
+            return string.IsNullOrEmpty(url)
+                ? null
+                : new InstalledPackageInfo(packageName, url, ToolUrlBuilder.IsManagedUrl(url))
+                {
+                    ExpectedHash = expectedHash,
+                };
+        }
+
         private static void RefreshInstalledSnapshot(LinkerRegistry registry, IInstalledPackageProbe probe)
         {
             _installed.Clear();
-            foreach (var kv in BuildInstalledSnapshot(registry, probe))
+            foreach (var kv in BuildInstalledSnapshot(registry, probe, _expectedHashesByPackageName))
                 _installed[kv.Key] = kv.Value;
+        }
+
+        private static void RefreshExpectedHashes(
+            LinkerRegistry registry,
+            LinkerChannel channel,
+            string devSha)
+        {
+            _expectedHashesByPackageName.Clear();
+            if (registry == null)
+                return;
+
+            if (channel == LinkerChannel.Dev)
+            {
+                if (string.IsNullOrEmpty(devSha))
+                    return;
+                foreach (var entry in registry.Entries.Where(e => e.Status == ToolStatus.Ready))
+                    _expectedHashesByPackageName[entry.PackageName] = devSha;
+                return;
+            }
+
+            if (channel != LinkerChannel.Stable)
+                return;
+
+            var resolver = new GitLsRemoteResolver(ToolUrlBuilder.RepoUrl);
+            foreach (var entry in registry.Entries.Where(e => e.Status == ToolStatus.Ready))
+            {
+                try
+                {
+                    _expectedHashesByPackageName[entry.PackageName] = resolver.ResolveTagSha(entry.Revision);
+                }
+                catch (System.Exception e)
+                {
+                    Debug.LogWarning("[U3DAILinker] resolve stable tag hash failed for " +
+                                     entry.Id + " (" + entry.Revision + "): " + e.Message);
+                }
+            }
         }
 
         private static void ReportAction(string action, U3DAILinkerActionResult result)
@@ -522,6 +602,8 @@ namespace Yoji.U3DAILinker.Settings
                               " agent=" + row.Agent);
                 sb.AppendLine("  current=" + (row.Current ?? "-"));
                 sb.AppendLine("  target=" + (row.Desired ?? "-"));
+                sb.AppendLine("  currentHash=" + (row.CurrentHash ?? "-"));
+                sb.AppendLine("  targetHash=" + (row.ExpectedHash ?? "-"));
             }
             return sb.ToString();
         }

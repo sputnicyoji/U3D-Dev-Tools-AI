@@ -128,6 +128,59 @@ namespace Yoji.U3DAILinker.Tests
         }
 
         [Test]
+        public void InstalledManagedSameUrlButDifferentHash_IsOutdated()
+        {
+            var stableUrl =
+                "https://github.com/sputnicyoji/U3D-Dev-Tools-AI.git?path=/Packages/com.yoji.test-runner#test-runner-v1.1.0";
+            var installed = new Dictionary<string, InstalledPackageInfo>
+            {
+                ["com.yoji.test-runner"] = new InstalledPackageInfo(
+                    "com.yoji.test-runner",
+                    stableUrl,
+                    true,
+                    stableUrl,
+                    stableUrl,
+                    "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                    "test-runner-v1.1.0",
+                    "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"),
+            };
+            var rows = PanelStateModel.Build(
+                SampleRegistry(LinkerChannel.Stable), installed,
+                new[] { "test-runner" }, new Dictionary<string, AgentState>(),
+                LinkerChannel.Stable, null);
+
+            var row = Row(rows, "test-runner");
+            Assert.AreEqual(InstallState.Outdated, row.Installed);
+            Assert.AreEqual("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", row.CurrentHash);
+            Assert.AreEqual("bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb", row.ExpectedHash);
+        }
+
+        [Test]
+        public void InstalledManagedSameUrlAndHash_IsInstalled()
+        {
+            var stableUrl =
+                "https://github.com/sputnicyoji/U3D-Dev-Tools-AI.git?path=/Packages/com.yoji.test-runner#test-runner-v1.1.0";
+            var installed = new Dictionary<string, InstalledPackageInfo>
+            {
+                ["com.yoji.test-runner"] = new InstalledPackageInfo(
+                    "com.yoji.test-runner",
+                    stableUrl,
+                    true,
+                    stableUrl,
+                    stableUrl,
+                    "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                    "test-runner-v1.1.0",
+                    "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"),
+            };
+            var rows = PanelStateModel.Build(
+                SampleRegistry(LinkerChannel.Stable), installed,
+                new[] { "test-runner" }, new Dictionary<string, AgentState>(),
+                LinkerChannel.Stable, null);
+
+            Assert.AreEqual(InstallState.Installed, Row(rows, "test-runner").Installed);
+        }
+
+        [Test]
         public void InstalledLocalUrl_NormalizesSlashesBeforeComparingDesired()
         {
             var installed = new Dictionary<string, InstalledPackageInfo>

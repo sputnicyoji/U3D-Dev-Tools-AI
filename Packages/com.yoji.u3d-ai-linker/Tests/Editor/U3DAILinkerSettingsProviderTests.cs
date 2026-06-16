@@ -86,10 +86,17 @@ namespace Yoji.U3DAILinker.Tests
                 "https://github.com/sputnicyoji/U3D-Dev-Tools-AI.git?path=/Packages/com.yoji.editor-debug#editor-debug-v0.1.0");
             probe.Set("com.yoji.foreign", "https://github.com/other/repo.git?path=/Packages/com.yoji.foreign#v1");
 
-            var snapshot = U3DAILinkerSettingsProvider.BuildInstalledSnapshot(registry, probe);
+            var expectedHashes = new System.Collections.Generic.Dictionary<string, string>
+            {
+                ["com.yoji.editor-debug"] = "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+            };
+
+            var snapshot = U3DAILinkerSettingsProvider.BuildInstalledSnapshot(registry, probe, expectedHashes);
 
             Assert.AreEqual(2, snapshot.Count);
             Assert.IsTrue(snapshot["com.yoji.editor-debug"].IsManaged);
+            Assert.AreEqual("bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+                snapshot["com.yoji.editor-debug"].ExpectedHash);
             Assert.IsFalse(snapshot["com.yoji.foreign"].IsManaged);
             Assert.IsFalse(snapshot.ContainsKey("com.yoji.missing"));
         }
@@ -112,7 +119,12 @@ namespace Yoji.U3DAILinker.Tests
                 ["com.yoji.editor-debug"] = new InstalledPackageInfo(
                     "com.yoji.editor-debug",
                     "https://github.com/sputnicyoji/U3D-Dev-Tools-AI.git?path=/Packages/com.yoji.editor-debug#editor-debug-v0.1.0",
-                    true),
+                    true,
+                    "https://github.com/sputnicyoji/U3D-Dev-Tools-AI.git?path=/Packages/com.yoji.editor-debug#editor-debug-v0.1.0",
+                    "https://github.com/sputnicyoji/U3D-Dev-Tools-AI.git?path=/Packages/com.yoji.editor-debug#editor-debug-v0.1.0",
+                    "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                    "editor-debug-v0.1.0",
+                    "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"),
             };
 
             var report = U3DAILinkerSettingsProvider.BuildDiagnosticReport(
@@ -132,6 +144,8 @@ namespace Yoji.U3DAILinker.Tests
             StringAssert.Contains("Channel: Stable", report);
             StringAssert.Contains("editor-debug", report);
             StringAssert.Contains("install=Installed", report);
+            StringAssert.Contains("currentHash=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", report);
+            StringAssert.Contains("targetHash=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", report);
             StringAssert.Contains("SelfPackage:", report);
         }
 

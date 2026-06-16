@@ -34,6 +34,8 @@ namespace Yoji.U3DAILinker.Settings
         public InstallState Installed;
         public string Desired;
         public string Current;
+        public string CurrentHash;
+        public string ExpectedHash;
         public AgentState Agent;
         public string[] RequiredBy;
     }
@@ -68,6 +70,8 @@ namespace Yoji.U3DAILinker.Settings
                     Installed = ResolveInstallState(installed, entry.PackageName, desired),
                     Desired = desired,
                     Current = current,
+                    CurrentHash = ResolveCurrentHash(installed, entry.PackageName),
+                    ExpectedHash = ResolveExpectedHash(installed, entry.PackageName),
                     Agent = ResolveAgentState(agentStates, entry.Id),
                     RequiredBy = ResolveRequiredBy(registry, enabled, entry),
                 });
@@ -104,6 +108,22 @@ namespace Yoji.U3DAILinker.Settings
                 : null;
         }
 
+        private static string ResolveCurrentHash(
+            IReadOnlyDictionary<string, InstalledPackageInfo> installed, string packageName)
+        {
+            return installed != null && installed.TryGetValue(packageName, out var info)
+                ? info.GitHash
+                : null;
+        }
+
+        private static string ResolveExpectedHash(
+            IReadOnlyDictionary<string, InstalledPackageInfo> installed, string packageName)
+        {
+            return installed != null && installed.TryGetValue(packageName, out var info)
+                ? info.ExpectedHash
+                : null;
+        }
+
         private static InstallState ResolveInstallState(
             IReadOnlyDictionary<string, InstalledPackageInfo> installed, string packageName, string desired)
         {
@@ -111,9 +131,18 @@ namespace Yoji.U3DAILinker.Settings
                 return InstallState.Missing;
             if (!info.IsManaged)
                 return InstallState.Conflict;
+            if (HasHashMismatch(info))
+                return InstallState.Outdated;
             if (string.IsNullOrEmpty(desired))
                 return InstallState.Installed;
             return UrlEquals(info.ResolvedUrl, desired) ? InstallState.Installed : InstallState.Outdated;
+        }
+
+        private static bool HasHashMismatch(InstalledPackageInfo info)
+        {
+            return !string.IsNullOrEmpty(info.ExpectedHash)
+                   && !string.IsNullOrEmpty(info.GitHash)
+                   && !string.Equals(info.ExpectedHash, info.GitHash, System.StringComparison.OrdinalIgnoreCase);
         }
 
         private static bool UrlEquals(string a, string b)
