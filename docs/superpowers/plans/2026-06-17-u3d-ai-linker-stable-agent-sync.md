@@ -1247,12 +1247,12 @@ $sha = git -C E:\Yoji\U3D-Dev-Tools-AI rev-parse HEAD
 $repo = "https://github.com/sputnicyoji/U3D-Dev-Tools-AI.git"
 ```
 
-Edit `E:\Yoji\SLG_Prototype\Core_Client\Packages\manifest.json` so the five `com.yoji.*` lines become:
+Edit `E:\Yoji\SLG_Prototype\Core_Client\Packages\manifest.json` so the four stable-scope `com.yoji.*` lines become Git SHA URLs. Keep `com.yoji.lua-device-debug` as a local `file:` dependency in SLG_Prototype until it enters stable scope; the project currently compiles against its host contract.
 
 ```json
 "com.yoji.editor-core": "https://github.com/sputnicyoji/U3D-Dev-Tools-AI.git?path=/Packages/com.yoji.editor-core#<sha>",
 "com.yoji.editor-debug": "https://github.com/sputnicyoji/U3D-Dev-Tools-AI.git?path=/Packages/com.yoji.editor-debug#<sha>",
-"com.yoji.lua-device-debug": "https://github.com/sputnicyoji/U3D-Dev-Tools-AI.git?path=/Packages/com.yoji.lua-device-debug#<sha>",
+"com.yoji.lua-device-debug": "file:E:/Yoji/U3D-Dev-Tools-AI/Packages/com.yoji.lua-device-debug",
 "com.yoji.test-runner": "https://github.com/sputnicyoji/U3D-Dev-Tools-AI.git?path=/Packages/com.yoji.test-runner#<sha>",
 "com.yoji.u3d-ai-linker": "https://github.com/sputnicyoji/U3D-Dev-Tools-AI.git?path=/Packages/com.yoji.u3d-ai-linker#<sha>",
 ```
@@ -1267,7 +1267,7 @@ In SLG_Prototype Editor, focus the Editor until Package Manager finishes resolvi
 Select-String -Path E:\Yoji\SLG_Prototype\Core_Client\Packages\packages-lock.json -Pattern "github.com/sputnicyoji/U3D-Dev-Tools-AI"
 ```
 
-Expected: all five `com.yoji.*` packages are resolved from Git.
+Expected: the four stable-scope packages are resolved from Git; `com.yoji.lua-device-debug` remains `source=local`.
 
 - [ ] **Step 4: Verify service endpoints**
 

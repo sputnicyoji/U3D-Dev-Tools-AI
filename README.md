@@ -7,17 +7,17 @@ source packages for headless test execution, Editor inspection, Lua runtime
 diagnostics, and an Editor-side linker that syncs agent skills/rules into a
 Unity project.
 
-Last reviewed: 2026-06-15
+Last reviewed: 2026-06-17
 
 ## Status
 
 | Package | Purpose | Agent assets | Unity package | Current state |
 |---------|---------|--------------|---------------|---------------|
 | `com.yoji.editor-core` | Shared Editor-only infrastructure: main-thread dispatch, bounded request bodies, service lifecycle helpers | No | Yes | Internal dependency package |
-| `com.yoji.test-runner` | HTTP MCP service for Unity recompilation and EditMode/PlayMode test runs | `client.py`, `SKILL.md`, e2e script | Yes | Usable via local `file:` install |
-| `com.yoji.editor-debug` | HTTP+JSON reflection/debug service inside Unity Editor | `client.py`, `SKILL.md`, references | Yes | Usable via local `file:` install |
+| `com.yoji.test-runner` | HTTP MCP service for Unity recompilation and EditMode/PlayMode test runs | `client.py`, `SKILL.md`, e2e script | Yes | Stable `0.1.0` Git install verified |
+| `com.yoji.editor-debug` | HTTP+JSON reflection/debug service inside Unity Editor | `client.py`, `SKILL.md`, references | Yes | Stable `0.1.0` Git install verified |
 | `com.yoji.lua-device-debug` | HTTP+JSON diagnostics transport for project-provided Lua runtime adapters | `client.py`, `SKILL.md` | Yes | Transport ready; target project must register a host |
-| `com.yoji.u3d-ai-linker` | Project Settings package for installing tools and syncing Claude/Codex skills/rules | Tool fragments | Yes | Implemented; live side effects still need project-level manual verification |
+| `com.yoji.u3d-ai-linker` | Project Settings package for installing tools and syncing Claude/Codex skills/rules | Tool fragments | Yes | Agent Sync/Junction live verified in SLG_Prototype |
 
 The old client-only runtime expression debugger (`feval-runtime-debug`) has
 been removed. This toolset is not a HybridCLR integration layer.
@@ -124,10 +124,13 @@ agent asset synchronization. Its design covers local/stable/dev channels,
 manifest transactions, Windows junctions, and Claude Code / Codex skill
 fragments.
 
-Current boundary: the implementation and pure EditMode tests are in place.
-Real project side effects such as Git install flows, domain-reload resume,
-Windows junction behavior, and panel-driven installation still need live
-Editor verification in a target project.
+Current stable `0.1.0` scope is `editor-core`, `editor-debug`,
+`test-runner`, and `u3d-ai-linker`. In `SLG_Prototype/Core_Client`,
+those four packages were verified from Git SHA
+`a2a0201413bcb40719b30a809be8078441e9f691`; `lua-device-debug` remains a
+local dependency until its generic host integration path is ready for stable.
+Agent asset probe, `Sync Agent Assets`, `Repair Links`, and the Windows
+Junction smoke menu all passed in the live Editor.
 
 ## Ports
 
@@ -146,7 +149,7 @@ Latest local batchmode runs on Unity `6000.3.16f1`:
 | `TestProjects/editor-debug` | `82/82` EditMode passed |
 | `TestProjects/test-runner` | `29` total, `27` passed, `2` skipped, `0` failed |
 | `TestProjects/lua-device-debug` | `13/13` EditMode passed |
-| `TestProjects/u3d-ai-linker` | `252/252` EditMode passed |
+| `TestProjects/u3d-ai-linker` | `260/260` EditMode passed |
 
 HTTP e2e scripts live under each tool's `Agent~/skills/.../references/`
 folder. They require the matching Unity project to be open with the service

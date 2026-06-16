@@ -4,12 +4,12 @@
   "entries": [
     {
       "id": "editor-core",
-      "status": "planned",
+      "status": "ready",
       "kind": "infra",
       "order": 10,
       "packageName": "com.yoji.editor-core",
       "packagePath": "Packages/com.yoji.editor-core",
-      "revision": "editor-core-v1.0.0",
+      "revision": "editor-core-v0.1.0",
       "defaultEnabled": false,
       "userToggle": false,
       "agentAssets": null,
@@ -18,7 +18,7 @@
     },
     {
       "id": "editor-debug",
-      "status": "skill-only",
+      "status": "ready",
       "kind": "tool",
       "order": 20,
       "packageName": "com.yoji.editor-debug",
@@ -32,7 +32,7 @@
     },
     {
       "id": "test-runner",
-      "status": "skill-only",
+      "status": "ready",
       "kind": "tool",
       "order": 30,
       "packageName": "com.yoji.test-runner",

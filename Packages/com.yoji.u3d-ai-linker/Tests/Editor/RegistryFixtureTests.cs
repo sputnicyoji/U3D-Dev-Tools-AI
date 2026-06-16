@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using System.IO;
 using NUnit.Framework;
 using Yoji.U3DAILinker.Registry;
@@ -91,17 +92,19 @@ namespace Yoji.U3DAILinker.Tests
         }
 
         [Test]
-        public void StableRegistry_AllToolsArePlannedOrSkillOnly()
+        public void StableRegistry_ReleaseScopeIsReadyAndLuaDeviceDebugStaysPlanned()
         {
-            // spec 117-118：尚无公开 UPM 包时不得标 ready。
             var root = FindRepoRoot();
             Assume.That(root, Is.Not.Null);
             var doc = RegistryParser.Parse(ReadRegistry(root, "Registry/stable.json"));
+
+            var expectedReady = new HashSet<string> { "editor-core", "editor-debug", "test-runner" };
             foreach (var entry in doc.Entries)
             {
-                Assert.AreNotEqual(
-                    "ready", entry.Status,
-                    "tool '" + entry.Id + "' must not be 'ready' before public UPM release");
+                if (expectedReady.Contains(entry.Id))
+                    Assert.AreEqual("ready", entry.Status, "tool '" + entry.Id + "' must be stable ready");
+                else
+                    Assert.AreNotEqual("ready", entry.Status, "tool '" + entry.Id + "' is outside stable 0.1.0 scope");
             }
         }
 
