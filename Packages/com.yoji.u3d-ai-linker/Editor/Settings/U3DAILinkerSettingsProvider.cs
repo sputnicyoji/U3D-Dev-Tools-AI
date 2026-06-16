@@ -1,4 +1,6 @@
 using System.Collections.Generic;
+using System.IO;
+using System.Linq;
 using UnityEditor;
 using UnityEngine;
 using Yoji.U3DAILinker.Operations;
@@ -12,7 +14,7 @@ namespace Yoji.U3DAILinker.Settings
     internal static class U3DAILinkerSettingsProvider
     {
         internal const string ProviderPath = U3DAILinkerPackage.SettingsPath;
-        internal const bool ActionsWired = false;
+        internal const bool ActionsWired = true;
 
         private static U3DAILinkerSettings _project;
         private static U3DAILinkerUserSettings _user;
@@ -169,12 +171,9 @@ namespace Yoji.U3DAILinker.Settings
         private static void DrawActionSection()
         {
             EditorGUILayout.LabelField("Actions", EditorStyles.boldLabel);
-            if (!ActionsWired)
-            {
-                EditorGUILayout.HelpBox(
-                    "This build exposes registry/settings state only. Install, sync, repair, and rollback wiring is not connected yet.",
-                    MessageType.Info);
-            }
+            EditorGUILayout.HelpBox(
+                "Install/Update, Restore, and Rollback are wired. Agent asset sync and junction repair remain read-only in this build.",
+                MessageType.Info);
 
             using (new EditorGUI.DisabledScope(!AreActionButtonsEnabled(_operationState)))
             using (new EditorGUILayout.VerticalScope())
@@ -182,8 +181,11 @@ namespace Yoji.U3DAILinker.Settings
                 if (GUILayout.Button("Refresh Registry")) RequestRefreshRegistry();
                 if (GUILayout.Button("Install/Update Selected")) RequestInstallSelected();
                 if (GUILayout.Button("Install/Update All")) RequestInstallAll();
-                if (GUILayout.Button("Sync Agent Assets")) RequestSyncAgents();
-                if (GUILayout.Button("Repair Links")) RequestRepairLinks();
+                using (new EditorGUI.DisabledScope(true))
+                {
+                    if (GUILayout.Button("Sync Agent Assets")) RequestSyncAgents();
+                    if (GUILayout.Button("Repair Links")) RequestRepairLinks();
+                }
                 if (GUILayout.Button("Rollback Manifest")) RequestRollback();
                 if (GUILayout.Button("Open Generated Folder")) RequestOpenFolder();
                 if (GUILayout.Button("Copy Diagnostic Report")) RequestCopyDiagnostics();
@@ -229,21 +231,191 @@ namespace Yoji.U3DAILinker.Settings
 
         private static void RequestRestore(LinkerChannel target)
         {
-            if (_registry == null)
+            if (!EnsureRegistryLoaded())
                 return;
-            var targetReg = _registry;
-            var changes = RestorePlanner.BuildRestore(_installed, targetReg, _devSha);
-            Debug.Log("[U3DAILinker] Restore plan to " + target + ": " + changes.Length + " changes.");
-            // 实际 manifest 事务由 Manifest 子系统执行(组装阶段接线)。
+            var result = NewActionService().RestoreToChannel(
+                _registry,
+                target,
+                _devSha,
+                _installed,
+                acceptConflicts: false);
+            ReportAction("Restore " + target, result);
         }
 
-        private static void RequestRefreshRegistry() { Debug.Log("[U3DAILinker] Refresh Registry requested."); }
-        private static void RequestInstallSelected() { Debug.Log("[U3DAILinker] Install/Update Selected requested."); }
-        private static void RequestInstallAll() { Debug.Log("[U3DAILinker] Install/Update All requested."); }
+        private static void RequestRefreshRegistry()
+        {
+            if (TryLoadBundledRegistry(RegistryChannelForCurrentProject(), out var registry, out var error))
+            {
+                _registry = registry;
+                _registrySource = RegistrySource.BundledSnapshot;
+                _currentRevision = registry.Branch ?? registry.Channel.ToString();
+                Debug.Log("[U3DAILinker] Registry refreshed: " + _registry.Entries.Count + " entries.");
+            }
+            else
+            {
+                Debug.LogError("[U3DAILinker] " + error);
+            }
+        }
+
+        private static void RequestInstallSelected()
+        {
+            if (!EnsureRegistryLoaded())
+                return;
+            var result = NewActionService().InstallOrUpdateSelected(
+                _registry,
+                _project,
+                _user,
+                acceptConflicts: false);
+            ReportAction("Install/Update Selected", result);
+        }
+
+        private static void RequestInstallAll()
+        {
+            if (!EnsureRegistryLoaded())
+                return;
+            var result = NewActionService().InstallOrUpdateAll(
+                _registry,
+                _project,
+                _user,
+                acceptConflicts: false);
+            ReportAction("Install/Update All", result);
+        }
+
         private static void RequestSyncAgents() { Debug.Log("[U3DAILinker] Sync Agent Assets requested."); }
         private static void RequestRepairLinks() { Debug.Log("[U3DAILinker] Repair Links requested."); }
-        private static void RequestRollback() { Debug.Log("[U3DAILinker] Rollback Manifest requested."); }
+        private static void RequestRollback()
+        {
+            var result = NewActionService().RollbackManifest();
+            ReportAction("Rollback Manifest", result);
+        }
+
         private static void RequestOpenFolder() { Debug.Log("[U3DAILinker] Open Generated Folder requested."); }
         private static void RequestCopyDiagnostics() { Debug.Log("[U3DAILinker] Copy Diagnostic Report requested."); }
+
+        private static bool EnsureRegistryLoaded()
+        {
+            if (_registry != null)
+                return true;
+            RequestRefreshRegistry();
+            return _registry != null;
+        }
+
+        private static U3DAILinkerActionService NewActionService()
+        {
+            return new U3DAILinkerActionService(
+                ProjectRoot,
+                new UnityUpmClient(),
+                new UnityInstalledPackageProbe());
+        }
+
+        private static void ReportAction(string action, U3DAILinkerActionResult result)
+        {
+            if (result == null)
+            {
+                Debug.LogError("[U3DAILinker] " + action + " failed: no result");
+                return;
+            }
+
+            if (!result.Success)
+            {
+                _operationState = OperationState.Failed;
+                Debug.LogError("[U3DAILinker] " + action + " failed: " + result.Error);
+                return;
+            }
+
+            _operationState = result.QueueResult == QueueStepResult.Requested
+                ? OperationState.Running
+                : OperationState.Idle;
+
+            var queue = result.QueueResult.HasValue ? " queue=" + result.QueueResult.Value : string.Empty;
+            Debug.Log("[U3DAILinker] " + action + " succeeded." + queue);
+        }
+
+        private static bool TryLoadBundledRegistry(
+            RegistryChannel channel,
+            out LinkerRegistry registry,
+            out string error)
+        {
+            registry = null;
+            error = null;
+
+            var fileName = channel == RegistryChannel.Dev ? "dev.json" : "stable.json";
+            var path = Path.Combine(PackageRoot, "Registry", fileName);
+            if (!File.Exists(path))
+            {
+                error = "bundled registry missing: " + path;
+                return false;
+            }
+
+            try
+            {
+                var doc = RegistryParser.Parse(File.ReadAllText(path));
+                RegistryValidator.Validate(doc, channel);
+                registry = ToRegistryView(doc, _project != null ? _project.Channel : LinkerChannel.Stable);
+                return true;
+            }
+            catch (System.Exception e)
+            {
+                error = "load bundled registry failed: " + e.Message;
+                return false;
+            }
+        }
+
+        private static LinkerRegistry ToRegistryView(RegistryDocument doc, LinkerChannel channel)
+        {
+            var result = new LinkerRegistry
+            {
+                SchemaVersion = doc.SchemaVersion,
+                Channel = channel,
+                Branch = doc.Branch,
+            };
+
+            foreach (var entry in doc.Entries.OrderBy(e => e.Order))
+            {
+                ToolStatusExtensions.TryParse(entry.Status, out var status);
+                ToolKindExtensions.TryParse(entry.Kind, out var kind);
+                result.Entries.Add(new RegistryEntryView
+                {
+                    Id = entry.Id,
+                    Status = status,
+                    Kind = kind,
+                    Order = entry.Order,
+                    PackageName = entry.PackageName,
+                    PackagePath = entry.PackagePath,
+                    Revision = entry.Revision,
+                    DefaultEnabled = entry.DefaultEnabled,
+                    UserToggle = entry.UserToggle,
+                    MinUnity = entry.MinUnity,
+                    DisplayName = entry.Id,
+                    DependsOn = entry.DependsOn != null
+                        ? entry.DependsOn.ToList()
+                        : new List<string>(),
+                });
+            }
+
+            return result;
+        }
+
+        private static RegistryChannel RegistryChannelForCurrentProject()
+        {
+            return _project != null && _project.Channel == LinkerChannel.Dev
+                ? RegistryChannel.Dev
+                : RegistryChannel.Stable;
+        }
+
+        private static string ProjectRoot
+            => Path.GetFullPath(Path.Combine(Application.dataPath, ".."));
+
+        private static string PackageRoot
+        {
+            get
+            {
+                var info = UnityEditor.PackageManager.PackageInfo.FindForAssembly(
+                    typeof(U3DAILinkerPackage).Assembly);
+                if (info != null && !string.IsNullOrEmpty(info.resolvedPath))
+                    return info.resolvedPath;
+                return Path.Combine(ProjectRoot, "Packages", U3DAILinkerPackage.PackageName);
+            }
+        }
     }
 }

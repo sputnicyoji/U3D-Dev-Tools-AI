@@ -40,10 +40,11 @@ namespace Yoji.U3DAILinker.Tests
         }
 
         [Test]
-        public void Actions_DefaultToDisabledUntilWired()
+        public void Actions_AreEnabledWhenIdle()
         {
-            Assert.IsFalse(U3DAILinkerSettingsProvider.ActionsWired);
-            Assert.IsFalse(U3DAILinkerSettingsProvider.AreActionButtonsEnabled(OperationState.Idle));
+            Assert.IsTrue(U3DAILinkerSettingsProvider.ActionsWired);
+            Assert.IsTrue(U3DAILinkerSettingsProvider.AreActionButtonsEnabled(OperationState.Idle));
+            Assert.IsFalse(U3DAILinkerSettingsProvider.AreActionButtonsEnabled(OperationState.Running));
         }
     }
 }
