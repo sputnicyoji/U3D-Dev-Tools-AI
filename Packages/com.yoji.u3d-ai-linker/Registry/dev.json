@@ -5,7 +5,7 @@
   "entries": [
     {
       "id": "editor-core",
-      "status": "planned",
+      "status": "ready",
       "kind": "infra",
       "order": 10,
       "packageName": "com.yoji.editor-core",
@@ -19,7 +19,7 @@
     },
     {
       "id": "editor-debug",
-      "status": "skill-only",
+      "status": "ready",
       "kind": "tool",
       "order": 20,
       "packageName": "com.yoji.editor-debug",
@@ -33,7 +33,7 @@
     },
     {
       "id": "test-runner",
-      "status": "skill-only",
+      "status": "ready",
       "kind": "tool",
       "order": 30,
       "packageName": "com.yoji.test-runner",
@@ -47,7 +47,7 @@
     },
     {
       "id": "lua-device-debug",
-      "status": "planned",
+      "status": "ready",
       "kind": "tool",
       "order": 40,
       "packageName": "com.yoji.lua-device-debug",

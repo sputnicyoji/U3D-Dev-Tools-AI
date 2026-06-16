@@ -146,7 +146,7 @@ Latest local batchmode runs on Unity `6000.3.16f1`:
 | `TestProjects/editor-debug` | `82/82` EditMode passed |
 | `TestProjects/test-runner` | `29` total, `27` passed, `2` skipped, `0` failed |
 | `TestProjects/lua-device-debug` | `13/13` EditMode passed |
-| `TestProjects/u3d-ai-linker` | `246/246` EditMode passed |
+| `TestProjects/u3d-ai-linker` | `252/252` EditMode passed |
 
 HTTP e2e scripts live under each tool's `Agent~/skills/.../references/`
 folder. They require the matching Unity project to be open with the service

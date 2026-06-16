@@ -44,15 +44,18 @@ namespace Yoji.U3DAILinker.Settings
         private readonly string m_ProjectRoot;
         private readonly IUpmClient m_Upm;
         private readonly IInstalledPackageProbe m_Probe;
+        private readonly string m_DevSha;
 
         public U3DAILinkerActionService(
             string projectRoot,
             IUpmClient upm,
-            IInstalledPackageProbe probe)
+            IInstalledPackageProbe probe,
+            string devSha = null)
         {
             m_ProjectRoot = projectRoot;
             m_Upm = upm;
             m_Probe = probe;
+            m_DevSha = devSha;
         }
 
         public U3DAILinkerActionResult InstallOrUpdateSelected(
@@ -119,6 +122,7 @@ namespace Yoji.U3DAILinker.Settings
             if (!txResult.Committed)
                 return U3DAILinkerActionResult.Fail(DescribeFailure(txResult), txResult);
 
+            SaveLastManifestRecord(txResult.Record);
             return U3DAILinkerActionResult.Ok(txResult);
         }
 
@@ -126,10 +130,11 @@ namespace Yoji.U3DAILinker.Settings
         {
             var stateDir = StateDir;
             var logPath = Path.Combine(stateDir, "operation.json");
-            if (!File.Exists(logPath))
+            var recordPath = File.Exists(logPath) ? logPath : LastManifestRecordPath;
+            if (!File.Exists(recordPath))
                 return U3DAILinkerActionResult.Fail("operation log missing");
 
-            var text = File.ReadAllText(logPath);
+            var text = File.ReadAllText(recordPath);
             var record = TryReadOperationRecord(text);
             if (record == null)
                 return U3DAILinkerActionResult.Fail("operation log does not contain a manifest backup");
@@ -155,10 +160,20 @@ namespace Yoji.U3DAILinker.Settings
             if (userSettings == null)
                 return U3DAILinkerActionResult.Fail("user settings missing");
 
-            var resolved = ResolveTools(registry, settings.Channel, userSettings.LocalRepoRoot);
-            var queue = new InstallQueueBuilder().Build(resolved, enabledToolIds ?? Array.Empty<string>());
+            IReadOnlyList<ResolvedTool> resolved;
+            IReadOnlyList<QueueItem> queue;
+            try
+            {
+                resolved = ResolveTools(registry, settings.Channel, userSettings.LocalRepoRoot);
+                queue = new InstallQueueBuilder().Build(resolved, enabledToolIds ?? Array.Empty<string>());
+            }
+            catch (Exception e)
+            {
+                return U3DAILinkerActionResult.Fail(e.Message);
+            }
             if (queue.Count == 0)
-                return U3DAILinkerActionResult.Ok(NoOpManifestResult(settings.Channel));
+                return U3DAILinkerActionResult.Fail(
+                    "no installable ready tools for channel " + ChannelName(settings.Channel));
 
             var operationId = NewOperationId();
             var plan = new ManifestPlan(operationId, ChannelName(settings.Channel), RevisionLabel(settings.Channel, registry))
@@ -175,6 +190,7 @@ namespace Yoji.U3DAILinker.Settings
             if (txResult.Record.DependencyChanges == null || txResult.Record.DependencyChanges.Count == 0)
                 return U3DAILinkerActionResult.Ok(txResult);
 
+            SaveLastManifestRecord(txResult.Record);
             var log = new OperationLog
             {
                 OperationId = operationId,
@@ -223,7 +239,7 @@ namespace Yoji.U3DAILinker.Settings
                 case LinkerChannel.Local:
                     return ToolUrlBuilder.BuildLocalFile(localRepoRoot, entry.PackagePath);
                 case LinkerChannel.Dev:
-                    return ToolUrlBuilder.BuildDevSha(entry.PackagePath, entry.Revision);
+                    return ToolUrlBuilder.BuildDevSha(entry.PackagePath, RequireDevSha());
                 default:
                     return ToolUrlBuilder.BuildStable(entry.PackagePath, entry.Revision);
             }
@@ -242,20 +258,33 @@ namespace Yoji.U3DAILinker.Settings
         private string ManifestPath => Path.Combine(m_ProjectRoot, "Packages", "manifest.json");
         private string LibraryRoot => Path.Combine(m_ProjectRoot, "Library");
         private string StateDir => Path.Combine(LibraryRoot, "U3DAILinker");
+        private string LastManifestRecordPath => Path.Combine(StateDir, "last-manifest-operation.json");
 
-        private static ManifestTransactionResult NoOpManifestResult(LinkerChannel channel)
+        private void SaveLastManifestRecord(OperationRecord record)
         {
-            return new ManifestTransactionResult
+            if (record == null || string.IsNullOrEmpty(record.BackupPath))
+                return;
+            Directory.CreateDirectory(StateDir);
+            File.WriteAllText(LastManifestRecordPath, JsonConvert.SerializeObject(record, Formatting.Indented));
+        }
+
+        private string RequireDevSha()
+        {
+            if (string.IsNullOrEmpty(m_DevSha) || IsAllZeroSha(m_DevSha))
+                throw new InvalidOperationException("Dev channel requires a resolved commit SHA. Refresh Registry first.");
+            return m_DevSha;
+        }
+
+        private static bool IsAllZeroSha(string value)
+        {
+            if (value == null || value.Length != 40)
+                return false;
+            for (var i = 0; i < value.Length; i++)
             {
-                Committed = true,
-                Record = new OperationRecord
-                {
-                    OperationId = NewOperationId(),
-                    Channel = ChannelName(channel),
-                    Status = "committed",
-                    DependencyChanges = new List<DependencyChange>(),
-                },
-            };
+                if (value[i] != '0')
+                    return false;
+            }
+            return true;
         }
 
         private static OperationRecord TryReadOperationRecord(string json)

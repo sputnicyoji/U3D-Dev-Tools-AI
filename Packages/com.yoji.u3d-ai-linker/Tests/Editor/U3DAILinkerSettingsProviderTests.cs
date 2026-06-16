@@ -46,5 +46,16 @@ namespace Yoji.U3DAILinker.Tests
             Assert.IsTrue(U3DAILinkerSettingsProvider.AreActionButtonsEnabled(OperationState.Idle));
             Assert.IsFalse(U3DAILinkerSettingsProvider.AreActionButtonsEnabled(OperationState.Running));
         }
+
+        [Test]
+        public void RegistryChannelForProject_UsesDevSnapshotForLocalAndDev()
+        {
+            Assert.AreEqual(Registry.RegistryChannel.Stable,
+                U3DAILinkerSettingsProvider.RegistryChannelForProject(LinkerChannel.Stable));
+            Assert.AreEqual(Registry.RegistryChannel.Dev,
+                U3DAILinkerSettingsProvider.RegistryChannelForProject(LinkerChannel.Dev));
+            Assert.AreEqual(Registry.RegistryChannel.Dev,
+                U3DAILinkerSettingsProvider.RegistryChannelForProject(LinkerChannel.Local));
+        }
     }
 }

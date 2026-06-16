@@ -61,6 +61,9 @@ namespace Yoji.U3DAILinker.Settings
                 if (newChannel != _project.Channel)
                 {
                     _project.Channel = newChannel;
+                    _registry = null;
+                    _currentRevision = null;
+                    _devSha = null;
                     if (U3DAILinkerSettingsStore.TrySaveProjectSettings(_project, out var error))
                     {
                         // saved
@@ -231,10 +234,14 @@ namespace Yoji.U3DAILinker.Settings
 
         private static void RequestRestore(LinkerChannel target)
         {
-            if (!EnsureRegistryLoaded())
+            if (!TryLoadRegistryForChannel(target, out var targetRegistry, out var error))
+            {
+                Debug.LogError("[U3DAILinker] " + error);
                 return;
+            }
+
             var result = NewActionService().RestoreToChannel(
-                _registry,
+                targetRegistry,
                 target,
                 _devSha,
                 _installed,
@@ -248,7 +255,20 @@ namespace Yoji.U3DAILinker.Settings
             {
                 _registry = registry;
                 _registrySource = RegistrySource.BundledSnapshot;
-                _currentRevision = registry.Branch ?? registry.Channel.ToString();
+                if (_project != null && _project.Channel == LinkerChannel.Dev)
+                {
+                    if (!TryResolveDevSha(registry, out _devSha, out error))
+                    {
+                        Debug.LogError("[U3DAILinker] " + error);
+                        return;
+                    }
+                    _currentRevision = _devSha;
+                }
+                else
+                {
+                    _devSha = null;
+                    _currentRevision = registry.Branch ?? registry.Channel.ToString();
+                }
                 Debug.Log("[U3DAILinker] Registry refreshed: " + _registry.Entries.Count + " entries.");
             }
             else
@@ -305,7 +325,8 @@ namespace Yoji.U3DAILinker.Settings
             return new U3DAILinkerActionService(
                 ProjectRoot,
                 new UnityUpmClient(),
-                new UnityInstalledPackageProbe());
+                new UnityInstalledPackageProbe(),
+                _devSha);
         }
 
         private static void ReportAction(string action, U3DAILinkerActionResult result)
@@ -361,6 +382,43 @@ namespace Yoji.U3DAILinker.Settings
             }
         }
 
+        private static bool TryLoadRegistryForChannel(
+            LinkerChannel channel,
+            out LinkerRegistry registry,
+            out string error)
+        {
+            registry = null;
+            error = null;
+            var registryChannel = channel == LinkerChannel.Stable
+                ? RegistryChannel.Stable
+                : RegistryChannel.Dev;
+
+            if (!TryLoadBundledRegistry(registryChannel, out registry, out error))
+                return false;
+
+            registry.Channel = channel;
+            if (channel == LinkerChannel.Dev && !TryResolveDevSha(registry, out _devSha, out error))
+                return false;
+
+            return true;
+        }
+
+        private static bool TryResolveDevSha(LinkerRegistry registry, out string sha, out string error)
+        {
+            sha = null;
+            error = null;
+            try
+            {
+                sha = new GitLsRemoteResolver(ToolUrlBuilder.RepoUrl).ResolveBranchSha(registry.Branch);
+                return true;
+            }
+            catch (System.Exception e)
+            {
+                error = "resolve dev SHA failed: " + e.Message;
+                return false;
+            }
+        }
+
         private static LinkerRegistry ToRegistryView(RegistryDocument doc, LinkerChannel channel)
         {
             var result = new LinkerRegistry
@@ -396,11 +454,16 @@ namespace Yoji.U3DAILinker.Settings
             return result;
         }
 
-        private static RegistryChannel RegistryChannelForCurrentProject()
+        internal static RegistryChannel RegistryChannelForProject(LinkerChannel channel)
         {
-            return _project != null && _project.Channel == LinkerChannel.Dev
+            return channel == LinkerChannel.Dev || channel == LinkerChannel.Local
                 ? RegistryChannel.Dev
                 : RegistryChannel.Stable;
+        }
+
+        private static RegistryChannel RegistryChannelForCurrentProject()
+        {
+            return RegistryChannelForProject(_project != null ? _project.Channel : LinkerChannel.Stable);
         }
 
         private static string ProjectRoot
