@@ -1,5 +1,6 @@
 using UnityEditor;
 using UnityEditor.PackageManager;
+using Yoji.U3DAILinker.Settings;
 
 namespace Yoji.U3DAILinker.Operations
 {
@@ -34,6 +35,11 @@ namespace Yoji.U3DAILinker.Operations
             EditorApplication.delayCall += TryResume;
         }
 
+        internal static bool ShouldRunAgentSync(QueueStepResult result)
+        {
+            return result == QueueStepResult.AlreadySatisfied;
+        }
+
         private static void TryResume()
         {
             // Package Manager 还在解析时让出，下一帧再试，避免与进行中的 UPM 请求竞争。
@@ -50,11 +56,41 @@ namespace Yoji.U3DAILinker.Operations
 
             var runner = new UpmQueueRunner(store, new UnityUpmClient(), new UnityInstalledPackageProbe());
             var result = runner.Advance(log);
+            if (ShouldRunAgentSync(result))
+                TrySyncAgentsAfterInstall();
 
             // Requested 表示已经发出 Add。不要下一帧自旋探测；UPM 请求仍可能进行中。
             // 域重载后静态构造会重新进入恢复路径，或由后续显式 Retry/Resume 接续。
             if (RecoveryReconciler.ShouldScheduleFollowUp(result))
                 EditorApplication.delayCall += TryResume;
+        }
+
+        private static void TrySyncAgentsAfterInstall()
+        {
+            try
+            {
+                var projectSettings = U3DAILinkerSettingsStore.LoadOrCreateProjectSettings();
+                if (!U3DAILinkerSettingsProvider.TryLoadBundledRegistryForCurrentProject(projectSettings.Channel, out var registry, out var error))
+                {
+                    UnityEngine.Debug.LogError("[U3DAILinker] Post-install agent sync skipped: " + error);
+                    return;
+                }
+
+                var targets = AgentPackageSourceResolver.Resolve(
+                    registry,
+                    projectSettings.EnabledToolIds,
+                    new UnityResolvedPackagePathProvider());
+                var result = new AgentSyncOrchestrator(new WindowsJunctionManager()).Sync(
+                    U3DAILinkerProjectPaths.ProjectRoot,
+                    targets,
+                    "post-install-" + System.Guid.NewGuid().ToString("N"));
+                if (!result.Success)
+                    UnityEngine.Debug.LogError("[U3DAILinker] Post-install agent sync failed: " + result.Error);
+            }
+            catch (System.Exception e)
+            {
+                UnityEngine.Debug.LogError("[U3DAILinker] Post-install agent sync failed: " + e.Message);
+            }
         }
 
         // 工程根的 Library 目录：Application.dataPath 去掉末尾 /Assets 再拼 /Library。

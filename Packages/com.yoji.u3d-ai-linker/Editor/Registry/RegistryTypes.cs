@@ -43,6 +43,7 @@ namespace Yoji.U3DAILinker.Registry
         public string Revision;
         public bool DefaultEnabled;
         public bool UserToggle;
+        public string AgentAssets;
         public string MinUnity;
         public List<string> DependsOn = new List<string>();
         public string DisplayName;

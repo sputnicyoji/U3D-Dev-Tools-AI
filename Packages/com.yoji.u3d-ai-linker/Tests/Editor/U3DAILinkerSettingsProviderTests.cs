@@ -48,6 +48,14 @@ namespace Yoji.U3DAILinker.Tests
         }
 
         [Test]
+        public void AgentButtons_AreEnabledWhenRegistryLoadedAndIdle()
+        {
+            Assert.IsFalse(U3DAILinkerSettingsProvider.AreAgentButtonsEnabled(OperationState.Running, registryLoaded: true));
+            Assert.IsFalse(U3DAILinkerSettingsProvider.AreAgentButtonsEnabled(OperationState.Idle, registryLoaded: false));
+            Assert.IsTrue(U3DAILinkerSettingsProvider.AreAgentButtonsEnabled(OperationState.Idle, registryLoaded: true));
+        }
+
+        [Test]
         public void RegistryChannelForProject_UsesDevSnapshotForLocalAndDev()
         {
             Assert.AreEqual(Registry.RegistryChannel.Stable,

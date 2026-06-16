@@ -184,7 +184,7 @@ namespace Yoji.U3DAILinker.Settings
                 if (GUILayout.Button("Refresh Registry")) RequestRefreshRegistry();
                 if (GUILayout.Button("Install/Update Selected")) RequestInstallSelected();
                 if (GUILayout.Button("Install/Update All")) RequestInstallAll();
-                using (new EditorGUI.DisabledScope(true))
+                using (new EditorGUI.DisabledScope(!AreAgentButtonsEnabled(_operationState, _registry != null)))
                 {
                     if (GUILayout.Button("Sync Agent Assets")) RequestSyncAgents();
                     if (GUILayout.Button("Repair Links")) RequestRepairLinks();
@@ -198,6 +198,11 @@ namespace Yoji.U3DAILinker.Settings
         internal static bool AreActionButtonsEnabled(OperationState state)
         {
             return ActionsWired && state != OperationState.Running;
+        }
+
+        internal static bool AreAgentButtonsEnabled(OperationState state, bool registryLoaded)
+        {
+            return ActionsWired && registryLoaded && state != OperationState.Running;
         }
 
         // --- 外部子系统注入点(由组装阶段接线;此切片提供默认空实现以保证编译与手动验证)。---
@@ -301,8 +306,48 @@ namespace Yoji.U3DAILinker.Settings
             ReportAction("Install/Update All", result);
         }
 
-        private static void RequestSyncAgents() { Debug.Log("[U3DAILinker] Sync Agent Assets requested."); }
-        private static void RequestRepairLinks() { Debug.Log("[U3DAILinker] Repair Links requested."); }
+        private static void RequestSyncAgents()
+        {
+            if (!EnsureRegistryLoaded())
+                return;
+
+            try
+            {
+                _operationState = OperationState.Running;
+                var targets = AgentPackageSourceResolver.Resolve(
+                    _registry,
+                    _project.EnabledToolIds,
+                    new UnityResolvedPackagePathProvider());
+                var result = new AgentSyncOrchestrator(new WindowsJunctionManager()).Sync(
+                    ProjectRoot,
+                    targets,
+                    NewOperationId());
+                if (!result.Success)
+                {
+                    _operationState = OperationState.Failed;
+                    Debug.LogError("[U3DAILinker] Sync Agent Assets failed: " + result.Error);
+                    return;
+                }
+
+                _operationState = OperationState.Idle;
+                Debug.Log("[U3DAILinker] Sync Agent Assets succeeded: " + targets.Count + " tools.");
+            }
+            catch (System.Exception e)
+            {
+                _operationState = OperationState.Failed;
+                Debug.LogError("[U3DAILinker] Sync Agent Assets failed: " + e.Message);
+            }
+        }
+
+        private static void RequestRepairLinks()
+        {
+            RequestSyncAgents();
+        }
+
+        private static string NewOperationId()
+        {
+            return System.DateTime.UtcNow.ToString("yyyyMMddHHmmss") + "-" + System.Guid.NewGuid().ToString("N");
+        }
         private static void RequestRollback()
         {
             var result = NewActionService().RollbackManifest();
@@ -403,6 +448,18 @@ namespace Yoji.U3DAILinker.Settings
             return true;
         }
 
+        internal static bool TryLoadBundledRegistryForCurrentProject(
+            LinkerChannel channel,
+            out LinkerRegistry registry,
+            out string error)
+        {
+            var registryChannel = RegistryChannelForProject(channel);
+            if (!TryLoadBundledRegistry(registryChannel, out registry, out error))
+                return false;
+            registry.Channel = channel;
+            return true;
+        }
+
         private static bool TryResolveDevSha(LinkerRegistry registry, out string sha, out string error)
         {
             sha = null;
@@ -443,6 +500,7 @@ namespace Yoji.U3DAILinker.Settings
                     Revision = entry.Revision,
                     DefaultEnabled = entry.DefaultEnabled,
                     UserToggle = entry.UserToggle,
+                    AgentAssets = entry.AgentAssets,
                     MinUnity = entry.MinUnity,
                     DisplayName = entry.Id,
                     DependsOn = entry.DependsOn != null
