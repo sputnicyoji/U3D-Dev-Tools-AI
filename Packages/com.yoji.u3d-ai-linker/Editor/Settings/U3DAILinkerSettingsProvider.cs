@@ -260,6 +260,7 @@ namespace Yoji.U3DAILinker.Settings
             {
                 _registry = registry;
                 _registrySource = RegistrySource.BundledSnapshot;
+                RefreshInstalledSnapshot(_registry, new UnityInstalledPackageProbe());
                 if (_project != null && _project.Channel == LinkerChannel.Dev)
                 {
                     if (!TryResolveDevSha(registry, out _devSha, out error))
@@ -372,6 +373,36 @@ namespace Yoji.U3DAILinker.Settings
                 new UnityUpmClient(),
                 new UnityInstalledPackageProbe(),
                 _devSha);
+        }
+
+        internal static Dictionary<string, InstalledPackageInfo> BuildInstalledSnapshot(
+            LinkerRegistry registry,
+            IInstalledPackageProbe probe)
+        {
+            var result = new Dictionary<string, InstalledPackageInfo>();
+            if (registry == null || probe == null)
+                return result;
+
+            foreach (var entry in registry.Entries)
+            {
+                var url = probe.GetInstalledUrl(entry.PackageName);
+                if (string.IsNullOrEmpty(url))
+                    continue;
+
+                result[entry.PackageName] = new InstalledPackageInfo(
+                    entry.PackageName,
+                    url,
+                    ToolUrlBuilder.IsManagedUrl(url));
+            }
+
+            return result;
+        }
+
+        private static void RefreshInstalledSnapshot(LinkerRegistry registry, IInstalledPackageProbe probe)
+        {
+            _installed.Clear();
+            foreach (var kv in BuildInstalledSnapshot(registry, probe))
+                _installed[kv.Key] = kv.Value;
         }
 
         private static void ReportAction(string action, U3DAILinkerActionResult result)

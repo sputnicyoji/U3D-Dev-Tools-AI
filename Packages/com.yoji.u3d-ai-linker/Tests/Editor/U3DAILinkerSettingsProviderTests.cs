@@ -1,5 +1,8 @@
 using NUnit.Framework;
 using UnityEditor;
+using Yoji.U3DAILinker.Operations;
+using Yoji.U3DAILinker.Registry;
+using Yoji.U3DAILinker.Tests.Operations;
 using Yoji.U3DAILinker.Settings;
 
 namespace Yoji.U3DAILinker.Tests
@@ -64,6 +67,44 @@ namespace Yoji.U3DAILinker.Tests
                 U3DAILinkerSettingsProvider.RegistryChannelForProject(LinkerChannel.Dev));
             Assert.AreEqual(Registry.RegistryChannel.Dev,
                 U3DAILinkerSettingsProvider.RegistryChannelForProject(LinkerChannel.Local));
+        }
+
+        [Test]
+        public void BuildInstalledSnapshot_ReadsPackageProbeAndMarksManagedUrls()
+        {
+            var registry = new LinkerRegistry
+            {
+                Entries =
+                {
+                    Entry("editor-debug", "com.yoji.editor-debug"),
+                    Entry("foreign", "com.yoji.foreign"),
+                    Entry("missing", "com.yoji.missing"),
+                }
+            };
+            var probe = new FakeInstalledPackageProbe();
+            probe.Set("com.yoji.editor-debug",
+                "https://github.com/sputnicyoji/U3D-Dev-Tools-AI.git?path=/Packages/com.yoji.editor-debug#editor-debug-v0.1.0");
+            probe.Set("com.yoji.foreign", "https://github.com/other/repo.git?path=/Packages/com.yoji.foreign#v1");
+
+            var snapshot = U3DAILinkerSettingsProvider.BuildInstalledSnapshot(registry, probe);
+
+            Assert.AreEqual(2, snapshot.Count);
+            Assert.IsTrue(snapshot["com.yoji.editor-debug"].IsManaged);
+            Assert.IsFalse(snapshot["com.yoji.foreign"].IsManaged);
+            Assert.IsFalse(snapshot.ContainsKey("com.yoji.missing"));
+        }
+
+        private static RegistryEntryView Entry(string id, string packageName)
+        {
+            return new RegistryEntryView
+            {
+                Id = id,
+                PackageName = packageName,
+                PackagePath = "Packages/" + packageName,
+                Status = ToolStatus.Ready,
+                Kind = ToolKind.Tool,
+                Revision = id + "-v0.1.0",
+            };
         }
     }
 }
