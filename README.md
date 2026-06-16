@@ -126,11 +126,13 @@ fragments.
 
 Current stable `0.1.0` scope is `editor-core`, `editor-debug`,
 `test-runner`, and `u3d-ai-linker`. In `SLG_Prototype/Core_Client`,
-those four packages were verified from Git SHA
-`a2a0201413bcb40719b30a809be8078441e9f691`; `lua-device-debug` remains a
-local dependency until its generic host integration path is ready for stable.
-Agent asset probe, `Sync Agent Assets`, `Repair Links`, and the Windows
-Junction smoke menu all passed in the live Editor.
+those four packages were verified from stable tag URLs
+`editor-core-v0.1.0`, `editor-debug-v0.1.0`, `test-runner-v0.1.0`, and
+`u3d-ai-linker-v0.1.0`; `packages-lock.json` resolved them as `source=git`
+at hash `3b618c148a539e7e6ed9ef5d6357c454799cb405`. `lua-device-debug`
+remains a local dependency until its generic host integration path is ready for
+stable. Agent asset probe, `Sync Agent Assets`, `Repair Links`, and the
+Windows Junction smoke menu all passed in the live Editor.
 
 ## Ports
 
