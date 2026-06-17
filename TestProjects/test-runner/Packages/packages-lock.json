@@ -35,7 +35,7 @@
       "source": "local",
       "dependencies": {
         "com.yoji.editor-core": "0.1.0",
-        "com.unity.test-framework": "1.5.1",
+        "com.unity.test-framework": "1.1.33",
         "com.unity.nuget.newtonsoft-json": "3.2.2"
       }
     },

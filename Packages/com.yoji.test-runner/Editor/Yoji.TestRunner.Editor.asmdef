@@ -6,7 +6,7 @@
   "excludePlatforms": [],
   "allowUnsafeCode": false,
   "overrideReferences": true,
-  "precompiledReferences": ["nunit.framework.dll", "Newtonsoft.Json.dll"],
+  "precompiledReferences": ["Newtonsoft.Json.dll"],
   "autoReferenced": true,
   "defineConstraints": [],
   "versionDefines": [],

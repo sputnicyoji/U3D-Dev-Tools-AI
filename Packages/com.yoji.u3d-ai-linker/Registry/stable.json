@@ -37,7 +37,7 @@
       "order": 30,
       "packageName": "com.yoji.test-runner",
       "packagePath": "Packages/com.yoji.test-runner",
-      "revision": "test-runner-v0.1.0",
+      "revision": "test-runner-v0.1.1",
       "defaultEnabled": true,
       "userToggle": true,
       "agentAssets": "Agent~",

@@ -14,7 +14,7 @@ Last reviewed: 2026-06-17
 | Package | Purpose | Agent assets | Unity package | Current state |
 |---------|---------|--------------|---------------|---------------|
 | `com.yoji.editor-core` | Shared Editor-only infrastructure: main-thread dispatch, bounded request bodies, service lifecycle helpers | No | Yes | Internal dependency package |
-| `com.yoji.test-runner` | HTTP MCP service for Unity recompilation and EditMode/PlayMode test runs | `client.py`, `SKILL.md`, e2e script | Yes | Stable `0.1.0` Git install verified |
+| `com.yoji.test-runner` | HTTP MCP service for Unity recompilation and EditMode/PlayMode test runs | `client.py`, `SKILL.md`, e2e script | Yes | Stable `0.1.1` Git install verified |
 | `com.yoji.editor-debug` | HTTP+JSON reflection/debug service inside Unity Editor | `client.py`, `SKILL.md`, references | Yes | Stable `0.1.0` Git install verified |
 | `com.yoji.lua-device-debug` | HTTP+JSON diagnostics transport for project-provided Lua runtime adapters | `client.py`, `SKILL.md` | Yes | Transport ready; target project must register a host |
 | `com.yoji.u3d-ai-linker` | Project Settings package for installing tools and syncing Claude/Codex skills/rules | Tool fragments | Yes | Agent Sync/Junction live verified in SLG_Prototype |
@@ -124,11 +124,10 @@ agent asset synchronization. Its design covers local/stable/dev channels,
 manifest transactions, Windows junctions, and Claude Code / Codex skill
 fragments.
 
-Current stable `0.1.0` scope is `editor-core`, `editor-debug`,
-`test-runner`, and `u3d-ai-linker`. In `SLG_Prototype/Core_Client`,
-those four packages were verified from stable tag URLs
-`editor-core-v0.1.0`, `editor-debug-v0.1.0`, `test-runner-v0.1.0`, and
-`u3d-ai-linker-v0.1.0`; `packages-lock.json` resolved them as `source=git`.
+Current stable scope is `editor-core`, `editor-debug`, `test-runner`, and
+`u3d-ai-linker`. The current stable revisions are `editor-core-v0.1.0`,
+`editor-debug-v0.1.0`, `test-runner-v0.1.1`, and `u3d-ai-linker-v0.1.0`;
+`packages-lock.json` resolves them as `source=git`.
 `lua-device-debug` remains a local dependency until its generic host integration
 path is ready for stable. Agent asset probe, `Sync Agent Assets`, `Repair
 Links`, and the Windows Junction smoke menu all passed in the live Editor.

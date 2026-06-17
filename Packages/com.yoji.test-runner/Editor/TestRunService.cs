@@ -5,7 +5,6 @@ using System.Threading;
 using System.Xml;
 using UnityEditor;
 using UnityEditor.SceneManagement;
-using UnityEditor.TestTools.TestRunner.Api;
 using UnityEngine;
 using Yoji.EditorCore;
 
@@ -14,14 +13,14 @@ namespace Yoji.TestRunner
     /// TestRunnerApi 持有 + 单一 ICallbacks 收集器 + Execute + RunFinished 收尾。
     /// 运行 EditMode/PlayMode 测试，并把 Unity Test Runner 回调映射为 JobStore 状态。
     /// RunFinished 是唯一可靠完成信号：在此写 NUnit XML + 通过 JobStore 落 JSON 状态。
-    internal sealed class TestRunService : ICallbacks
+    internal sealed class TestRunService : UnityTestRunnerApiAdapter.ICallbacksSink
     {
         private const int k_MaxFailures = 50;     // 失败详情上限，防 run-all 大面积失败撑爆响应
         private const int k_MaxFieldChars = 4000;  // 单条 message/stackTrace 截断长度
 
         private readonly JobStore m_Jobs;
         private readonly string m_ResultDir;
-        private TestRunnerApi m_Api;
+        private UnityTestRunnerApiAdapter m_Api;
         private string m_ActiveJobId;
         private bool m_ActiveIsRunAll;           // 当前 run 是否 run-all（决定 0 命中是否判错）
         private List<FailureDetail> m_Failures;  // 当前 run 的失败详情，StartRun 重置、TestFinished 累积
@@ -41,7 +40,7 @@ namespace Yoji.TestRunner
         public void EnsureRegistered()
         {
             if (m_Api != null) return;
-            m_Api = ScriptableObject.CreateInstance<TestRunnerApi>();
+            m_Api = new UnityTestRunnerApiAdapter();
             m_Api.RegisterCallbacks(this);
         }
 
@@ -67,7 +66,7 @@ namespace Yoji.TestRunner
             if (playMode) ApplyPlayModeSettings(); // 临时 DisableDomainReload：PlayMode run 不触发域重载，沿用 field-based 收尾路径
             try
             {
-                m_Api.Execute(new ExecutionSettings(BuildFilter(spec)));
+                m_Api.Execute(spec);
             }
             catch (Exception e)
             {
@@ -79,20 +78,8 @@ namespace Yoji.TestRunner
             return jobId;
         }
 
-        private static Filter BuildFilter(FilterSpec spec)
-        {
-            var testMode = spec.TestMode == "PlayMode" ? TestMode.PlayMode : TestMode.EditMode;
-            var filter = new Filter { testMode = testMode };
-            if (spec.IsRunAll) return filter; // 全空 = 跑全套件
-            if (spec.TestNames.Length > 0) filter.testNames = spec.TestNames;
-            if (spec.AssemblyNames.Length > 0) filter.assemblyNames = spec.AssemblyNames;
-            if (spec.CategoryNames.Length > 0) filter.categoryNames = spec.CategoryNames;
-            if (spec.GroupNames.Length > 0) filter.groupNames = spec.GroupNames;
-            return filter;
-        }
-
         // ===== ICallbacks =====
-        public void RunStarted(ITestAdaptor testsToRun)
+        public void RunStarted(UnityTestRunnerApiAdapter.TestNode testsToRun)
         {
             // 0 命中守卫：非 run-all 却没有任何实际用例被计划执行，几乎必是 testNames/assembly/
             // category/group 拼错。判为 error，避免「跑空 -> passed=0 -> 报 Passed」的假绿。
@@ -108,18 +95,18 @@ namespace Yoji.TestRunner
             m_Jobs.FailJob(jobId, "filter matched 0 tests (check testNames/assemblyNames/categoryNames/groupNames)");
         }
 
-        public void TestStarted(ITestAdaptor test) { }
+        public void TestStarted(UnityTestRunnerApiAdapter.TestNode test) { }
 
-        public void TestFinished(ITestResultAdaptor result)
+        public void TestFinished(UnityTestRunnerApiAdapter.TestResult result)
         {
             // 仅收集本服务发起的 run（m_ActiveJobId 非空），忽略用户手点 Test Runner 触发的 run。
             if (m_ActiveJobId == null || m_Failures == null) return;
             // 仅叶子用例：suite 失败会冒泡复报 Failed，按 HasChildren 过滤避免双计数。
-            if (result.TestStatus != TestStatus.Failed || result.HasChildren) return;
+            if (!result.IsFailed || result.HasChildren) return;
             if (m_Failures.Count >= k_MaxFailures) return;
             m_Failures.Add(new FailureDetail
             {
-                Name = result.Test != null ? result.Test.FullName : result.Name,
+                Name = result.TestFullName ?? result.Name,
                 Message = Truncate(result.Message, k_MaxFieldChars),
                 StackTrace = Truncate(result.StackTrace, k_MaxFieldChars),
             });
@@ -128,7 +115,7 @@ namespace Yoji.TestRunner
         private static string Truncate(string s, int max)
             => string.IsNullOrEmpty(s) || s.Length <= max ? s : s.Substring(0, max) + "...(truncated)";
 
-        public void RunFinished(ITestResultAdaptor result)
+        public void RunFinished(UnityTestRunnerApiAdapter.TestResult result)
         {
             // PlayMode 设置在 run 结束无条件还原（no-op if 未置；也覆盖 0 命中 RunStarted 早退、jobId 已清的路径）。
             RestorePlayModeSettings();
@@ -140,7 +127,7 @@ namespace Yoji.TestRunner
             try
             {
                 using (var w = XmlWriter.Create(xmlPath, new XmlWriterSettings { Indent = true }))
-                    result.ToXml().WriteTo(w);
+                    result.WriteXml(w);
             }
             catch (Exception e)
             {
@@ -151,7 +138,7 @@ namespace Yoji.TestRunner
             int passed = result.PassCount;
             int failed = result.FailCount;
             int skipped = result.SkipCount + result.InconclusiveCount;
-            bool errored = result.TestStatus == TestStatus.Failed && failed == 0;
+            bool errored = result.IsFailed && failed == 0;
             string overall = NUnitResultMapper.OverallResult(failed, errored);
             m_Jobs.CompleteJob(jobId, passed, failed, skipped, overall, xmlPath, m_Failures);
             m_Failures = null;
@@ -191,7 +178,6 @@ namespace Yoji.TestRunner
         public List<string> ListTests(string mode)
         {
             EnsureRegistered();
-            var testMode = mode == "PlayMode" ? TestMode.PlayMode : TestMode.EditMode;
             var names = new List<string>();
             var done = new ManualResetEventSlim(false); // 不 dispose：避免超时后晚到回调 Set 已释放对象
             Exception err = null;
@@ -199,7 +185,7 @@ namespace Yoji.TestRunner
             {
                 try
                 {
-                    m_Api.RetrieveTestList(testMode, root =>
+                    m_Api.RetrieveTestList(mode, root =>
                     {
                         try { CollectTestCaseNames(root, names); }
                         catch (Exception e) { err = e; }
@@ -214,7 +200,7 @@ namespace Yoji.TestRunner
             return names;
         }
 
-        private static void CollectTestCaseNames(ITestAdaptor t, List<string> outNames)
+        private static void CollectTestCaseNames(UnityTestRunnerApiAdapter.TestNode t, List<string> outNames)
         {
             if (t == null) return;
             if (!t.IsSuite) { outNames.Add(t.FullName); return; }

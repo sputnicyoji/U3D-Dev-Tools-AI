@@ -1,7 +1,7 @@
 {
   "name": "Yoji.TestRunner.Editor.Tests",
   "rootNamespace": "Yoji.TestRunner.Tests",
-  "references": ["Yoji.TestRunner.Editor", "Yoji.EditorCore.Editor", "UnityEngine.TestRunner", "UnityEditor.TestRunner"],
+  "references": ["Yoji.TestRunner.Editor", "Yoji.EditorCore.Editor"],
   "includePlatforms": ["Editor"],
   "excludePlatforms": [],
   "allowUnsafeCode": false,
@@ -9,6 +9,7 @@
   "precompiledReferences": ["nunit.framework.dll", "Newtonsoft.Json.dll"],
   "autoReferenced": false,
   "defineConstraints": ["UNITY_INCLUDE_TESTS"],
+  "optionalUnityReferences": ["TestAssemblies"],
   "versionDefines": [],
   "noEngineReferences": false
 }
