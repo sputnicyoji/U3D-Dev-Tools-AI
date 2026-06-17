@@ -54,8 +54,8 @@ namespace Yoji.TestRunner
         {
             if (m_CallbackProxy != null) return;
 
-            m_CallbackProxy = CreateDispatchProxy(m_CallbacksType, typeof(TestRunnerCallbackProxy));
-            ((TestRunnerCallbackProxy)m_CallbackProxy).Sink = sink;
+            m_CallbackProxy = CreateDispatchProxy(m_CallbacksType, typeof(UnityTestRunnerCallbackProxy));
+            ((UnityTestRunnerCallbackProxy)m_CallbackProxy).Sink = sink;
             Invoke(
                 m_RegisterCallbacksMethod.MakeGenericMethod(m_CallbacksType),
                 m_Api,
@@ -207,33 +207,6 @@ namespace Yoji.TestRunner
             void RunFinished(TestResult result);
         }
 
-        private class TestRunnerCallbackProxy : DispatchProxy
-        {
-            public ICallbacksSink Sink;
-
-            protected override object Invoke(MethodInfo targetMethod, object[] args)
-            {
-                if (Sink == null || targetMethod == null) return null;
-
-                switch (targetMethod.Name)
-                {
-                    case "RunStarted":
-                        Sink.RunStarted(TestNode.From(args[0]));
-                        break;
-                    case "TestStarted":
-                        Sink.TestStarted(TestNode.From(args[0]));
-                        break;
-                    case "TestFinished":
-                        Sink.TestFinished(TestResult.From(args[0]));
-                        break;
-                    case "RunFinished":
-                        Sink.RunFinished(TestResult.From(args[0]));
-                        break;
-                }
-                return null;
-            }
-        }
-
         private sealed class TestListCallbackHolder
         {
             private readonly Action<TestNode> m_Callback;
@@ -383,6 +356,33 @@ namespace Yoji.TestRunner
                     throw new MissingMemberException(m_Type.FullName, propertyName);
                 return property.GetValue(m_Raw, null);
             }
+        }
+    }
+
+    public class UnityTestRunnerCallbackProxy : DispatchProxy
+    {
+        internal UnityTestRunnerApiAdapter.ICallbacksSink Sink;
+
+        protected override object Invoke(MethodInfo targetMethod, object[] args)
+        {
+            if (Sink == null || targetMethod == null) return null;
+
+            switch (targetMethod.Name)
+            {
+                case "RunStarted":
+                    Sink.RunStarted(UnityTestRunnerApiAdapter.TestNode.From(args[0]));
+                    break;
+                case "TestStarted":
+                    Sink.TestStarted(UnityTestRunnerApiAdapter.TestNode.From(args[0]));
+                    break;
+                case "TestFinished":
+                    Sink.TestFinished(UnityTestRunnerApiAdapter.TestResult.From(args[0]));
+                    break;
+                case "RunFinished":
+                    Sink.RunFinished(UnityTestRunnerApiAdapter.TestResult.From(args[0]));
+                    break;
+            }
+            return null;
         }
     }
 }

@@ -77,6 +77,10 @@ namespace Yoji.TestRunner.Tests
             Assert.False(
                 source.Contains("sealed class TestRunnerCallbackProxy"),
                 "DispatchProxy TProxy must be inheritable on Unity 2022 Mono.");
+            Assert.False(
+                source.Contains("private class TestRunnerCallbackProxy"),
+                "DispatchProxy TProxy constructor must be accessible from Unity 2022 generated proxy assembly.");
+            StringAssert.Contains("public class UnityTestRunnerCallbackProxy : DispatchProxy", source);
         }
     }
 }
