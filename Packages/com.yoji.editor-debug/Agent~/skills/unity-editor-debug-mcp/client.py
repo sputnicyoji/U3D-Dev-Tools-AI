@@ -17,9 +17,11 @@ import urllib.error
 import urllib.request
 from typing import Any
 
+from port_resolver import resolve_endpoint
 
 DEFAULT_HOST = "127.0.0.1"
 DEFAULT_PORT = 21891
+SERVICE_ID = "unity-editor-debug-mcp"
 
 
 def http_post(url: str, payload: dict[str, Any], timeout: float = 30.0) -> dict[str, Any]:
@@ -54,7 +56,16 @@ def http_get(url: str, timeout: float = 5.0) -> dict[str, Any]:
 
 
 def base_url(args: argparse.Namespace) -> str:
-    return f"http://{args.host}:{args.port}"
+    host, port, _ = resolve_endpoint(
+        SERVICE_ID,
+        args.host,
+        args.port,
+        DEFAULT_PORT,
+        getattr(args, "project", None),
+        getattr(args, "pid", None),
+        getattr(args, "timeout", None),
+    )
+    return f"http://{host}:{port}"
 
 
 def cmd_ping(args: argparse.Namespace) -> dict[str, Any]:
@@ -157,7 +168,9 @@ def cmd_eval(args: argparse.Namespace) -> dict[str, Any]:
 def build_parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(prog="client.py", description="EditorDebugMCP CLI client")
     p.add_argument("--host", default=DEFAULT_HOST, help="目标主机，默认 127.0.0.1")
-    p.add_argument("--port", type=int, default=DEFAULT_PORT, help="目标端口，默认 21891")
+    p.add_argument("--port", type=int, default=None, help="目标端口，默认走项目感知解析")
+    p.add_argument("--project", help="Unity project root. Defaults to walking up from cwd.")
+    p.add_argument("--pid", type=int, help="Unity Editor process id when multiple instances are open.")
     p.add_argument("--timeout", type=float, default=30.0, help="单次请求超时秒，默认 30")
 
     sub = p.add_subparsers(dest="cmd", required=True)

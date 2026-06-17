@@ -12,8 +12,11 @@ import sys
 import urllib.error
 import urllib.request
 
+from port_resolver import resolve_endpoint
+
 DEFAULT_HOST = "127.0.0.1"
 DEFAULT_PORT = 21890
+SERVICE_ID = "test-runner-mcp"
 
 
 def http_get(url: str, timeout: float):
@@ -47,7 +50,16 @@ def http_post(url: str, payload: dict, timeout: float):
 
 
 def base(a) -> str:
-    return f"http://{a.host}:{a.port}"
+    host, port, _ = resolve_endpoint(
+        SERVICE_ID,
+        a.host,
+        a.port,
+        DEFAULT_PORT,
+        getattr(a, "project", None),
+        getattr(a, "pid", None),
+        getattr(a, "timeout", None),
+    )
+    return f"http://{host}:{port}"
 
 
 def cmd_ping(a):
@@ -84,7 +96,9 @@ def cmd_list_tests(a):
 def build_parser():
     p = argparse.ArgumentParser(prog="client.py", description="TestRunnerMCP CLI client")
     p.add_argument("--host", default=DEFAULT_HOST)
-    p.add_argument("--port", type=int, default=DEFAULT_PORT)
+    p.add_argument("--port", type=int, default=None)
+    p.add_argument("--project", help="Unity project root. Defaults to walking up from cwd.")
+    p.add_argument("--pid", type=int, help="Unity Editor process id when multiple instances are open.")
     p.add_argument("--timeout", type=float, default=30.0)
     sub = p.add_subparsers(dest="cmd", required=True)
 

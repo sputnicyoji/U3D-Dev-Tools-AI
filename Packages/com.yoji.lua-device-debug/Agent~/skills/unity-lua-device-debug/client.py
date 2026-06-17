@@ -14,9 +14,12 @@ import uuid
 from pathlib import Path
 from typing import Any
 
+from port_resolver import resolve_endpoint
+
 
 DEFAULT_HOST = "127.0.0.1"
 DEFAULT_PORT = 21894
+SERVICE_ID = "unity-lua-device-debug"
 
 
 def emit(payload: dict[str, Any]) -> None:
@@ -32,7 +35,16 @@ def error(code: str, message: str, **context: Any) -> tuple[int, dict[str, Any]]
 
 
 def base_url(args: argparse.Namespace) -> str:
-    return f"http://{args.host}:{args.port}"
+    host, port, _ = resolve_endpoint(
+        SERVICE_ID,
+        args.host,
+        args.port,
+        DEFAULT_PORT,
+        getattr(args, "project", None),
+        getattr(args, "pid", None),
+        getattr(args, "timeout", None),
+    )
+    return f"http://{host}:{port}"
 
 
 def post_json(url: str, payload: dict[str, Any], timeout: float) -> tuple[int, dict[str, Any]]:
@@ -152,11 +164,11 @@ def parse_forward_list(raw: str) -> list[tuple[str, str, str]]:
     return forwards
 
 
-def current_forward(args: argparse.Namespace) -> tuple[str, str, str] | None:
+def current_forward(args: argparse.Namespace, local_port: int) -> tuple[str, str, str] | None:
     proc = run_adb(args, ["forward", "--list"])
     if proc.returncode != 0:
         raise RuntimeError("adb forward --list failed: " + proc.stderr.strip())
-    local = f"tcp:{args.port}"
+    local = f"tcp:{local_port}"
     for serial, existing_local, remote in parse_forward_list(proc.stdout):
         if serial == args.serial and existing_local == local:
             return serial, existing_local, remote
@@ -186,7 +198,8 @@ def cmd_adb_forward(args: argparse.Namespace) -> tuple[int, dict[str, Any]]:
     code, payload = resolve_device(args)
     if code != 0:
         return code, payload
-    existing = current_forward(args)
+    local_port = args.port if args.port is not None else DEFAULT_PORT
+    existing = current_forward(args, local_port)
     expected_remote = f"tcp:{args.remote_port}"
     if existing is not None:
         _, local, remote = existing
@@ -201,17 +214,17 @@ def cmd_adb_forward(args: argparse.Namespace) -> tuple[int, dict[str, Any]]:
             }
         return error("ADB_FORWARD_CONFLICT", "local port is already forwarded to a different remote", local=local, remote=remote)
 
-    proc = run_adb(args, ["forward", f"tcp:{args.port}", f"tcp:{args.remote_port}"])
+    proc = run_adb(args, ["forward", f"tcp:{local_port}", f"tcp:{args.remote_port}"])
     if proc.returncode != 0:
         return error("ADB_FORWARD_FAILED", "adb forward failed", stderr=proc.stderr.strip())
-    marker_path(args.serial, args.port).write_text(
-        json.dumps({"serial": args.serial, "local": f"tcp:{args.port}", "remote": expected_remote}, ensure_ascii=False),
+    marker_path(args.serial, local_port).write_text(
+        json.dumps({"serial": args.serial, "local": f"tcp:{local_port}", "remote": expected_remote}, ensure_ascii=False),
         encoding="utf-8",
     )
     return 0, {
         "ok": True,
         "serial": args.serial,
-        "local": f"tcp:{args.port}",
+        "local": f"tcp:{local_port}",
         "remote": expected_remote,
         "reused": False,
         "owned": True,
@@ -222,7 +235,8 @@ def cmd_adb_remove(args: argparse.Namespace) -> tuple[int, dict[str, Any]]:
     code, payload = resolve_device(args)
     if code != 0:
         return code, payload
-    marker = marker_path(args.serial, args.port)
+    local_port = args.port if args.port is not None else DEFAULT_PORT
+    marker = marker_path(args.serial, local_port)
     if not marker.exists():
         return 0, {
             "ok": True,
@@ -230,17 +244,19 @@ def cmd_adb_remove(args: argparse.Namespace) -> tuple[int, dict[str, Any]]:
             "removed": False,
             "reason": "forward was not created by this CLI",
         }
-    proc = run_adb(args, ["forward", "--remove", f"tcp:{args.port}"])
+    proc = run_adb(args, ["forward", "--remove", f"tcp:{local_port}"])
     if proc.returncode != 0:
         return error("ADB_REMOVE_FAILED", "adb forward --remove failed", stderr=proc.stderr.strip())
     marker.unlink(missing_ok=True)
-    return 0, {"ok": True, "serial": args.serial, "removed": f"tcp:{args.port}"}
+    return 0, {"ok": True, "serial": args.serial, "removed": f"tcp:{local_port}"}
 
 
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="client.py", description="Unity Lua Device Debug CLI")
     parser.add_argument("--host", default=DEFAULT_HOST)
-    parser.add_argument("--port", type=int, default=DEFAULT_PORT)
+    parser.add_argument("--port", type=int, default=None)
+    parser.add_argument("--project", help="Unity project root. Defaults to walking up from cwd.")
+    parser.add_argument("--pid", type=int, help="Unity Editor process id when multiple instances are open.")
     parser.add_argument("--timeout", type=float, default=10.0)
     parser.add_argument("--serial", help="adb device serial; required when multiple devices are connected")
     sub = parser.add_subparsers(dest="cmd", required=True)

@@ -104,49 +104,88 @@ namespace Yoji.U3DAILinker.Tests
         [Test]
         public void BuildDiagnosticReport_IncludesRowsAndSelfStatusInputs()
         {
-            var project = ScriptableObjectFactory.CreateSettings(LinkerChannel.Stable, "editor-debug");
-            var user = ScriptableObjectFactory.CreateUserSettings("E:/Yoji/U3D-Dev-Tools-AI");
-            var registry = new LinkerRegistry
+            var projectRoot = System.IO.Path.Combine(
+                System.IO.Path.GetTempPath(),
+                "yoji-linker-ports-" + System.IO.Path.GetRandomFileName());
+            try
             {
-                Channel = LinkerChannel.Stable,
-                Entries =
+                System.IO.Directory.CreateDirectory(System.IO.Path.Combine(projectRoot, ".u3d-ai-linker"));
+                System.IO.File.WriteAllText(
+                    System.IO.Path.Combine(projectRoot, ".u3d-ai-linker", "ports.json"),
+                    @"{
+  ""schemaVersion"": 1,
+  ""projectRoot"": ""E:/Project"",
+  ""projectId"": ""test-project"",
+  ""updatedUtc"": ""2026-06-17T10:30:00.0000000Z"",
+  ""instances"": [
+    {
+      ""serviceId"": ""test-runner-mcp"",
+      ""displayName"": ""Test Runner MCP"",
+      ""instanceId"": ""instance-1"",
+      ""processId"": 1234,
+      ""projectRoot"": ""E:/Project"",
+      ""projectId"": ""test-project"",
+      ""host"": ""127.0.0.1"",
+      ""port"": 21900,
+      ""portSource"": ""project-auto"",
+      ""startedUtc"": ""2026-06-17T10:20:00.0000000Z"",
+      ""lastSeenUtc"": ""2026-06-17T10:30:00.0000000Z""
+    }
+  ]
+}");
+
+                var project = ScriptableObjectFactory.CreateSettings(LinkerChannel.Stable, "editor-debug");
+                var user = ScriptableObjectFactory.CreateUserSettings("E:/Yoji/U3D-Dev-Tools-AI");
+                var registry = new LinkerRegistry
                 {
-                    Entry("editor-debug", "com.yoji.editor-debug"),
-                }
-            };
-            var installed = new System.Collections.Generic.Dictionary<string, InstalledPackageInfo>
+                    Channel = LinkerChannel.Stable,
+                    Entries =
+                    {
+                        Entry("editor-debug", "com.yoji.editor-debug"),
+                    }
+                };
+                var installed = new System.Collections.Generic.Dictionary<string, InstalledPackageInfo>
+                {
+                    ["com.yoji.editor-debug"] = new InstalledPackageInfo(
+                        "com.yoji.editor-debug",
+                        "https://github.com/sputnicyoji/U3D-Dev-Tools-AI.git?path=/Packages/com.yoji.editor-debug#editor-debug-v0.1.0",
+                        true,
+                        "https://github.com/sputnicyoji/U3D-Dev-Tools-AI.git?path=/Packages/com.yoji.editor-debug#editor-debug-v0.1.0",
+                        "https://github.com/sputnicyoji/U3D-Dev-Tools-AI.git?path=/Packages/com.yoji.editor-debug#editor-debug-v0.1.0",
+                        "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                        "editor-debug-v0.1.0",
+                        "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"),
+                };
+
+                var report = U3DAILinkerSettingsProvider.BuildDiagnosticReport(
+                    project,
+                    user,
+                    registry,
+                    installed,
+                    new System.Collections.Generic.Dictionary<string, AgentState>(),
+                    RegistrySource.BundledSnapshot,
+                    OperationState.Idle,
+                    "stable",
+                    null,
+                    projectRoot,
+                    "E:/Project/Library/PackageCache/com.yoji.u3d-ai-linker");
+
+                StringAssert.Contains("U3D AI Linker Diagnostic Report", report);
+                StringAssert.Contains("Channel: Stable", report);
+                StringAssert.Contains("editor-debug", report);
+                StringAssert.Contains("install=Installed", report);
+                StringAssert.Contains("currentHash=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", report);
+                StringAssert.Contains("targetHash=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", report);
+                StringAssert.Contains("SelfPackage:", report);
+                StringAssert.Contains("Ports:", report);
+                StringAssert.Contains("test-runner-mcp", report);
+                StringAssert.Contains("21900", report);
+            }
+            finally
             {
-                ["com.yoji.editor-debug"] = new InstalledPackageInfo(
-                    "com.yoji.editor-debug",
-                    "https://github.com/sputnicyoji/U3D-Dev-Tools-AI.git?path=/Packages/com.yoji.editor-debug#editor-debug-v0.1.0",
-                    true,
-                    "https://github.com/sputnicyoji/U3D-Dev-Tools-AI.git?path=/Packages/com.yoji.editor-debug#editor-debug-v0.1.0",
-                    "https://github.com/sputnicyoji/U3D-Dev-Tools-AI.git?path=/Packages/com.yoji.editor-debug#editor-debug-v0.1.0",
-                    "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-                    "editor-debug-v0.1.0",
-                    "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"),
-            };
-
-            var report = U3DAILinkerSettingsProvider.BuildDiagnosticReport(
-                project,
-                user,
-                registry,
-                installed,
-                new System.Collections.Generic.Dictionary<string, AgentState>(),
-                RegistrySource.BundledSnapshot,
-                OperationState.Idle,
-                "stable",
-                null,
-                "E:/Project",
-                "E:/Project/Library/PackageCache/com.yoji.u3d-ai-linker");
-
-            StringAssert.Contains("U3D AI Linker Diagnostic Report", report);
-            StringAssert.Contains("Channel: Stable", report);
-            StringAssert.Contains("editor-debug", report);
-            StringAssert.Contains("install=Installed", report);
-            StringAssert.Contains("currentHash=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", report);
-            StringAssert.Contains("targetHash=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", report);
-            StringAssert.Contains("SelfPackage:", report);
+                if (System.IO.Directory.Exists(projectRoot))
+                    System.IO.Directory.Delete(projectRoot, true);
+            }
         }
 
         private static RegistryEntryView Entry(string id, string packageName)

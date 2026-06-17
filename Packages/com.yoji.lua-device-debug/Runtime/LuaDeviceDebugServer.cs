@@ -13,6 +13,51 @@ using Debug = UnityEngine.Debug;
 
 namespace Yoji.LuaDeviceDebug
 {
+    public sealed class LuaDeviceDebugServiceMetadata
+    {
+        private static readonly LuaDeviceDebugServiceMetadata s_Empty = new LuaDeviceDebugServiceMetadata();
+
+        public string ServiceId { get; private set; }
+        public string InstanceId { get; private set; }
+        public int ProcessId { get; private set; }
+        public string ProjectId { get; private set; }
+        public string ProjectRoot { get; private set; }
+        public string PortSource { get; private set; }
+
+        private LuaDeviceDebugServiceMetadata()
+        {
+            ServiceId = LuaDeviceDebugPackage.ServiceId;
+            InstanceId = string.Empty;
+            ProjectId = string.Empty;
+            ProjectRoot = string.Empty;
+            PortSource = "unknown";
+        }
+
+        public static LuaDeviceDebugServiceMetadata Empty
+        {
+            get { return s_Empty; }
+        }
+
+        public static LuaDeviceDebugServiceMetadata Create(
+            string serviceId,
+            string instanceId,
+            int processId,
+            string projectId,
+            string projectRoot,
+            string portSource)
+        {
+            return new LuaDeviceDebugServiceMetadata
+            {
+                ServiceId = serviceId ?? string.Empty,
+                InstanceId = instanceId ?? string.Empty,
+                ProcessId = processId > 0 ? processId : 0,
+                ProjectId = projectId ?? string.Empty,
+                ProjectRoot = projectRoot ?? string.Empty,
+                PortSource = portSource ?? string.Empty,
+            };
+        }
+    }
+
     public sealed class LuaDeviceDebugServer : IDisposable
     {
         private readonly int m_Port;
@@ -26,6 +71,7 @@ namespace Yoji.LuaDeviceDebug
         private string m_Platform;
         private bool m_IsEditor;
         private bool m_IsDevelopmentBuild;
+        private LuaDeviceDebugServiceMetadata m_Metadata = LuaDeviceDebugServiceMetadata.Empty;
 
         public LuaDeviceDebugServer(int port)
             : this(port, 5000)
@@ -41,6 +87,11 @@ namespace Yoji.LuaDeviceDebug
         public bool IsRunning
         {
             get { return m_Running; }
+        }
+
+        public void SetServiceMetadata(LuaDeviceDebugServiceMetadata metadata)
+        {
+            m_Metadata = metadata ?? LuaDeviceDebugServiceMetadata.Empty;
         }
 
         public void Start()
@@ -152,9 +203,16 @@ namespace Yoji.LuaDeviceDebug
         private JObject PingJson()
         {
             var host = LuaDeviceDebugRuntime.CurrentHost;
+            var metadata = m_Metadata ?? LuaDeviceDebugServiceMetadata.Empty;
             return new JObject
             {
                 ["service"] = LuaDeviceDebugPackage.ServiceName,
+                ["serviceId"] = metadata.ServiceId ?? string.Empty,
+                ["instanceId"] = metadata.InstanceId ?? string.Empty,
+                ["processId"] = metadata.ProcessId,
+                ["projectId"] = metadata.ProjectId ?? string.Empty,
+                ["projectRoot"] = metadata.ProjectRoot ?? string.Empty,
+                ["portSource"] = metadata.PortSource ?? string.Empty,
                 ["version"] = LuaDeviceDebugPackage.Version,
                 ["port"] = m_Port,
                 ["unityVersion"] = m_UnityVersion,

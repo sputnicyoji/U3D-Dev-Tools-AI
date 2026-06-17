@@ -1,0 +1,12 @@
+{
+  "name": "Yoji.EditorCore.Editor.Tests",
+  "references": [
+    "Yoji.EditorCore.Editor"
+  ],
+  "includePlatforms": [
+    "Editor"
+  ],
+  "optionalUnityReferences": [
+    "TestAssemblies"
+  ]
+}

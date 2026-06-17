@@ -1,6 +1,6 @@
 {
   "dependencies": {
-    "com.unity.test-framework": "1.5.1",
+    "com.unity.test-framework": "1.1.33",
     "com.yoji.editor-core": "file:../../../Packages/com.yoji.editor-core",
     "com.yoji.editor-debug": "file:../../../Packages/com.yoji.editor-debug",
     "com.unity.modules.imgui": "1.0.0",
@@ -8,5 +8,7 @@
     "com.unity.modules.uielements": "1.0.0",
     "com.unity.modules.physics": "1.0.0"
   },
-  "testables": ["com.yoji.editor-debug"]
+  "testables": [
+    "com.yoji.editor-debug"
+  ]
 }

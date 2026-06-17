@@ -18,10 +18,11 @@ namespace Yoji.LuaDeviceDebug
 
             try
             {
-                s_Server = new LuaDeviceDebugServer(LuaDeviceDebugPackage.DefaultPort);
+                var port = LuaDeviceDebugRuntimeConfig.ResolveRemotePort();
+                s_Server = new LuaDeviceDebugServer(port);
                 s_Server.Start();
                 Application.quitting += Stop;
-                Debug.Log("[LuaDeviceDebug] 服务已启动，监听 http://127.0.0.1:" + LuaDeviceDebugPackage.DefaultPort + "/");
+                Debug.Log("[LuaDeviceDebug] 服务已启动，监听 http://127.0.0.1:" + port + "/");
             }
             catch (System.Exception e)
             {

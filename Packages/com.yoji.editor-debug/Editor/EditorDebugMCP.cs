@@ -6,7 +6,9 @@ using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using UnityEditor;
 using UnityEngine;
+using Yoji.EditorCore.Ports;
 using Yoji.EditorCore;
+using Process = System.Diagnostics.Process;
 
 namespace Yoji.EditorDebug
 {
@@ -17,12 +19,19 @@ namespace Yoji.EditorDebug
         private const string k_Version = "0.1.0";
         private static readonly bool c_AllowEval = false; // 需要 /eval 时显式改成 true
         private const int k_MaxBodyBytes = 4 * 1024 * 1024;
-        private static readonly int[] k_Ports = { 21891, 21892, 21893 };
+        private static readonly ServicePortDefinition k_PortDefinition = ServicePortDefinition.Create(
+            "unity-editor-debug-mcp",
+            "EditorDebugMCP",
+            1,
+            new int[] { 21891, 21892, 21893 });
 
         private static HttpListener s_Listener;
         private static int s_Port;
         private static string s_UnityVersion;
         private static string s_ProjectName;
+        private static ServiceInstanceRecord s_Record;
+        private static double s_NextHeartbeatAt;
+        private static double s_NextHeartbeatErrorLogAt;
 
         static EditorDebugMCP()
         {
@@ -32,42 +41,77 @@ namespace Yoji.EditorDebug
         private static void Start()
         {
             if (s_Listener != null) return;
-            s_UnityVersion = Application.unityVersion;
-            s_ProjectName = Application.productName;
+            try
+            {
+                var identity = ProjectIdentityProvider.Current();
+                var policy = ServicePortSettingsStore.BuildPolicy(identity.ProjectRoot, identity);
+                var assignment = ServicePortAllocator.Allocate(k_PortDefinition, policy, new TcpPortProbe());
 
-            foreach (var port in k_Ports)
-            {
-                try
-                {
-                    var listener = new HttpListener();
-                    listener.Prefixes.Add("http://127.0.0.1:" + port + "/");
-                    listener.Start();
-                    s_Listener = listener;
-                    s_Port = port;
-                    break;
-                }
-                catch (Exception)
-                {
-                    // 端口被占，尝试下一个
-                }
+                s_UnityVersion = Application.unityVersion;
+                s_ProjectName = Application.productName;
+
+                var listener = new HttpListener();
+                listener.Prefixes.Add("http://127.0.0.1:" + assignment.Port + "/");
+                listener.Start();
+                s_Listener = listener;
+                s_Port = assignment.Port;
+
+                s_Record = ServiceInstanceRecord.Create(
+                    assignment.ServiceId,
+                    assignment.DisplayName,
+                    assignment.ProjectRoot,
+                    assignment.ProjectId,
+                    Process.GetCurrentProcess().Id,
+                    assignment.Port,
+                    assignment.Source);
+                ServiceInstanceRegistry.Default().Register(s_Record);
+                ProjectPortsFile.Upsert(s_Record.ProjectRoot, s_Record);
+
+                var thread = new Thread(Loop) { IsBackground = true, Name = "EditorDebugMCP" };
+                thread.Start();
+
+                s_NextHeartbeatAt = EditorApplication.timeSinceStartup + 10.0;
+                s_NextHeartbeatErrorLogAt = 0.0;
+                EditorApplication.update += Heartbeat;
+                Debug.Log("[EditorDebugMCP] 服务已启动，监听 http://127.0.0.1:" + s_Port + "/");
             }
-            if (s_Listener == null)
+            catch (Exception e)
             {
-                Debug.LogError("[EditorDebugMCP] 21891-21893 全部被占，服务未启动");
-                return;
+                Stop();
+                Debug.LogError("[EditorDebugMCP] 服务启动失败: " + e.Message);
             }
-            var thread = new Thread(Loop) { IsBackground = true, Name = "EditorDebugMCP" };
-            thread.Start();
-            Debug.Log("[EditorDebugMCP] 服务已启动，监听 http://127.0.0.1:" + s_Port + "/");
         }
 
         private static void Stop()
         {
-            if (s_Listener == null) return;
-            RecompileHandler.WaitForPendingResponse(2000);
-            try { s_Listener.Stop(); s_Listener.Close(); }
-            catch (Exception) { }
-            s_Listener = null;
+            EditorApplication.update -= Heartbeat;
+
+            var record = s_Record;
+            if (record != null)
+            {
+                try { ServiceInstanceRegistry.Default().Unregister(record.InstanceId); }
+                catch (Exception e) { Debug.LogError("[EditorDebugMCP] 注销全局实例失败: " + e.Message); }
+
+                try { ProjectPortsFile.Remove(record.ProjectRoot, record.InstanceId); }
+                catch (Exception e) { Debug.LogError("[EditorDebugMCP] 移除项目端口记录失败: " + e.Message); }
+            }
+
+            if (s_Listener != null)
+                RecompileHandler.WaitForPendingResponse(2000);
+
+            if (s_Listener != null)
+            {
+                try { s_Listener.Stop(); s_Listener.Close(); }
+                catch (Exception) { }
+                s_Listener = null;
+            }
+
+            s_Record = null;
+            s_Port = 0;
+            s_UnityVersion = null;
+            s_ProjectName = null;
+            s_NextHeartbeatAt = 0.0;
+            s_NextHeartbeatErrorLogAt = 0.0;
         }
 
         private static void Loop()
@@ -123,20 +167,33 @@ namespace Yoji.EditorDebug
             }
         }
 
-        private static JObject Ping() => new JObject
+        private static JObject Ping()
         {
-            ["service"] = "EditorDebugMCP",
-            ["version"] = k_Version,
-            ["port"] = s_Port,
-            ["unityVersion"] = s_UnityVersion,
-            ["projectName"] = s_ProjectName,
-            // 编辑器态从缓存读（EditorApplication.is* 仅主线程安全，/ping 在 HTTP 线程构信封）
-            ["isPlaying"] = EditorStateCache.IsPlaying,
-            ["isPaused"] = EditorStateCache.IsPaused,
-            ["isCompiling"] = EditorStateCache.IsCompiling,
-            ["isUpdating"] = EditorStateCache.IsUpdating,
-            ["timeSinceStartup"] = EditorStateCache.TimeSinceStartup,
-        };
+            var record = s_Record;
+            var port = record != null ? record.Port : s_Port;
+            var unityVersion = s_UnityVersion;
+            var projectName = s_ProjectName;
+            return new JObject
+            {
+                ["service"] = "EditorDebugMCP",
+                ["serviceId"] = record != null ? record.ServiceId : k_PortDefinition.ServiceId,
+                ["instanceId"] = record != null ? record.InstanceId : string.Empty,
+                ["processId"] = record != null ? record.ProcessId : Process.GetCurrentProcess().Id,
+                ["projectId"] = record != null ? record.ProjectId : string.Empty,
+                ["projectRoot"] = record != null ? record.ProjectRoot : string.Empty,
+                ["version"] = k_Version,
+                ["port"] = port,
+                ["portSource"] = record != null ? record.PortSource : "unknown",
+                ["unityVersion"] = unityVersion,
+                ["projectName"] = projectName,
+                // 编辑器态从缓存读（EditorApplication.is* 仅主线程安全，/ping 在 HTTP 线程构信封）
+                ["isPlaying"] = EditorStateCache.IsPlaying,
+                ["isPaused"] = EditorStateCache.IsPaused,
+                ["isCompiling"] = EditorStateCache.IsCompiling,
+                ["isUpdating"] = EditorStateCache.IsUpdating,
+                ["timeSinceStartup"] = EditorStateCache.TimeSinceStartup,
+            };
+        }
 
         /// 反射执行与结果序列化都必须发生在主线程（结果可能触碰 Unity API）。
         private static JObject RunOnMain(Func<object> work)
@@ -196,6 +253,33 @@ namespace Yoji.EditorDebug
             ["elapsedMs"] = 0,
             ["error"] = ErrorJson(e),
         };
+
+        private static void Heartbeat()
+        {
+            if (s_Record == null)
+                return;
+
+            var now = EditorApplication.timeSinceStartup;
+            if (now < s_NextHeartbeatAt)
+                return;
+
+            s_NextHeartbeatAt = now + 10.0;
+
+            try
+            {
+                s_Record.Touch();
+                ServiceInstanceRegistry.Default().Register(s_Record);
+                ProjectPortsFile.Upsert(s_Record.ProjectRoot, s_Record);
+            }
+            catch (Exception e)
+            {
+                if (now >= s_NextHeartbeatErrorLogAt)
+                {
+                    s_NextHeartbeatErrorLogAt = now + 60.0;
+                    Debug.LogError("[EditorDebugMCP] 心跳刷新失败: " + e.Message);
+                }
+            }
+        }
 
         private static JObject ErrorJson(Exception e)
         {

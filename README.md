@@ -14,9 +14,9 @@ Last reviewed: 2026-06-17
 | Package | Purpose | Agent assets | Unity package | Current state |
 |---------|---------|--------------|---------------|---------------|
 | `com.yoji.editor-core` | Shared Editor-only infrastructure: main-thread dispatch, bounded request bodies, service lifecycle helpers | No | Yes | Internal dependency package |
-| `com.yoji.test-runner` | HTTP MCP service for Unity recompilation and EditMode/PlayMode test runs | `client.py`, `SKILL.md`, e2e script | Yes | Stable `0.1.4` tag published; Unity 2022 compile verified; Git UPM smoke pending |
-| `com.yoji.editor-debug` | HTTP+JSON reflection/debug service inside Unity Editor | `client.py`, `SKILL.md`, references | Yes | Stable `0.1.0` Git install verified |
-| `com.yoji.lua-device-debug` | HTTP+JSON diagnostics transport for project-provided Lua runtime adapters | `client.py`, `SKILL.md` | Yes | Transport ready; target project must register a host |
+| `com.yoji.test-runner` | HTTP MCP service for Unity recompilation and EditMode/PlayMode test runs | `client.py`, `SKILL.md`, e2e script | Yes | Project-aware ports implemented; live multi-project smoke pending |
+| `com.yoji.editor-debug` | HTTP+JSON reflection/debug service inside Unity Editor | `client.py`, `SKILL.md`, references | Yes | Project-aware ports implemented; live multi-project smoke pending |
+| `com.yoji.lua-device-debug` | HTTP+JSON diagnostics transport for project-provided Lua runtime adapters | `client.py`, `SKILL.md` | Yes | Editor port is project-aware; Android player port configurable |
 | `com.yoji.u3d-ai-linker` | Project Settings package for installing tools and syncing Claude/Codex skills/rules | Tool fragments | Yes | Agent Sync/Junction live verified in SLG_Prototype |
 
 The old client-only runtime expression debugger (`feval-runtime-debug`) has
@@ -57,15 +57,22 @@ initialization and log a startup message in the Console.
 ### Test Runner MCP
 
 Package: `Packages/com.yoji.test-runner`
-Port: `21890` with fallback `21896/21897`
+Legacy port: `21890` with fallback `21896/21897`
+Project-aware offset: `base + 0`
 
 Runs Unity tests from an AI agent without opening the Test Runner UI.
 
 ```powershell
-python Packages/com.yoji.test-runner/Agent~/skills/test-runner-mcp/client.py ping
+python Packages/com.yoji.test-runner/Agent~/skills/test-runner-mcp/client.py --project G:\Side_Projects\HD2D-U3D\HD2D-Demo ping
+python Packages/com.yoji.test-runner/Agent~/skills/test-runner-mcp/client.py --pid 76792 ping
+python Packages/com.yoji.test-runner/Agent~/skills/test-runner-mcp/client.py --port 21890 ping
 python Packages/com.yoji.test-runner/Agent~/skills/test-runner-mcp/client.py list-tests --mode EditMode
 python Packages/com.yoji.test-runner/Agent~/skills/test-runner-mcp/client.py run-tests --mode EditMode
 ```
+
+Agent clients resolve ports in this order: explicit `--port`, then
+`--project` or current working directory `.u3d-ai-linker/ports.json`, then the
+machine registry, then legacy defaults.
 
 PlayMode is supported through a temporary
 `EnterPlayModeOptions.DisableDomainReload` overlay. The service restores the
@@ -75,18 +82,25 @@ Mode or loaded scenes are dirty, PlayMode test requests return `409`.
 ### Editor Debug MCP
 
 Package: `Packages/com.yoji.editor-debug`
-Port: `21891` with fallback `21892/21893`
+Legacy port: `21891` with fallback `21892/21893`
+Project-aware offset: `base + 1`
 
 Reflects Unity Editor and UnityEngine APIs over HTTP+JSON for agent debugging.
 
 ```powershell
 cd Packages/com.yoji.editor-debug/Agent~/skills/unity-editor-debug-mcp
-python client.py ping
+python client.py --project G:\Side_Projects\HD2D-U3D\HD2D-Demo ping
+python client.py --pid 76792 ping
+python client.py --port 21891 ping
 python client.py describe --type UnityEngine.Application
 python client.py invoke --type UnityEngine.Application --member isPlaying --kind get
 python client.py invoke --type UnityEngine.GameObject --target-entity-id <object-id> --member name --kind get
 python client.py recompile
 ```
+
+Agent clients resolve ports in this order: explicit `--port`, then
+`--project` or current working directory `.u3d-ai-linker/ports.json`, then the
+machine registry, then legacy defaults.
 
 `/eval` exists in the service code but is disabled by default. Prefer
 structured `describe`, `invoke`, `/console`, and `/batch` flows.
@@ -94,7 +108,8 @@ structured `describe`, `invoke`, `/console`, and `/batch` flows.
 ### Lua Device Debug
 
 Package: `Packages/com.yoji.lua-device-debug`
-Port: `21894`
+Legacy port: `21894`
+Project-aware offset: `base + 4` for Editor
 
 Provides a generic diagnostics transport for Unity Lua runtimes in Editor and
 Android Development Builds. It does not ship a Lua adapter; the target project
@@ -102,10 +117,17 @@ must implement and register `ILuaDeviceDebugHost`.
 
 ```powershell
 cd Packages/com.yoji.lua-device-debug/Agent~/skills/unity-lua-device-debug
-python client.py ping
+python client.py --project G:\Side_Projects\HD2D-U3D\HD2D-Demo ping
+python client.py --pid 76792 ping
+python client.py --port 21894 ping
 python client.py commands
 python client.py execute config.get --arg table=Activity --arg id=1001
 ```
+
+Editor clients resolve ports in this order: explicit `--port`, then `--project`
+or current working directory `.u3d-ai-linker/ports.json`, then the machine
+registry, then legacy defaults. Android `adb-forward` and `adb-remove` keep the
+local player tunnel default of `21894` unless `--port` is provided.
 
 For Android Development Builds:
 
@@ -135,11 +157,21 @@ Links`, and the Windows Junction smoke menu all passed in the live Editor.
 
 ## Ports
 
-| Tool | Port | Protocol |
-|------|------|----------|
-| `test-runner-mcp` | `21890`, fallback `21896/21897` | HTTP |
-| `unity-editor-debug-mcp` | `21891`, fallback `21892/21893` | HTTP+JSON |
-| `unity-lua-device-debug` | `21894` | HTTP+JSON |
+| Tool | Legacy port | Project-aware offset | Protocol |
+|------|-------------|----------------------|----------|
+| `test-runner-mcp` | `21890`, fallback `21896/21897` | `base + 0` | HTTP |
+| `unity-editor-debug-mcp` | `21891`, fallback `21892/21893` | `base + 1` | HTTP+JSON |
+| `unity-lua-device-debug` | `21894` | `base + 4` | HTTP+JSON |
+
+For multiple open Unity projects, use `--project` or run clients from the Unity
+project root. The clients read `.u3d-ai-linker/ports.json` first.
+
+Resolution order:
+
+1. Explicit `--port` wins.
+2. `--project` or current working directory `.u3d-ai-linker/ports.json`.
+3. Machine registry under `%LOCALAPPDATA%\Yoji\U3D-Dev-Tools-AI`.
+4. Legacy defaults.
 
 ## Verification Baseline
 
@@ -167,7 +199,7 @@ running.
 ## Requirements
 
 - Unity `2022.3+` for most Editor packages.
-- Unity `6000.3.x` for `lua-device-debug`.
+- Unity `2022.3+` for `lua-device-debug`.
 - Python `3.8+` for agent clients.
 - Android SDK platform tools for `lua-device-debug` device forwarding.
 - Windows for the first `u3d-ai-linker` junction-based synchronization path.

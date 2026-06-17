@@ -24,9 +24,28 @@ description: 在 Unity 工程中通过 HTTP 调用 Unity Test Runner——触发
 
 ## 服务地址
 
-- 端口：`21890`，绑定 `127.0.0.1`
+- 端口：项目感知分配；首个工程优先 `21890`，回退 `21896/21897`；多工程使用 `base + 0`
+- 绑定：`127.0.0.1`
 - 自动启动：Editor 加载后通过 `[InitializeOnLoadMethod]` 自动跑起来
 - 域重载 / 退出 Editor 时会停服，重载完成后自动重启
+
+
+## Agent 端口解析
+
+```powershell
+python client.py --project G:\Side_Projects\HD2D-U3D\HD2D-Demo ping
+python client.py --pid 76792 ping
+python client.py --port 21890 ping
+```
+
+解析顺序：
+
+1. 显式 `--port` 优先。
+2. `--project` 或当前目录向上查找 `.u3d-ai-linker/ports.json`。
+3. 机器 registry。
+4. 旧默认端口 `21890`，再回退 `21896/21897`。
+
+同一项目存在多个在线 Editor 实例时，未传 `--pid` 或 `--port` 会返回 ambiguity。
 
 ## 接口一览
 
@@ -236,7 +255,7 @@ print(json.dumps(s, ensure_ascii=False, indent=2))
 
 ## 何时**不能**用 MCP
 
-- `/ping` 不通：Editor 没开 / package 没装 / 21890 被占用
+- `/ping` 不通：Editor 没开 / package 没装 / 端口记录过期或 legacy 端口被占用
 - Editor 已挂 / 编译卡死
 
 这时退回 `Unity.exe -batchmode -runTests`，详见 `tdd-workflow/references/test-execution.md` 中 batchmode 段落。两种模式结果都是 NUnit XML，解析方式一致。

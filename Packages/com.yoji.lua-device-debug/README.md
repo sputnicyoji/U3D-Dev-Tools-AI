@@ -2,7 +2,9 @@
 
 Generic HTTP+JSON transport for Unity Lua runtime diagnostics.
 
-This package targets Unity 6.3 LTS (`6000.3.x`). It provides the transport, lifecycle, safety gates, and agent CLI for device diagnostics. It does not include a project Lua adapter; target projects register their own `ILuaDeviceDebugHost`.
+This package targets Unity 2022.3 LTS or newer. It provides the transport, lifecycle, safety gates, and agent CLI for device diagnostics. It does not include a project Lua adapter; target projects register their own `ILuaDeviceDebugHost`.
+
+Android Development Build players can override the remote listen port with `Assets/Resources/YojiLuaDeviceDebugRuntimeConfig.asset`.
 
 ## Install
 
@@ -12,7 +14,7 @@ Add this package to the target Unity project's `Packages/manifest.json`:
 "com.yoji.lua-device-debug": "file:<path-to-repo>/Packages/com.yoji.lua-device-debug"
 ```
 
-Open the project in Unity 6000.3.16f1 or another Unity 6.3 LTS patch version.
+Open the project in Unity 2022.3 LTS or newer.
 
 ## Runtime Boundary
 
@@ -21,7 +23,7 @@ The generic package exposes:
 - `ILuaDeviceDebugHost`
 - `LuaDeviceDebugRuntime.RegisterHost(...)`
 - `LuaDeviceDebugRuntime.UnregisterHost(...)`
-- HTTP endpoints on `127.0.0.1:21894`
+- HTTP endpoints on a project-aware Editor port. Android Development Build players use `21894` unless a runtime config asset overrides it.
 
 It does not reference xLua, SLG project types, HybridCLR, C# reflection eval, or arbitrary Lua eval.
 
@@ -54,6 +56,7 @@ All endpoints accept JSON over HTTP POST:
 - Editor server starts automatically.
 - Player server compiles only for `DEVELOPMENT_BUILD && !UNITY_EDITOR`.
 - Player startup is runtime-gated to Android.
+- Player remote port resolves from the runtime config asset when present; otherwise it falls back to `21894`.
 - Listener binds to loopback only.
 - Request body limit: 1 MB.
 - Response body limit: 4 MB.

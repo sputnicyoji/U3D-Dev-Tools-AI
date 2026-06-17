@@ -2,6 +2,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Text;
+using Newtonsoft.Json.Linq;
 using UnityEditor;
 using UnityEngine;
 using Yoji.U3DAILinker.Operations;
@@ -49,6 +50,8 @@ namespace Yoji.U3DAILinker.Settings
             DrawToolList();
             EditorGUILayout.Space();
             DrawLocalChannelWarning();
+            EditorGUILayout.Space();
+            DrawPortsSection();
             EditorGUILayout.Space();
             DrawActionSection();
         }
@@ -182,6 +185,53 @@ namespace Yoji.U3DAILinker.Settings
                 {
                     if (GUILayout.Button("Restore Dev"))
                         RequestRestore(LinkerChannel.Dev);
+                }
+            }
+        }
+
+        private static void DrawPortsSection()
+        {
+            EditorGUILayout.LabelField("Ports", EditorStyles.boldLabel);
+            EditorGUILayout.HelpBox(
+                "Ports are project-aware. Agent clients resolve .u3d-ai-linker/ports.json before falling back to legacy defaults.",
+                MessageType.Info);
+
+            var portsPath = BuildPortsFilePath(ProjectRoot);
+            var exists = File.Exists(portsPath);
+            EditorGUILayout.LabelField("Ports File", exists ? portsPath : "not generated yet");
+            using (new EditorGUI.DisabledScope(!exists))
+            {
+                if (GUILayout.Button("Open Ports File"))
+                    EditorUtility.RevealInFinder(portsPath);
+            }
+
+            if (!exists)
+                return;
+
+            if (!TryLoadPortsRows(ProjectRoot, out var rows, out var error))
+            {
+                EditorGUILayout.HelpBox(error, MessageType.Warning);
+                return;
+            }
+
+            using (new EditorGUILayout.HorizontalScope())
+            {
+                EditorGUILayout.LabelField("serviceId", EditorStyles.miniBoldLabel, GUILayout.Width(180));
+                EditorGUILayout.LabelField("port", EditorStyles.miniBoldLabel, GUILayout.Width(60));
+                EditorGUILayout.LabelField("pid", EditorStyles.miniBoldLabel, GUILayout.Width(70));
+                EditorGUILayout.LabelField("source", EditorStyles.miniBoldLabel, GUILayout.Width(110));
+                EditorGUILayout.LabelField("lastSeenUtc", EditorStyles.miniBoldLabel);
+            }
+
+            foreach (var row in rows)
+            {
+                using (new EditorGUILayout.HorizontalScope())
+                {
+                    EditorGUILayout.LabelField(row.ServiceId, GUILayout.Width(180));
+                    EditorGUILayout.LabelField(row.Port, GUILayout.Width(60));
+                    EditorGUILayout.LabelField(row.ProcessId, GUILayout.Width(70));
+                    EditorGUILayout.LabelField(row.Source, GUILayout.Width(110));
+                    EditorGUILayout.LabelField(row.LastSeenUtc);
                 }
             }
         }
@@ -576,6 +626,9 @@ namespace Yoji.U3DAILinker.Settings
             sb.AppendLine("Operation: " + operationState);
             sb.AppendLine("SelfPackage: " + BuildSelfPackageSummary());
             sb.AppendLine();
+            sb.AppendLine("Ports:");
+            sb.AppendLine(LoadPortsSummary(projectRoot));
+            sb.AppendLine();
 
             if (registry == null)
             {
@@ -606,6 +659,87 @@ namespace Yoji.U3DAILinker.Settings
                 sb.AppendLine("  targetHash=" + (row.ExpectedHash ?? "-"));
             }
             return sb.ToString();
+        }
+
+        private static string LoadPortsSummary(string projectRoot)
+        {
+            if (!File.Exists(BuildPortsFilePath(projectRoot)))
+                return "missing";
+
+            if (!TryLoadPortsRows(projectRoot, out var rows, out var error))
+                return error;
+
+            if (rows.Count == 0)
+                return "no instances";
+
+            var sb = new StringBuilder();
+            foreach (var row in rows)
+            {
+                sb.AppendLine("- " + row.ServiceId +
+                              " port=" + row.Port +
+                              " pid=" + row.ProcessId +
+                              " source=" + row.Source +
+                              " lastSeenUtc=" + row.LastSeenUtc);
+            }
+            return sb.ToString().TrimEnd();
+        }
+
+        private static bool TryLoadPortsRows(
+            string projectRoot,
+            out List<PortDiagnosticRow> rows,
+            out string error)
+        {
+            rows = new List<PortDiagnosticRow>();
+            error = null;
+
+            var path = BuildPortsFilePath(projectRoot);
+            try
+            {
+                var root = JObject.Parse(File.ReadAllText(path));
+                var instances = root["instances"] as JArray;
+                if (instances == null)
+                    return true;
+
+                foreach (var item in instances.OfType<JObject>())
+                {
+                    rows.Add(new PortDiagnosticRow
+                    {
+                        ServiceId = ReadString(item, "serviceId"),
+                        Port = ReadString(item, "port"),
+                        ProcessId = ReadString(item, "processId"),
+                        Source = ReadString(item, "portSource"),
+                        LastSeenUtc = ReadString(item, "lastSeenUtc"),
+                    });
+                }
+                return true;
+            }
+            catch (System.Exception e)
+            {
+                error = "invalid json: " + e.Message;
+                return false;
+            }
+        }
+
+        private static string ReadString(JObject item, string name)
+        {
+            var value = item[name];
+            return value != null ? value.ToString() : "-";
+        }
+
+        private static string BuildPortsFilePath(string projectRoot)
+        {
+            return string.IsNullOrEmpty(projectRoot)
+                ? string.Empty
+                : Path.Combine(projectRoot, ".u3d-ai-linker", "ports.json");
+        }
+
+        private sealed class PortDiagnosticRow
+        {
+            public string ServiceId;
+            public string Port;
+            public string ProcessId;
+            public string Source;
+            public string LastSeenUtc;
         }
 
         private static string BuildSelfPackageSummary()
