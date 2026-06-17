@@ -5,6 +5,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Linq.Expressions;
 using System.Reflection;
+using System.Runtime.ExceptionServices;
 using System.Xml;
 using UnityEngine;
 
@@ -55,19 +56,21 @@ namespace Yoji.TestRunner
 
             m_CallbackProxy = CreateDispatchProxy(m_CallbacksType, typeof(TestRunnerCallbackProxy));
             ((TestRunnerCallbackProxy)m_CallbackProxy).Sink = sink;
-            m_RegisterCallbacksMethod.MakeGenericMethod(m_CallbacksType)
-                .Invoke(m_Api, new[] { m_CallbackProxy, (object)0 });
+            Invoke(
+                m_RegisterCallbacksMethod.MakeGenericMethod(m_CallbacksType),
+                m_Api,
+                new[] { m_CallbackProxy, (object)0 });
         }
 
         public void Execute(FilterSpec spec)
         {
-            m_ExecuteMethod.Invoke(m_Api, new[] { BuildExecutionSettings(spec) });
+            Invoke(m_ExecuteMethod, m_Api, new[] { BuildExecutionSettings(spec) });
         }
 
         public void RetrieveTestList(string mode, Action<TestNode> callback)
         {
             var callbackDelegate = CreateTestListCallback(callback);
-            m_RetrieveTestListMethod.Invoke(m_Api, new[] { ToTestMode(mode), callbackDelegate });
+            Invoke(m_RetrieveTestListMethod, m_Api, new[] { ToTestMode(mode), callbackDelegate });
         }
 
         private object BuildExecutionSettings(FilterSpec spec)
@@ -115,12 +118,16 @@ namespace Yoji.TestRunner
             var type = Type.GetType(fullName + ", " + c_EditorTestRunnerAssembly);
             if (type != null) return type;
 
+            Exception loadException = null;
             try
             {
                 type = Assembly.Load(c_EditorTestRunnerAssembly).GetType(fullName, false);
                 if (type != null) return type;
             }
-            catch (Exception) { }
+            catch (Exception e)
+            {
+                loadException = e;
+            }
 
             foreach (var assembly in AppDomain.CurrentDomain.GetAssemblies())
             {
@@ -130,7 +137,8 @@ namespace Yoji.TestRunner
 
             throw new InvalidOperationException(
                 "Unity Test Framework API type not found: " + fullName +
-                ". Ensure com.unity.test-framework is installed.");
+                ". Ensure com.unity.test-framework is installed.",
+                loadException);
         }
 
         private static MethodInfo RequireMethod(Type type, string name, params Type[] parameterTypes)
@@ -175,7 +183,20 @@ namespace Yoji.TestRunner
                                      m.GetParameters().Length == 0);
             if (method == null)
                 throw new MissingMethodException(typeof(DispatchProxy).FullName, "Create");
-            return method.MakeGenericMethod(interfaceType, proxyType).Invoke(null, null);
+            return Invoke(method.MakeGenericMethod(interfaceType, proxyType), null, null);
+        }
+
+        private static object Invoke(MethodInfo method, object target, object[] parameters)
+        {
+            try
+            {
+                return method.Invoke(target, parameters);
+            }
+            catch (TargetInvocationException e) when (e.InnerException != null)
+            {
+                ExceptionDispatchInfo.Capture(e.InnerException).Throw();
+                throw;
+            }
         }
 
         internal interface ICallbacksSink
@@ -320,8 +341,11 @@ namespace Yoji.TestRunner
 
             public void WriteXml(XmlWriter writer)
             {
-                var xml = m_Type.GetMethod("ToXml", BindingFlags.Instance | BindingFlags.Public)
-                    .Invoke(m_Raw, null);
+                var toXml = m_Type.GetMethod("ToXml", BindingFlags.Instance | BindingFlags.Public);
+                if (toXml == null)
+                    throw new MissingMethodException(m_Type.FullName, "ToXml");
+
+                var xml = Invoke(toXml, m_Raw, null);
                 if (xml == null) return;
 
                 var writeTo = xml.GetType().GetMethod(
@@ -332,7 +356,7 @@ namespace Yoji.TestRunner
                     null);
                 if (writeTo == null)
                     throw new MissingMethodException(xml.GetType().FullName, "WriteTo");
-                writeTo.Invoke(xml, new object[] { writer });
+                Invoke(writeTo, xml, new object[] { writer });
             }
 
             private bool GetBool(string propertyName)

@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Reflection;
 using System.Threading;
 using System.Xml;
 using UnityEditor;
@@ -72,7 +73,7 @@ namespace Yoji.TestRunner
             {
                 m_ActiveJobId = null;
                 RestorePlayModeSettings();
-                m_Jobs.FailJob(jobId, "execute failed: " + e.Message);
+                m_Jobs.FailJob(jobId, "execute failed: " + DescribeExecutionFailure(e));
                 throw;
             }
             return jobId;
@@ -114,6 +115,20 @@ namespace Yoji.TestRunner
 
         private static string Truncate(string s, int max)
             => string.IsNullOrEmpty(s) || s.Length <= max ? s : s.Substring(0, max) + "...(truncated)";
+
+        internal static string DescribeExecutionFailure(Exception exception)
+        {
+            var root = UnwrapTargetInvocation(exception);
+            if (root == null) return "unknown exception";
+            return root.GetType().Name + ": " + root.Message;
+        }
+
+        private static Exception UnwrapTargetInvocation(Exception exception)
+        {
+            while (exception is TargetInvocationException target && target.InnerException != null)
+                exception = target.InnerException;
+            return exception;
+        }
 
         public void RunFinished(UnityTestRunnerApiAdapter.TestResult result)
         {
