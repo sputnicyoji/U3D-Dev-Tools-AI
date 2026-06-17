@@ -65,7 +65,7 @@
       "order": 1000,
       "packageName": "com.yoji.u3d-ai-linker",
       "packagePath": "Packages/com.yoji.u3d-ai-linker",
-      "revision": "u3d-ai-linker-v0.1.0",
+      "revision": "u3d-ai-linker-v0.1.1",
       "defaultEnabled": false,
       "userToggle": false,
       "agentAssets": null,

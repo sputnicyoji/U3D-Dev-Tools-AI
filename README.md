@@ -126,7 +126,7 @@ fragments.
 
 Current stable scope is `editor-core`, `editor-debug`, `test-runner`, and
 `u3d-ai-linker`. The current stable revisions are `editor-core-v0.1.0`,
-`editor-debug-v0.1.0`, `test-runner-v0.1.2`, and `u3d-ai-linker-v0.1.0`.
+`editor-debug-v0.1.0`, `test-runner-v0.1.2`, and `u3d-ai-linker-v0.1.1`.
 The stable registry points consumers to those Git tags; consumer lock files
 should resolve them as `source=git` after install.
 `lua-device-debug` remains a local dependency until its generic host integration
