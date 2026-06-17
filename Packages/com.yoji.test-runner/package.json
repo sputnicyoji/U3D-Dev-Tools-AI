@@ -1,6 +1,6 @@
 {
   "name": "com.yoji.test-runner",
-  "version": "0.1.2",
+  "version": "0.1.3",
   "displayName": "Test Runner MCP",
   "description": "HTTP service to trigger Unity recompilation and run EditMode tests headlessly for AI agents.",
   "unity": "2022.3",

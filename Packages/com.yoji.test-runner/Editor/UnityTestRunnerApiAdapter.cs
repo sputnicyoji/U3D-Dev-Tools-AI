@@ -207,7 +207,7 @@ namespace Yoji.TestRunner
             void RunFinished(TestResult result);
         }
 
-        private sealed class TestRunnerCallbackProxy : DispatchProxy
+        private class TestRunnerCallbackProxy : DispatchProxy
         {
             public ICallbacksSink Sink;
 

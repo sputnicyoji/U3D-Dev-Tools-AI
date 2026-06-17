@@ -67,5 +67,16 @@ namespace Yoji.TestRunner.Tests
             StringAssert.Contains("inner execute failure", message);
             Assert.False(message.Contains("Exception has been thrown by the target of an invocation"));
         }
+
+        [Test]
+        public void Unity2022Adapter_DispatchProxyImplementationIsNotSealed()
+        {
+            var packagePath = PackageInfo.FindForAssembly(typeof(TestRunnerMCP).Assembly).resolvedPath;
+            var source = File.ReadAllText(Path.Combine(packagePath, "Editor", "UnityTestRunnerApiAdapter.cs"));
+
+            Assert.False(
+                source.Contains("sealed class TestRunnerCallbackProxy"),
+                "DispatchProxy TProxy must be inheritable on Unity 2022 Mono.");
+        }
     }
 }

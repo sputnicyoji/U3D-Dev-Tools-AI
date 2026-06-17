@@ -14,7 +14,7 @@ Last reviewed: 2026-06-17
 | Package | Purpose | Agent assets | Unity package | Current state |
 |---------|---------|--------------|---------------|---------------|
 | `com.yoji.editor-core` | Shared Editor-only infrastructure: main-thread dispatch, bounded request bodies, service lifecycle helpers | No | Yes | Internal dependency package |
-| `com.yoji.test-runner` | HTTP MCP service for Unity recompilation and EditMode/PlayMode test runs | `client.py`, `SKILL.md`, e2e script | Yes | Stable `0.1.2` tag published; Unity 2022 compile verified; Git UPM smoke pending |
+| `com.yoji.test-runner` | HTTP MCP service for Unity recompilation and EditMode/PlayMode test runs | `client.py`, `SKILL.md`, e2e script | Yes | Stable `0.1.3` tag published; Unity 2022 compile verified; Git UPM smoke pending |
 | `com.yoji.editor-debug` | HTTP+JSON reflection/debug service inside Unity Editor | `client.py`, `SKILL.md`, references | Yes | Stable `0.1.0` Git install verified |
 | `com.yoji.lua-device-debug` | HTTP+JSON diagnostics transport for project-provided Lua runtime adapters | `client.py`, `SKILL.md` | Yes | Transport ready; target project must register a host |
 | `com.yoji.u3d-ai-linker` | Project Settings package for installing tools and syncing Claude/Codex skills/rules | Tool fragments | Yes | Agent Sync/Junction live verified in SLG_Prototype |
@@ -126,7 +126,7 @@ fragments.
 
 Current stable scope is `editor-core`, `editor-debug`, `test-runner`, and
 `u3d-ai-linker`. The current stable revisions are `editor-core-v0.1.0`,
-`editor-debug-v0.1.0`, `test-runner-v0.1.2`, and `u3d-ai-linker-v0.1.1`.
+`editor-debug-v0.1.0`, `test-runner-v0.1.3`, and `u3d-ai-linker-v0.1.2`.
 The stable registry points consumers to those Git tags; consumer lock files
 should resolve them as `source=git` after install.
 `lua-device-debug` remains a local dependency until its generic host integration
@@ -152,13 +152,13 @@ Latest local batchmode runs on Unity `6000.3.16f1`:
 | `TestProjects/lua-device-debug` | `13/13` EditMode passed |
 | `TestProjects/u3d-ai-linker` | `260/260` EditMode passed |
 
-Additional `test-runner` `0.1.2` compatibility checks:
+Additional `test-runner` `0.1.3` compatibility checks:
 
 | Check | Result |
 |-------|--------|
 | Unity `2022.3.62f2c1` Roslyn compile for `Yoji.TestRunner.Editor` | Passed |
 | `UNITY_6000_0_OR_NEWER` define-simulated Roslyn compile for `Yoji.TestRunner.Editor` | Passed |
-| Stable registry remote tag check for `test-runner-v0.1.2` | Passed |
+| Stable registry remote tag check for `test-runner-v0.1.3` | Passed |
 
 HTTP e2e scripts live under each tool's `Agent~/skills/.../references/`
 folder. They require the matching Unity project to be open with the service
