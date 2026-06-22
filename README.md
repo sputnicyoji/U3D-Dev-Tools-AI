@@ -7,17 +7,17 @@ source packages for headless test execution, Editor inspection, Lua runtime
 diagnostics, and an Editor-side linker that syncs agent skills/rules into a
 Unity project.
 
-Last reviewed: 2026-06-17
+Last reviewed: 2026-06-22
 
 ## Status
 
 | Package | Purpose | Agent assets | Unity package | Current state |
 |---------|---------|--------------|---------------|---------------|
 | `com.yoji.editor-core` | Shared Editor-only infrastructure: main-thread dispatch, bounded request bodies, service lifecycle helpers | No | Yes | Internal dependency package |
-| `com.yoji.test-runner` | HTTP MCP service for Unity recompilation and EditMode/PlayMode test runs | `client.py`, `SKILL.md`, e2e script | Yes | Project-aware ports implemented; live multi-project smoke pending |
-| `com.yoji.editor-debug` | HTTP+JSON reflection/debug service inside Unity Editor | `client.py`, `SKILL.md`, references | Yes | Project-aware ports implemented; live multi-project smoke pending |
-| `com.yoji.lua-device-debug` | HTTP+JSON diagnostics transport for project-provided Lua runtime adapters | `client.py`, `SKILL.md` | Yes | Editor port is project-aware; Android player port configurable |
-| `com.yoji.u3d-ai-linker` | Project Settings package for installing tools and syncing Claude/Codex skills/rules | Tool fragments | Yes | Agent Sync/Junction live verified in SLG_Prototype |
+| `com.yoji.test-runner` | HTTP MCP service for Unity recompilation and EditMode/PlayMode test runs | `client.py`, `SKILL.md`, e2e script | Yes | Stable `0.1.4` tag published; Unity 2022 Git UPM smoke verified; Unity 6000 typed path retained |
+| `com.yoji.editor-debug` | HTTP+JSON reflection/debug service inside Unity Editor | `client.py`, `SKILL.md`, references | Yes | Stable `0.1.0` Git install verified |
+| `com.yoji.lua-device-debug` | HTTP+JSON diagnostics transport for project-provided Lua runtime adapters | `client.py`, `SKILL.md` | Yes | Stable `0.1.0`; Unity 2022.3 compatible; target project must register a host |
+| `com.yoji.u3d-ai-linker` | Project Settings package for installing tools and syncing Claude/Codex skills/rules | Tool fragments | Yes | Stable `0.1.4` tag includes `lua-device-debug` in stable registry |
 
 The old client-only runtime expression debugger (`feval-runtime-debug`) has
 been removed. This toolset is not a HybridCLR integration layer.
@@ -52,55 +52,81 @@ For the linker UI:
 Open the Unity project after editing the manifest. Services start from Editor
 initialization and log a startup message in the Console.
 
+Stable Git install uses tags instead of local paths:
+
+```json
+{
+  "dependencies": {
+    "com.yoji.u3d-ai-linker": "https://github.com/sputnicyoji/U3D-Dev-Tools-AI.git?path=/Packages/com.yoji.u3d-ai-linker#u3d-ai-linker-v0.1.4"
+  }
+}
+```
+
+Direct `test-runner` install must include `editor-core` as a top-level Git
+dependency:
+
+```json
+{
+  "dependencies": {
+    "com.yoji.editor-core": "https://github.com/sputnicyoji/U3D-Dev-Tools-AI.git?path=/Packages/com.yoji.editor-core#editor-core-v0.1.0",
+    "com.yoji.test-runner": "https://github.com/sputnicyoji/U3D-Dev-Tools-AI.git?path=/Packages/com.yoji.test-runner#test-runner-v0.1.4"
+  }
+}
+```
+
+Direct `lua-device-debug` install is also a two-package Git install:
+
+```json
+{
+  "dependencies": {
+    "com.yoji.editor-core": "https://github.com/sputnicyoji/U3D-Dev-Tools-AI.git?path=/Packages/com.yoji.editor-core#editor-core-v0.1.0",
+    "com.yoji.lua-device-debug": "https://github.com/sputnicyoji/U3D-Dev-Tools-AI.git?path=/Packages/com.yoji.lua-device-debug#lua-device-debug-v0.1.0"
+  }
+}
+```
+
 ## Tools
 
 ### Test Runner MCP
 
 Package: `Packages/com.yoji.test-runner`
-Legacy port: `21890` with fallback `21896/21897`
-Project-aware offset: `base + 0`
+Port: `21890` with fallback `21896/21897`
 
 Runs Unity tests from an AI agent without opening the Test Runner UI.
 
 ```powershell
-python Packages/com.yoji.test-runner/Agent~/skills/test-runner-mcp/client.py --project G:\Side_Projects\HD2D-U3D\HD2D-Demo ping
-python Packages/com.yoji.test-runner/Agent~/skills/test-runner-mcp/client.py --pid 76792 ping
-python Packages/com.yoji.test-runner/Agent~/skills/test-runner-mcp/client.py --port 21890 ping
+python Packages/com.yoji.test-runner/Agent~/skills/test-runner-mcp/client.py ping
 python Packages/com.yoji.test-runner/Agent~/skills/test-runner-mcp/client.py list-tests --mode EditMode
 python Packages/com.yoji.test-runner/Agent~/skills/test-runner-mcp/client.py run-tests --mode EditMode
 ```
-
-Agent clients resolve ports in this order: explicit `--port`, then
-`--project` or current working directory `.u3d-ai-linker/ports.json`, then the
-machine registry, then legacy defaults.
 
 PlayMode is supported through a temporary
 `EnterPlayModeOptions.DisableDomainReload` overlay. The service restores the
 user's PlayMode settings when the run ends. If the Editor is already in Play
 Mode or loaded scenes are dirty, PlayMode test requests return `409`.
 
+Unity compatibility is split by compile symbol. Unity 2022 uses the reflection
+adapter in `UnityTestRunnerApiAdapter.cs` under `!UNITY_6000_0_OR_NEWER`.
+Unity 6000 keeps the typed `TestRunnerApi` implementation in
+`UnityTestRunnerApiAdapter.Unity6000.cs` under `UNITY_6000_0_OR_NEWER`.
+The minimum `com.unity.test-framework` dependency is `1.1.33` so Unity 2022
+registries do not have to resolve `1.5.1`.
+
 ### Editor Debug MCP
 
 Package: `Packages/com.yoji.editor-debug`
-Legacy port: `21891` with fallback `21892/21893`
-Project-aware offset: `base + 1`
+Port: `21891` with fallback `21892/21893`
 
 Reflects Unity Editor and UnityEngine APIs over HTTP+JSON for agent debugging.
 
 ```powershell
 cd Packages/com.yoji.editor-debug/Agent~/skills/unity-editor-debug-mcp
-python client.py --project G:\Side_Projects\HD2D-U3D\HD2D-Demo ping
-python client.py --pid 76792 ping
-python client.py --port 21891 ping
+python client.py ping
 python client.py describe --type UnityEngine.Application
 python client.py invoke --type UnityEngine.Application --member isPlaying --kind get
 python client.py invoke --type UnityEngine.GameObject --target-entity-id <object-id> --member name --kind get
 python client.py recompile
 ```
-
-Agent clients resolve ports in this order: explicit `--port`, then
-`--project` or current working directory `.u3d-ai-linker/ports.json`, then the
-machine registry, then legacy defaults.
 
 `/eval` exists in the service code but is disabled by default. Prefer
 structured `describe`, `invoke`, `/console`, and `/batch` flows.
@@ -108,8 +134,7 @@ structured `describe`, `invoke`, `/console`, and `/batch` flows.
 ### Lua Device Debug
 
 Package: `Packages/com.yoji.lua-device-debug`
-Legacy port: `21894`
-Project-aware offset: `base + 4` for Editor
+Port: `21894`
 
 Provides a generic diagnostics transport for Unity Lua runtimes in Editor and
 Android Development Builds. It does not ship a Lua adapter; the target project
@@ -117,17 +142,10 @@ must implement and register `ILuaDeviceDebugHost`.
 
 ```powershell
 cd Packages/com.yoji.lua-device-debug/Agent~/skills/unity-lua-device-debug
-python client.py --project G:\Side_Projects\HD2D-U3D\HD2D-Demo ping
-python client.py --pid 76792 ping
-python client.py --port 21894 ping
+python client.py ping
 python client.py commands
 python client.py execute config.get --arg table=Activity --arg id=1001
 ```
-
-Editor clients resolve ports in this order: explicit `--port`, then `--project`
-or current working directory `.u3d-ai-linker/ports.json`, then the machine
-registry, then legacy defaults. Android `adb-forward` and `adb-remove` keep the
-local player tunnel default of `21894` unless `--port` is provided.
 
 For Android Development Builds:
 
@@ -157,21 +175,11 @@ Links`, and the Windows Junction smoke menu all passed in the live Editor.
 
 ## Ports
 
-| Tool | Legacy port | Project-aware offset | Protocol |
-|------|-------------|----------------------|----------|
-| `test-runner-mcp` | `21890`, fallback `21896/21897` | `base + 0` | HTTP |
-| `unity-editor-debug-mcp` | `21891`, fallback `21892/21893` | `base + 1` | HTTP+JSON |
-| `unity-lua-device-debug` | `21894` | `base + 4` | HTTP+JSON |
-
-For multiple open Unity projects, use `--project` or run clients from the Unity
-project root. The clients read `.u3d-ai-linker/ports.json` first.
-
-Resolution order:
-
-1. Explicit `--port` wins.
-2. `--project` or current working directory `.u3d-ai-linker/ports.json`.
-3. Machine registry under `%LOCALAPPDATA%\Yoji\U3D-Dev-Tools-AI`.
-4. Legacy defaults.
+| Tool | Port | Protocol |
+|------|------|----------|
+| `test-runner-mcp` | `21890`, fallback `21896/21897` | HTTP |
+| `unity-editor-debug-mcp` | `21891`, fallback `21892/21893` | HTTP+JSON |
+| `unity-lua-device-debug` | `21894` | HTTP+JSON |
 
 ## Verification Baseline
 
@@ -181,16 +189,26 @@ Latest local batchmode runs on Unity `6000.3.16f1`:
 |--------------|--------|
 | `TestProjects/editor-debug` | `82/82` EditMode passed |
 | `TestProjects/test-runner` | `29` total, `27` passed, `2` skipped, `0` failed |
-| `TestProjects/lua-device-debug` | `13/13` EditMode passed |
-| `TestProjects/u3d-ai-linker` | `260/260` EditMode passed |
+| `TestProjects/lua-device-debug` | `14/14` EditMode passed |
+| `TestProjects/u3d-ai-linker` | `266/266` EditMode passed |
 
 Additional `test-runner` `0.1.4` compatibility checks:
 
 | Check | Result |
 |-------|--------|
 | Unity `2022.3.62f2c1` Roslyn compile for `Yoji.TestRunner.Editor` | Passed |
+| Unity `2022.3.62f2c1` HD2D Git UPM smoke for `test-runner-v0.1.4` + `u3d-ai-linker-v0.1.3` | Passed |
+| TestRunnerMCP `ping` / `list-tests` / `recompile` on Unity `2022.3.62f2c1` | Passed |
+| Missing-test run returns controlled `status=error` / `overallResult=Error` instead of a false green | Passed |
 | `UNITY_6000_0_OR_NEWER` define-simulated Roslyn compile for `Yoji.TestRunner.Editor` | Passed |
-| Stable registry remote tag check for `test-runner-v0.1.4` | Passed |
+| Stable registry remote tag check for `test-runner-v0.1.4` and `u3d-ai-linker-v0.1.3` | Passed |
+
+Additional `lua-device-debug` `0.1.0` compatibility checks:
+
+| Check | Result |
+|-------|--------|
+| Unity `2022.3.62f2c1` active Editor smoke in `G:\PurgeDemo\arttest-c6` (`/ping` + `14/14` EditMode) | Passed |
+| Stable registry remote tag check for `lua-device-debug-v0.1.0` and `u3d-ai-linker-v0.1.4` | Passed |
 
 HTTP e2e scripts live under each tool's `Agent~/skills/.../references/`
 folder. They require the matching Unity project to be open with the service

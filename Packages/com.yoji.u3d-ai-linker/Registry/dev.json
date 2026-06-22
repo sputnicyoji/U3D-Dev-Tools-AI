@@ -29,7 +29,9 @@
       "userToggle": true,
       "agentAssets": "Agent~",
       "minUnity": "2022.3",
-      "dependsOn": ["editor-core"]
+      "dependsOn": [
+        "editor-core"
+      ]
     },
     {
       "id": "test-runner",
@@ -43,7 +45,9 @@
       "userToggle": true,
       "agentAssets": "Agent~",
       "minUnity": "2022.3",
-      "dependsOn": ["editor-core"]
+      "dependsOn": [
+        "editor-core"
+      ]
     },
     {
       "id": "lua-device-debug",
@@ -56,8 +60,10 @@
       "defaultEnabled": false,
       "userToggle": true,
       "agentAssets": "Agent~",
-      "minUnity": "6000.3",
-      "dependsOn": []
+      "minUnity": "2022.3",
+      "dependsOn": [
+        "editor-core"
+      ]
     },
     {
       "id": "u3d-ai-linker",

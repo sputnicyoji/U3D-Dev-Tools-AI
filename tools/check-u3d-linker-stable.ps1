@@ -21,8 +21,7 @@ if ($stableText -ne $snapshotText) {
 }
 
 $ready = @($stable.entries | Where-Object { $_.status -eq "ready" })
-$requiredReadyIds = @("editor-core", "editor-debug", "test-runner", "u3d-ai-linker")
-$requiredNotReadyIds = @("lua-device-debug")
+$requiredReadyIds = @("editor-core", "editor-debug", "test-runner", "lua-device-debug", "u3d-ai-linker")
 $readyIds = @($ready | ForEach-Object { $_.id })
 
 foreach ($id in $requiredReadyIds) {
@@ -31,19 +30,9 @@ foreach ($id in $requiredReadyIds) {
   }
 }
 
-foreach ($id in $readyIds) {
-  if ($requiredReadyIds -notcontains $id) {
-    throw "stable registry has unexpected ready entry: $id"
-  }
-}
-
-foreach ($id in $requiredNotReadyIds) {
-  $entry = $stable.entries | Where-Object { $_.id -eq $id } | Select-Object -First 1
-  if ($null -eq $entry) {
-    throw "stable registry missing expected non-ready entry: $id"
-  }
-  if ($entry.status -eq "ready") {
-    throw "stable registry entry must remain non-ready until generic host proof exists: $id"
+foreach ($entry in $stable.entries) {
+  if ($entry.status -ne "ready") {
+    throw "stable registry entry must be ready: $($entry.id)"
   }
 }
 

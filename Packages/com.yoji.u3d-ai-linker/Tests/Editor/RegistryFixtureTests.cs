@@ -92,7 +92,7 @@ namespace Yoji.U3DAILinker.Tests
         }
 
         [Test]
-        public void StableRegistry_ReleaseScopeIsReadyAndLuaDeviceDebugStaysPlanned()
+        public void StableRegistry_ReleaseScopeIsReady()
         {
             var root = FindRepoRoot();
             Assume.That(root, Is.Not.Null);
@@ -103,6 +103,7 @@ namespace Yoji.U3DAILinker.Tests
                 "editor-core",
                 "editor-debug",
                 "test-runner",
+                "lua-device-debug",
                 "u3d-ai-linker",
             };
             foreach (var entry in doc.Entries)
@@ -110,7 +111,7 @@ namespace Yoji.U3DAILinker.Tests
                 if (expectedReady.Contains(entry.Id))
                     Assert.AreEqual("ready", entry.Status, "tool '" + entry.Id + "' must be stable ready");
                 else
-                    Assert.AreNotEqual("ready", entry.Status, "tool '" + entry.Id + "' is outside stable 0.1.0 scope");
+                    Assert.Fail("unexpected stable entry: " + entry.Id);
             }
         }
 

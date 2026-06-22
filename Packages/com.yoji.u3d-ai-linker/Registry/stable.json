@@ -28,7 +28,9 @@
       "userToggle": true,
       "agentAssets": "Agent~",
       "minUnity": "2022.3",
-      "dependsOn": ["editor-core"]
+      "dependsOn": [
+        "editor-core"
+      ]
     },
     {
       "id": "test-runner",
@@ -42,11 +44,13 @@
       "userToggle": true,
       "agentAssets": "Agent~",
       "minUnity": "2022.3",
-      "dependsOn": ["editor-core"]
+      "dependsOn": [
+        "editor-core"
+      ]
     },
     {
       "id": "lua-device-debug",
-      "status": "planned",
+      "status": "ready",
       "kind": "tool",
       "order": 40,
       "packageName": "com.yoji.lua-device-debug",
@@ -55,8 +59,10 @@
       "defaultEnabled": false,
       "userToggle": true,
       "agentAssets": "Agent~",
-      "minUnity": "6000.3",
-      "dependsOn": []
+      "minUnity": "2022.3",
+      "dependsOn": [
+        "editor-core"
+      ]
     },
     {
       "id": "u3d-ai-linker",
@@ -65,7 +71,7 @@
       "order": 1000,
       "packageName": "com.yoji.u3d-ai-linker",
       "packagePath": "Packages/com.yoji.u3d-ai-linker",
-      "revision": "u3d-ai-linker-v0.1.3",
+      "revision": "u3d-ai-linker-v0.1.4",
       "defaultEnabled": false,
       "userToggle": false,
       "agentAssets": null,
