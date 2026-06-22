@@ -11,3 +11,10 @@ TestProjects/*/.vs/
 _planning/
 __pycache__/
 *.pyc
+
+# Local agent-skill experiments. Keep disabled downloads out of commits.
+.disabled/
+.agents/skills/higgsfield-*/
+mcps/higgsfield-game-generation/
+skills-lock.json
+
