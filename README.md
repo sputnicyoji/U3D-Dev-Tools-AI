@@ -207,7 +207,7 @@ Additional `lua-device-debug` `0.1.0` compatibility checks:
 
 | Check | Result |
 |-------|--------|
-| Unity `2022.3.62f2c1` active Editor smoke in `G:\PurgeDemo\arttest-c6` (`/ping` + `14/14` EditMode) | Passed |
+| Unity `2022.3.62f2c1` Git UPM smoke in `G:\PurgeDemo\arttest-c6` (`/ping` + `14/14` EditMode) | Passed |
 | Stable registry remote tag check for `lua-device-debug-v0.1.0` and `u3d-ai-linker-v0.1.4` | Passed |
 
 HTTP e2e scripts live under each tool's `Agent~/skills/.../references/`
