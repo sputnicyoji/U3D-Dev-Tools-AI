@@ -15,7 +15,7 @@ Use this skill when the target Unity project has installed the package and regis
 
 ```powershell
 python client.py adb-forward
-python client.py --project G:\Side_Projects\HD2D-U3D\HD2D-Demo ping
+python client.py --project <unity-project-root> ping
 python client.py --pid 76792 ping
 python client.py --port 21894 ping
 python client.py commands

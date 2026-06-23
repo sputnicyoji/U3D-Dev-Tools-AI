@@ -82,10 +82,10 @@ namespace Yoji.U3DAILinker.Tests
             var rows = PanelStateModel.Build(
                 SampleRegistry(LinkerChannel.Local), NoneInstalled(),
                 new[] { "test-runner" }, new Dictionary<string, AgentState>(),
-                LinkerChannel.Local, @"E:\Yoji\U3D-Dev-Tools-AI");
+                LinkerChannel.Local, @"C:\Example\U3D-Dev-Tools-AI");
 
             Assert.AreEqual(
-                "file:E:/Yoji/U3D-Dev-Tools-AI/Packages/com.yoji.test-runner",
+                "file:C:/Example/U3D-Dev-Tools-AI/Packages/com.yoji.test-runner",
                 Row(rows, "test-runner").Desired);
         }
 
@@ -187,13 +187,13 @@ namespace Yoji.U3DAILinker.Tests
             {
                 ["com.yoji.test-runner"] = new InstalledPackageInfo(
                     "com.yoji.test-runner",
-                    @"file:E:\Yoji\U3D-Dev-Tools-AI\Packages\com.yoji.test-runner",
+                    @"file:C:\Example\U3D-Dev-Tools-AI\Packages\com.yoji.test-runner",
                     true),
             };
             var rows = PanelStateModel.Build(
                 SampleRegistry(LinkerChannel.Local), installed,
                 new[] { "test-runner" }, new Dictionary<string, AgentState>(),
-                LinkerChannel.Local, @"E:\Yoji\U3D-Dev-Tools-AI");
+                LinkerChannel.Local, @"C:\Example\U3D-Dev-Tools-AI");
 
             Assert.AreEqual(InstallState.Installed, Row(rows, "test-runner").Installed);
         }

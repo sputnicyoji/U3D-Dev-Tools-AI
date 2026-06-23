@@ -33,7 +33,7 @@ namespace Yoji.U3DAILinker.Tests
             s.DesiredVersions.Add(new DesiredVersion
             {
                 ToolId = "local-hack",
-                Revision = "file:E:/Yoji/U3D-Dev-Tools-AI/Packages/com.yoji.editor-debug",
+                Revision = "file:C:/Example/U3D-Dev-Tools-AI/Packages/com.yoji.editor-debug",
             });
             Assert.IsTrue(s.ContainsAbsolutePath());
             Assert.IsFalse(s.Validate(out var error));
@@ -63,8 +63,8 @@ namespace Yoji.U3DAILinker.Tests
         public void UserSettings_HoldsLocalRepoRoot()
         {
             var u = ScriptableObject.CreateInstance<U3DAILinkerUserSettings>();
-            u.LocalRepoRoot = @"E:\Yoji\U3D-Dev-Tools-AI";
-            Assert.AreEqual(@"E:\Yoji\U3D-Dev-Tools-AI", u.LocalRepoRoot);
+            u.LocalRepoRoot = @"C:\Example\U3D-Dev-Tools-AI";
+            Assert.AreEqual(@"C:\Example\U3D-Dev-Tools-AI", u.LocalRepoRoot);
             Object.DestroyImmediate(u);
         }
     }

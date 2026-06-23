@@ -27,7 +27,7 @@ namespace Yoji.U3DAILinker.Tests
             var s = ScriptableObject.CreateInstance<U3DAILinkerSettings>();
             s.DesiredVersions.Add(new DesiredVersion
             {
-                ToolId = "bad", Revision = "file:E:/Yoji/U3D-Dev-Tools-AI/Packages/com.yoji.x",
+                ToolId = "bad", Revision = "file:C:/Example/U3D-Dev-Tools-AI/Packages/com.yoji.x",
             });
             Assert.IsFalse(U3DAILinkerSettingsStore.TrySaveProjectSettings(s, out var error));
             StringAssert.Contains("bad", error);

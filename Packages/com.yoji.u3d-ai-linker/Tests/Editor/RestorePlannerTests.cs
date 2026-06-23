@@ -37,7 +37,7 @@ namespace Yoji.U3DAILinker.Tests
             {
                 ["com.yoji.test-runner"] = new InstalledPackageInfo(
                     "com.yoji.test-runner",
-                    "file:E:/Yoji/U3D-Dev-Tools-AI/Packages/com.yoji.test-runner",
+                    "file:C:/Example/U3D-Dev-Tools-AI/Packages/com.yoji.test-runner",
                     true),
             };
         }
@@ -79,7 +79,7 @@ namespace Yoji.U3DAILinker.Tests
             var changes = RestorePlanner.BuildRestore(WithLocalFile(), StableRegistry(), null);
             Assert.AreEqual(1, changes.Length);
             Assert.AreEqual("com.yoji.test-runner", changes[0].PackageName);
-            Assert.AreEqual("file:E:/Yoji/U3D-Dev-Tools-AI/Packages/com.yoji.test-runner", changes[0].OldValue);
+            Assert.AreEqual("file:C:/Example/U3D-Dev-Tools-AI/Packages/com.yoji.test-runner", changes[0].OldValue);
             Assert.AreEqual(
                 "https://github.com/sputnicyoji/U3D-Dev-Tools-AI.git?path=/Packages/com.yoji.test-runner#test-runner-v1.1.0",
                 changes[0].NewValue);
@@ -114,7 +114,7 @@ namespace Yoji.U3DAILinker.Tests
             var installed = new Dictionary<string, InstalledPackageInfo>
             {
                 ["com.yoji.ghost"] = new InstalledPackageInfo(
-                    "com.yoji.ghost", "file:E:/Yoji/U3D-Dev-Tools-AI/Packages/com.yoji.ghost", true),
+                    "com.yoji.ghost", "file:C:/Example/U3D-Dev-Tools-AI/Packages/com.yoji.ghost", true),
             };
             var changes = RestorePlanner.BuildRestore(installed, StableRegistry(), null);
             Assert.AreEqual(0, changes.Length);

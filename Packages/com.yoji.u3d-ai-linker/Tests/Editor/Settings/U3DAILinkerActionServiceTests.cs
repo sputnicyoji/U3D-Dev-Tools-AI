@@ -54,7 +54,7 @@ namespace Yoji.U3DAILinker.Tests.Settings
                 devSha: null);
 
             var settings = ScriptableObjectFactory.CreateSettings(LinkerChannel.Local, "editor-debug");
-            var user = ScriptableObjectFactory.CreateUserSettings("E:/Yoji/U3D-Dev-Tools-AI");
+            var user = ScriptableObjectFactory.CreateUserSettings("C:/Example/U3D-Dev-Tools-AI");
 
             var result = service.InstallOrUpdateAll(
                 RegistryWithReadyEditorDebug(),
@@ -66,15 +66,15 @@ namespace Yoji.U3DAILinker.Tests.Settings
 
             var deps = (JObject)JObject.Parse(File.ReadAllText(m_ManifestPath))["dependencies"];
             Assert.AreEqual(
-                "file:E:/Yoji/U3D-Dev-Tools-AI/Packages/com.yoji.editor-core",
+                "file:C:/Example/U3D-Dev-Tools-AI/Packages/com.yoji.editor-core",
                 (string)deps["com.yoji.editor-core"]);
             Assert.AreEqual(
-                "file:E:/Yoji/U3D-Dev-Tools-AI/Packages/com.yoji.editor-debug",
+                "file:C:/Example/U3D-Dev-Tools-AI/Packages/com.yoji.editor-debug",
                 (string)deps["com.yoji.editor-debug"]);
 
             Assert.AreEqual(1, m_Upm.AddCalls.Count);
             Assert.AreEqual(
-                "file:E:/Yoji/U3D-Dev-Tools-AI/Packages/com.yoji.editor-core",
+                "file:C:/Example/U3D-Dev-Tools-AI/Packages/com.yoji.editor-core",
                 m_Upm.AddCalls[0]);
 
             var logPath = Path.Combine(m_ProjectRoot, "Library", "U3DAILinker", "operation.json");
@@ -93,7 +93,7 @@ namespace Yoji.U3DAILinker.Tests.Settings
                 m_Probe,
                 devSha: null);
             var settings = ScriptableObjectFactory.CreateSettings(LinkerChannel.Stable, "editor-debug");
-            var user = ScriptableObjectFactory.CreateUserSettings("E:/Yoji/U3D-Dev-Tools-AI");
+            var user = ScriptableObjectFactory.CreateUserSettings("C:/Example/U3D-Dev-Tools-AI");
 
             var result = service.InstallOrUpdateAll(
                 RegistryWithNoReadyTools(),
@@ -117,7 +117,7 @@ namespace Yoji.U3DAILinker.Tests.Settings
                 m_Probe,
                 devSha: DevSha);
             var settings = ScriptableObjectFactory.CreateSettings(LinkerChannel.Dev, "editor-debug");
-            var user = ScriptableObjectFactory.CreateUserSettings("E:/Yoji/U3D-Dev-Tools-AI");
+            var user = ScriptableObjectFactory.CreateUserSettings("C:/Example/U3D-Dev-Tools-AI");
 
             var result = service.InstallOrUpdateAll(
                 RegistryWithReadyEditorDebug(LinkerChannel.Dev, PlaceholderSha),
@@ -141,7 +141,7 @@ namespace Yoji.U3DAILinker.Tests.Settings
                 m_Probe,
                 devSha: null);
             var settings = ScriptableObjectFactory.CreateSettings(LinkerChannel.Dev, "editor-debug");
-            var user = ScriptableObjectFactory.CreateUserSettings("E:/Yoji/U3D-Dev-Tools-AI");
+            var user = ScriptableObjectFactory.CreateUserSettings("C:/Example/U3D-Dev-Tools-AI");
 
             var result = service.InstallOrUpdateAll(
                 RegistryWithReadyEditorDebug(LinkerChannel.Dev, PlaceholderSha),
@@ -165,7 +165,7 @@ namespace Yoji.U3DAILinker.Tests.Settings
                 m_Probe,
                 devSha: null);
             var settings = ScriptableObjectFactory.CreateSettings(LinkerChannel.Local, "editor-debug");
-            var user = ScriptableObjectFactory.CreateUserSettings("E:/Yoji/U3D-Dev-Tools-AI");
+            var user = ScriptableObjectFactory.CreateUserSettings("C:/Example/U3D-Dev-Tools-AI");
 
             var install = service.InstallOrUpdateAll(
                 RegistryWithReadyEditorDebug(),

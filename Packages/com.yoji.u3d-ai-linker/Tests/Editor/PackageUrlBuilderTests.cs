@@ -29,15 +29,15 @@ namespace Yoji.U3DAILinker.Tests
         [Test]
         public void BuildLocalFile_NormalizesBackslashesToForwardSlashes()
         {
-            var url = ToolUrlBuilder.BuildLocalFile(@"E:\Yoji\U3D-Dev-Tools-AI", Path);
-            Assert.AreEqual("file:E:/Yoji/U3D-Dev-Tools-AI/Packages/com.yoji.editor-debug", url);
+            var url = ToolUrlBuilder.BuildLocalFile(@"C:\Example\U3D-Dev-Tools-AI", Path);
+            Assert.AreEqual("file:C:/Example/U3D-Dev-Tools-AI/Packages/com.yoji.editor-debug", url);
         }
 
         [Test]
         public void BuildLocalFile_TrimsTrailingSlashOnRoot()
         {
-            var url = ToolUrlBuilder.BuildLocalFile("E:/Yoji/U3D-Dev-Tools-AI/", Path);
-            Assert.AreEqual("file:E:/Yoji/U3D-Dev-Tools-AI/Packages/com.yoji.editor-debug", url);
+            var url = ToolUrlBuilder.BuildLocalFile("C:/Example/U3D-Dev-Tools-AI/", Path);
+            Assert.AreEqual("file:C:/Example/U3D-Dev-Tools-AI/Packages/com.yoji.editor-debug", url);
         }
 
         [Test]
@@ -50,7 +50,7 @@ namespace Yoji.U3DAILinker.Tests
         [Test]
         public void IsManagedUrl_TrueForFileScheme()
         {
-            Assert.IsTrue(ToolUrlBuilder.IsManagedUrl("file:E:/Yoji/U3D-Dev-Tools-AI/Packages/com.yoji.editor-debug"));
+            Assert.IsTrue(ToolUrlBuilder.IsManagedUrl("file:C:/Example/U3D-Dev-Tools-AI/Packages/com.yoji.editor-debug"));
         }
 
         [Test]

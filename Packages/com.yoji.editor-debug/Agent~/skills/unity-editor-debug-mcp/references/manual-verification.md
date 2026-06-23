@@ -4,7 +4,7 @@
 
 ## 前置
 
-1. Unity Hub 打开工程：`E:\Yoji\U3D-Dev-Tools-AI\TestProjects\editor-debug`（或任意装了本包的工程），Unity 6000.3.16f1
+1. Unity Hub 打开工程：`C:\Example\U3D-Dev-Tools-AI\TestProjects\editor-debug`（或任意装了本包的工程），Unity 6000.3.16f1
 2. 等编译完成（首次会编译 `com.yoji.editor-debug` 包）
 3. 看 Console 出现：`[EditorDebugMCP] 服务已启动，监听 http://127.0.0.1:21891/`
 

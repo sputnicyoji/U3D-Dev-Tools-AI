@@ -46,15 +46,15 @@ namespace Yoji.U3DAILinker.Registry.Tests
         [Test] public void BuildLocalFile_UsesAbsoluteProjectRoot()
         {
             var e = Entry("editor-debug", "com.yoji.editor-debug", "Packages/com.yoji.editor-debug", "editor-debug-v1.2.0");
-            var url = ToolUrlBuilder.BuildLocalFile("E:/Yoji/U3D-Dev-Tools-AI", e.PackagePath);
-            Assert.AreEqual("file:E:/Yoji/U3D-Dev-Tools-AI/Packages/com.yoji.editor-debug", url);
+            var url = ToolUrlBuilder.BuildLocalFile("C:/Example/U3D-Dev-Tools-AI", e.PackagePath);
+            Assert.AreEqual("file:C:/Example/U3D-Dev-Tools-AI/Packages/com.yoji.editor-debug", url);
         }
 
         [Test] public void BuildLocalFile_NormalizesBackslashesAndTrailingSlash()
         {
             var e = Entry("editor-debug", "com.yoji.editor-debug", "Packages/com.yoji.editor-debug", "editor-debug-v1.2.0");
-            var url = ToolUrlBuilder.BuildLocalFile(@"E:\Yoji\U3D-Dev-Tools-AI\", e.PackagePath);
-            Assert.AreEqual("file:E:/Yoji/U3D-Dev-Tools-AI/Packages/com.yoji.editor-debug", url);
+            var url = ToolUrlBuilder.BuildLocalFile(@"C:\Example\U3D-Dev-Tools-AI\", e.PackagePath);
+            Assert.AreEqual("file:C:/Example/U3D-Dev-Tools-AI/Packages/com.yoji.editor-debug", url);
         }
 
         [Test] public void BuildStable_UsesPackagePathFromEntry()

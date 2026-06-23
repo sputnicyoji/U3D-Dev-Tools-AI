@@ -6,7 +6,7 @@ namespace Yoji.U3DAILinker.Settings
     /// Local 通道的绝对路径只能存这里,绝不进 ProjectSettings。
     internal sealed class U3DAILinkerUserSettings : ScriptableObject
     {
-        /// Local 通道使用的本机仓库根,如 E:\Yoji\U3D-Dev-Tools-AI。
+        /// Local 通道使用的本机仓库根,如 C:\Example\U3D-Dev-Tools-AI。
         public string LocalRepoRoot = string.Empty;
 
         /// 面板是否展开 infra 包细节。

@@ -135,7 +135,7 @@ namespace Yoji.U3DAILinker.Tests
 }");
 
                 var project = ScriptableObjectFactory.CreateSettings(LinkerChannel.Stable, "editor-debug");
-                var user = ScriptableObjectFactory.CreateUserSettings("E:/Yoji/U3D-Dev-Tools-AI");
+                var user = ScriptableObjectFactory.CreateUserSettings("C:/Example/U3D-Dev-Tools-AI");
                 var registry = new LinkerRegistry
                 {
                     Channel = LinkerChannel.Stable,

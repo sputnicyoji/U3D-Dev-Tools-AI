@@ -9,8 +9,8 @@ description: 在 Unity 工程中通过 HTTP 调用 Unity Test Runner——触发
 
 > [!IMPORTANT]
 > 本工具已具备公开的 Unity 侧实现（UPM 包 `com.yoji.test-runner`，EditMode +
-> PlayMode via DisableDomainReload），随包附带 `client.py` 与 `references/run-e2e.py`。无需 Tap4fun
-> 私有仓库权限即可独立工作。
+> PlayMode via DisableDomainReload），随包附带 `client.py` 与 `references/run-e2e.py`。
+> 无需私有仓库权限即可独立工作。
 >
 > 测试代码怎么写、目录怎么放、断言怎么选，参考 `tdd-workflow`。
 
@@ -33,7 +33,7 @@ description: 在 Unity 工程中通过 HTTP 调用 Unity Test Runner——触发
 ## Agent 端口解析
 
 ```powershell
-python client.py --project G:\Side_Projects\HD2D-U3D\HD2D-Demo ping
+python client.py --project <unity-project-root> ping
 python client.py --pid 76792 ping
 python client.py --port 21890 ping
 ```
@@ -118,7 +118,7 @@ POST JSON：
 {
   "testMode": "EditMode",
   "testNames": [
-    "TFW.Pilot.Tests.PilotCoordinateUtilityTests.ClampToScreen_Should_Clamp_Negative_ToZero"
+    "Yoji.Sample.Tests.SampleTests.Passes"
   ]
 }
 ```
@@ -236,7 +236,7 @@ for _ in range(60):
 # 4. 发起测试
 started = http_post(f"{BASE}/run-tests", {
     "testMode": "EditMode",
-    "testNames": ["TFW.Pilot.Tests.PilotCoordinateUtilityTests.ClampToScreen_Should_Clamp_Negative_ToZero"]
+    "testNames": ["Yoji.Sample.Tests.SampleTests.Passes"]
 })
 job_id = started["jobId"]
 

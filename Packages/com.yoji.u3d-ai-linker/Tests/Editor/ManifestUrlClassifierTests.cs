@@ -26,7 +26,7 @@ namespace Yoji.U3DAILinker.Tests
         [Test]
         public void FileUrl_OnYojiPackage_IsLocalFile()
         {
-            var url = "file:E:/Yoji/U3D-Dev-Tools-AI/Packages/com.yoji.editor-debug";
+            var url = "file:C:/Example/U3D-Dev-Tools-AI/Packages/com.yoji.editor-debug";
             Assert.AreEqual(DependencyOwnership.LocalFile,
                 ManifestUrlClassifier.Classify("com.yoji.editor-debug", url));
         }
