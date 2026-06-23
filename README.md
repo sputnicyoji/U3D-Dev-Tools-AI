@@ -7,7 +7,7 @@ source packages for headless test execution, Editor inspection, Lua runtime
 diagnostics, and an Editor-side linker that syncs agent skills/rules into a
 Unity project.
 
-Last reviewed: 2026-06-22
+Last reviewed: 2026-06-23
 
 ## Status
 
@@ -164,14 +164,16 @@ agent asset synchronization. Its design covers local/stable/dev channels,
 manifest transactions, Windows junctions, and Claude Code / Codex skill
 fragments.
 
-Current stable scope is `editor-core`, `editor-debug`, `test-runner`, and
-`u3d-ai-linker`. The current stable revisions are `editor-core-v0.1.0`,
-`editor-debug-v0.1.0`, `test-runner-v0.1.4`, and `u3d-ai-linker-v0.1.3`.
+Current stable scope is `editor-core`, `editor-debug`, `test-runner`,
+`lua-device-debug`, and `u3d-ai-linker`. The current stable revisions are
+`editor-core-v0.1.0`, `editor-debug-v0.1.0`, `test-runner-v0.1.4`,
+`lua-device-debug-v0.1.0`, and `u3d-ai-linker-v0.1.4`.
 The stable registry points consumers to those Git tags; consumer lock files
-should resolve them as `source=git` after install.
-`lua-device-debug` remains a local dependency until its generic host integration
-path is ready for stable. Agent asset probe, `Sync Agent Assets`, `Repair
-Links`, and the Windows Junction smoke menu all passed in the live Editor.
+should resolve them as `source=git` after install. `lua-device-debug` still
+requires the target project to register an `ILuaDeviceDebugHost`, but its Git
+UPM install and EditMode suite are verified on Unity `2022.3.62f2c1`. Agent
+asset probe, `Sync Agent Assets`, `Repair Links`, and the Windows Junction
+smoke menu all passed in the live Editor.
 
 ## Ports
 

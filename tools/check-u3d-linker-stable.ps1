@@ -23,6 +23,11 @@ if ($stableText -ne $snapshotText) {
 $ready = @($stable.entries | Where-Object { $_.status -eq "ready" })
 $requiredReadyIds = @("editor-core", "editor-debug", "test-runner", "lua-device-debug", "u3d-ai-linker")
 $readyIds = @($ready | ForEach-Object { $_.id })
+$duplicateIds = @($stable.entries | Group-Object -Property id | Where-Object { $_.Count -gt 1 } | ForEach-Object { $_.Name })
+
+if ($duplicateIds.Count -gt 0) {
+  throw "stable registry has duplicate entry id(s): $($duplicateIds -join ', ')"
+}
 
 foreach ($id in $requiredReadyIds) {
   if ($readyIds -notcontains $id) {
@@ -31,6 +36,9 @@ foreach ($id in $requiredReadyIds) {
 }
 
 foreach ($entry in $stable.entries) {
+  if ($requiredReadyIds -notcontains $entry.id) {
+    throw "stable registry has unexpected entry: $($entry.id)"
+  }
   if ($entry.status -ne "ready") {
     throw "stable registry entry must be ready: $($entry.id)"
   }
