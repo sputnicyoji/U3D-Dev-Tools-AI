@@ -1,0 +1,36 @@
+{
+  "name": "addComment",
+  "description": "Adds a comment anchored to a specific text range in the document. NOTE: Due to Google API limitations, comments created programmatically appear in the \"All Comments\" list but are not visibly anchored to text in the document UI (they show \"original content deleted\"). However, replies, resolve, and delete operations work on all comments including manually-created ones.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "documentId": {
+        "type": "string",
+        "description": "The ID of the Google Document (from the URL)."
+      },
+      "startIndex": {
+        "type": "integer",
+        "minimum": 1,
+        "description": "The starting index of the text range (inclusive, starts from 1)."
+      },
+      "endIndex": {
+        "type": "integer",
+        "minimum": 1,
+        "description": "The ending index of the text range (exclusive)."
+      },
+      "commentText": {
+        "type": "string",
+        "minLength": 1,
+        "description": "The content of the comment."
+      }
+    },
+    "required": [
+      "documentId",
+      "startIndex",
+      "endIndex",
+      "commentText"
+    ],
+    "additionalProperties": false,
+    "$schema": "http://json-schema.org/draft-07/schema#"
+  }
+}

@@ -1,0 +1,37 @@
+{
+  "name": "searchGmailMessages",
+  "description": "Search Gmail messages using query syntax. Supports operators like from:, to:, subject:, has:attachment, is:unread, after:, before:, label:, etc.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "query": {
+        "type": "string",
+        "description": "Gmail search query (e.g., \"from:example@gmail.com subject:hello is:unread after:2024/01/01\")."
+      },
+      "maxResults": {
+        "type": "integer",
+        "minimum": 1,
+        "maximum": 100,
+        "default": 20,
+        "description": "Maximum number of results (1-100)."
+      },
+      "labelIds": {
+        "type": "array",
+        "items": {
+          "type": "string"
+        },
+        "description": "Filter by specific label IDs."
+      },
+      "includeSpamTrash": {
+        "type": "boolean",
+        "default": false,
+        "description": "Include messages from SPAM and TRASH."
+      }
+    },
+    "required": [
+      "query"
+    ],
+    "additionalProperties": false,
+    "$schema": "http://json-schema.org/draft-07/schema#"
+  }
+}

@@ -1,0 +1,13 @@
+{
+  "name": "memory_consolidate",
+  "description": "Run the 4-tier memory consolidation pipeline (working -> episodic -> semantic -> procedural).",
+  "inputSchema": {
+    "properties": {
+      "tier": {
+        "description": "Target tier: episodic, semantic, or procedural",
+        "type": "string"
+      }
+    },
+    "type": "object"
+  }
+}

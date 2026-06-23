@@ -1,0 +1,24 @@
+{
+  "name": "insertPageBreak",
+  "description": "Inserts a page break at the specified index.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "documentId": {
+        "type": "string",
+        "description": "The ID of the Google Document (from the URL)."
+      },
+      "index": {
+        "type": "integer",
+        "minimum": 1,
+        "description": "The index (1-based) where the page break should be inserted."
+      }
+    },
+    "required": [
+      "documentId",
+      "index"
+    ],
+    "additionalProperties": false,
+    "$schema": "http://json-schema.org/draft-07/schema#"
+  }
+}

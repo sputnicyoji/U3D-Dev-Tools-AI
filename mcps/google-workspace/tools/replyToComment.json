@@ -1,0 +1,29 @@
+{
+  "name": "replyToComment",
+  "description": "Adds a reply to an existing comment.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "documentId": {
+        "type": "string",
+        "description": "The ID of the Google Document (from the URL)."
+      },
+      "commentId": {
+        "type": "string",
+        "description": "The ID of the comment to reply to"
+      },
+      "replyText": {
+        "type": "string",
+        "minLength": 1,
+        "description": "The content of the reply"
+      }
+    },
+    "required": [
+      "documentId",
+      "commentId",
+      "replyText"
+    ],
+    "additionalProperties": false,
+    "$schema": "http://json-schema.org/draft-07/schema#"
+  }
+}

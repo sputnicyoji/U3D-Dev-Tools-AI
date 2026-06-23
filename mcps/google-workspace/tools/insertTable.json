@@ -1,0 +1,36 @@
+{
+  "name": "insertTable",
+  "description": "Inserts a new table with the specified dimensions at a given index.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "documentId": {
+        "type": "string",
+        "description": "The ID of the Google Document (from the URL)."
+      },
+      "rows": {
+        "type": "integer",
+        "minimum": 1,
+        "description": "Number of rows for the new table."
+      },
+      "columns": {
+        "type": "integer",
+        "minimum": 1,
+        "description": "Number of columns for the new table."
+      },
+      "index": {
+        "type": "integer",
+        "minimum": 1,
+        "description": "The index (1-based) where the table should be inserted."
+      }
+    },
+    "required": [
+      "documentId",
+      "rows",
+      "columns",
+      "index"
+    ],
+    "additionalProperties": false,
+    "$schema": "http://json-schema.org/draft-07/schema#"
+  }
+}

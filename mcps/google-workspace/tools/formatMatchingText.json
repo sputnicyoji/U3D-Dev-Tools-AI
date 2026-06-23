@@ -1,0 +1,68 @@
+{
+  "name": "formatMatchingText",
+  "description": "Finds specific text within a Google Document and applies character formatting (bold, italics, color, etc.) to the specified instance.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "documentId": {
+        "type": "string",
+        "description": "The ID of the Google Document."
+      },
+      "textToFind": {
+        "type": "string",
+        "minLength": 1,
+        "description": "The exact text string to find and format."
+      },
+      "matchInstance": {
+        "type": "integer",
+        "minimum": 1,
+        "default": 1,
+        "description": "Which instance of the text to format (1st, 2nd, etc.). Defaults to 1."
+      },
+      "bold": {
+        "type": "boolean",
+        "description": "Apply bold formatting."
+      },
+      "italic": {
+        "type": "boolean",
+        "description": "Apply italic formatting."
+      },
+      "underline": {
+        "type": "boolean",
+        "description": "Apply underline formatting."
+      },
+      "strikethrough": {
+        "type": "boolean",
+        "description": "Apply strikethrough formatting."
+      },
+      "fontSize": {
+        "type": "number",
+        "minimum": 1,
+        "description": "Set font size (in points, e.g., 12)."
+      },
+      "fontFamily": {
+        "type": "string",
+        "description": "Set font family (e.g., \"Arial\", \"Times New Roman\")."
+      },
+      "foregroundColor": {
+        "type": "string",
+        "description": "Set text color using hex format (e.g., \"#FF0000\")."
+      },
+      "backgroundColor": {
+        "type": "string",
+        "description": "Set text background color using hex format (e.g., \"#FFFF00\")."
+      },
+      "linkUrl": {
+        "type": "string",
+        "format": "uri",
+        "description": "Make the text a hyperlink pointing to this URL."
+      }
+    },
+    "required": [
+      "documentId",
+      "textToFind"
+    ],
+    "additionalProperties": false,
+    "$schema": "http://json-schema.org/draft-07/schema#"
+  }
+}

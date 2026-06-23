@@ -1,0 +1,35 @@
+{
+  "name": "listFolderContents",
+  "description": "Lists the contents of a specific folder in Google Drive.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "folderId": {
+        "type": "string",
+        "description": "ID of the folder to list contents of. Use \"root\" for the root Drive folder."
+      },
+      "includeSubfolders": {
+        "type": "boolean",
+        "default": true,
+        "description": "Whether to include subfolders in results."
+      },
+      "includeFiles": {
+        "type": "boolean",
+        "default": true,
+        "description": "Whether to include files in results."
+      },
+      "maxResults": {
+        "type": "integer",
+        "minimum": 1,
+        "maximum": 100,
+        "default": 50,
+        "description": "Maximum number of items to return."
+      }
+    },
+    "required": [
+      "folderId"
+    ],
+    "additionalProperties": false,
+    "$schema": "http://json-schema.org/draft-07/schema#"
+  }
+}

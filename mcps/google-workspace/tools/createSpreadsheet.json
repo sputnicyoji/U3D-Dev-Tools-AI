@@ -1,0 +1,30 @@
+{
+  "name": "createSpreadsheet",
+  "description": "Creates a new Google Spreadsheet.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "title": {
+        "type": "string",
+        "minLength": 1,
+        "description": "Title for the new spreadsheet."
+      },
+      "parentFolderId": {
+        "type": "string",
+        "description": "ID of folder where spreadsheet should be created. If not provided, creates in Drive root."
+      },
+      "initialData": {
+        "type": "array",
+        "items": {
+          "type": "array"
+        },
+        "description": "Optional initial data to populate in the first sheet. Each inner array represents a row."
+      }
+    },
+    "required": [
+      "title"
+    ],
+    "additionalProperties": false,
+    "$schema": "http://json-schema.org/draft-07/schema#"
+  }
+}

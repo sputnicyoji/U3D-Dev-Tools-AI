@@ -1,0 +1,28 @@
+{
+  "name": "memory_save",
+  "description": "Explicitly save an important insight, decision, or pattern to long-term memory.",
+  "inputSchema": {
+    "properties": {
+      "concepts": {
+        "description": "Comma-separated key concepts",
+        "type": "string"
+      },
+      "content": {
+        "description": "The insight or decision to remember",
+        "type": "string"
+      },
+      "files": {
+        "description": "Comma-separated relevant file paths",
+        "type": "string"
+      },
+      "type": {
+        "description": "Memory type: pattern, preference, architecture, bug, workflow, or fact",
+        "type": "string"
+      }
+    },
+    "required": [
+      "content"
+    ],
+    "type": "object"
+  }
+}

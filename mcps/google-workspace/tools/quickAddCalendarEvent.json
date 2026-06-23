@@ -1,0 +1,33 @@
+{
+  "name": "quickAddCalendarEvent",
+  "description": "Quickly create an event using natural language (e.g., \"Meeting tomorrow at 3pm\").",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "text": {
+        "type": "string",
+        "description": "Natural language event description (e.g., \"Lunch with John next Friday at 12pm\")."
+      },
+      "calendarId": {
+        "type": "string",
+        "default": "primary",
+        "description": "Calendar ID (default: primary)."
+      },
+      "sendUpdates": {
+        "type": "string",
+        "enum": [
+          "all",
+          "externalOnly",
+          "none"
+        ],
+        "default": "none",
+        "description": "Send notifications."
+      }
+    },
+    "required": [
+      "text"
+    ],
+    "additionalProperties": false,
+    "$schema": "http://json-schema.org/draft-07/schema#"
+  }
+}

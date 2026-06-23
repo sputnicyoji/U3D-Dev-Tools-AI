@@ -1,0 +1,32 @@
+{
+  "name": "listGoogleDocs",
+  "description": "Lists Google Documents from your Google Drive with optional filtering.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "maxResults": {
+        "type": "integer",
+        "minimum": 1,
+        "maximum": 100,
+        "default": 20,
+        "description": "Maximum number of documents to return (1-100)."
+      },
+      "query": {
+        "type": "string",
+        "description": "Search query to filter documents by name or content."
+      },
+      "orderBy": {
+        "type": "string",
+        "enum": [
+          "name",
+          "modifiedTime",
+          "createdTime"
+        ],
+        "default": "modifiedTime",
+        "description": "Sort order for results."
+      }
+    },
+    "additionalProperties": false,
+    "$schema": "http://json-schema.org/draft-07/schema#"
+  }
+}

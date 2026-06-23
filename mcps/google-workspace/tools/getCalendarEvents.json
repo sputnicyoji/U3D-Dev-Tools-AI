@@ -1,0 +1,49 @@
+{
+  "name": "getCalendarEvents",
+  "description": "Get events from a Google Calendar with optional filtering.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "calendarId": {
+        "type": "string",
+        "default": "primary",
+        "description": "Calendar ID (default: primary calendar)."
+      },
+      "timeMin": {
+        "type": "string",
+        "description": "Start of time range (RFC3339, e.g., \"2024-01-01T00:00:00Z\")."
+      },
+      "timeMax": {
+        "type": "string",
+        "description": "End of time range (RFC3339)."
+      },
+      "query": {
+        "type": "string",
+        "description": "Free text search in events."
+      },
+      "maxResults": {
+        "type": "integer",
+        "minimum": 1,
+        "maximum": 250,
+        "default": 50,
+        "description": "Maximum events to return (1-250)."
+      },
+      "singleEvents": {
+        "type": "boolean",
+        "default": true,
+        "description": "Expand recurring events into instances."
+      },
+      "orderBy": {
+        "type": "string",
+        "enum": [
+          "startTime",
+          "updated"
+        ],
+        "default": "startTime",
+        "description": "Sort order."
+      }
+    },
+    "additionalProperties": false,
+    "$schema": "http://json-schema.org/draft-07/schema#"
+  }
+}

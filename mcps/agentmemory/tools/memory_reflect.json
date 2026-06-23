@@ -1,0 +1,17 @@
+{
+  "name": "memory_reflect",
+  "description": "Traverse the knowledge graph, group related memories by concept clusters, and synthesize higher-order insights via LLM. Returns new and reinforced insights.",
+  "inputSchema": {
+    "properties": {
+      "maxClusters": {
+        "description": "Max concept clusters to process (default 10, max 20)",
+        "type": "number"
+      },
+      "project": {
+        "description": "Filter by project",
+        "type": "string"
+      }
+    },
+    "type": "object"
+  }
+}

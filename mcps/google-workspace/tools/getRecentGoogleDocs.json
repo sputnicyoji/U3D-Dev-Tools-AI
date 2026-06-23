@@ -1,0 +1,25 @@
+{
+  "name": "getRecentGoogleDocs",
+  "description": "Gets the most recently modified Google Documents.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "maxResults": {
+        "type": "integer",
+        "minimum": 1,
+        "maximum": 50,
+        "default": 10,
+        "description": "Maximum number of recent documents to return."
+      },
+      "daysBack": {
+        "type": "integer",
+        "minimum": 1,
+        "maximum": 365,
+        "default": 30,
+        "description": "Only show documents modified within this many days."
+      }
+    },
+    "additionalProperties": false,
+    "$schema": "http://json-schema.org/draft-07/schema#"
+  }
+}

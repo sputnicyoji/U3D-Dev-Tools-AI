@@ -1,0 +1,40 @@
+{
+  "name": "searchGoogleDocs",
+  "description": "Searches for Google Documents by name, content, or other criteria.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "searchQuery": {
+        "type": "string",
+        "minLength": 1,
+        "description": "Search term to find in document names or content."
+      },
+      "searchIn": {
+        "type": "string",
+        "enum": [
+          "name",
+          "content",
+          "both"
+        ],
+        "default": "both",
+        "description": "Where to search: document names, content, or both."
+      },
+      "maxResults": {
+        "type": "integer",
+        "minimum": 1,
+        "maximum": 50,
+        "default": 10,
+        "description": "Maximum number of results to return."
+      },
+      "modifiedAfter": {
+        "type": "string",
+        "description": "Only return documents modified after this date (ISO 8601 format, e.g., \"2024-01-01\")."
+      }
+    },
+    "required": [
+      "searchQuery"
+    ],
+    "additionalProperties": false,
+    "$schema": "http://json-schema.org/draft-07/schema#"
+  }
+}

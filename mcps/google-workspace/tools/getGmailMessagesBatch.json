@@ -1,0 +1,33 @@
+{
+  "name": "getGmailMessagesBatch",
+  "description": "Get multiple Gmail messages in a single request (max 25).",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "messageIds": {
+        "type": "array",
+        "items": {
+          "type": "string"
+        },
+        "minItems": 1,
+        "maxItems": 25,
+        "description": "Array of message IDs (max 25)."
+      },
+      "format": {
+        "type": "string",
+        "enum": [
+          "full",
+          "metadata",
+          "minimal"
+        ],
+        "default": "metadata",
+        "description": "Format for each message."
+      }
+    },
+    "required": [
+      "messageIds"
+    ],
+    "additionalProperties": false,
+    "$schema": "http://json-schema.org/draft-07/schema#"
+  }
+}

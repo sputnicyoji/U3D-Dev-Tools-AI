@@ -1,0 +1,34 @@
+{
+  "name": "insertText",
+  "description": "Inserts text at a specific index within the document body or a specific tab.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "documentId": {
+        "type": "string",
+        "description": "The ID of the Google Document (from the URL)."
+      },
+      "textToInsert": {
+        "type": "string",
+        "minLength": 1,
+        "description": "The text to insert."
+      },
+      "index": {
+        "type": "integer",
+        "minimum": 1,
+        "description": "The index (1-based) where the text should be inserted."
+      },
+      "tabId": {
+        "type": "string",
+        "description": "The ID of the specific tab to insert into. If not specified, inserts into the first tab (or legacy document.body for documents without tabs)."
+      }
+    },
+    "required": [
+      "documentId",
+      "textToInsert",
+      "index"
+    ],
+    "additionalProperties": false,
+    "$schema": "http://json-schema.org/draft-07/schema#"
+  }
+}

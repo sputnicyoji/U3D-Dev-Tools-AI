@@ -1,0 +1,109 @@
+{
+  "name": "createCalendarEvent",
+  "description": "Create a new calendar event. Supports timed events, all-day events, and Google Meet integration.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "summary": {
+        "type": "string",
+        "description": "Event title."
+      },
+      "description": {
+        "type": "string",
+        "description": "Event description."
+      },
+      "location": {
+        "type": "string",
+        "description": "Event location."
+      },
+      "start": {
+        "type": "object",
+        "properties": {
+          "dateTime": {
+            "type": "string",
+            "description": "RFC3339 timestamp for timed events (e.g., \"2024-01-15T09:00:00-08:00\")."
+          },
+          "date": {
+            "type": "string",
+            "description": "Date for all-day events (YYYY-MM-DD format)."
+          },
+          "timeZone": {
+            "type": "string",
+            "description": "Time zone (e.g., \"America/Los_Angeles\")."
+          }
+        },
+        "additionalProperties": false,
+        "description": "Start time (use dateTime for timed events, date for all-day)."
+      },
+      "end": {
+        "type": "object",
+        "properties": {
+          "dateTime": {
+            "$ref": "#/properties/start/properties/dateTime"
+          },
+          "date": {
+            "$ref": "#/properties/start/properties/date"
+          },
+          "timeZone": {
+            "$ref": "#/properties/start/properties/timeZone"
+          }
+        },
+        "additionalProperties": false,
+        "description": "End time (use dateTime for timed events, date for all-day)."
+      },
+      "calendarId": {
+        "type": "string",
+        "default": "primary",
+        "description": "Calendar ID (default: primary)."
+      },
+      "attendees": {
+        "type": "array",
+        "items": {
+          "type": "string"
+        },
+        "description": "Email addresses of attendees."
+      },
+      "sendUpdates": {
+        "type": "string",
+        "enum": [
+          "all",
+          "externalOnly",
+          "none"
+        ],
+        "default": "none",
+        "description": "Send notifications to attendees."
+      },
+      "conferenceType": {
+        "type": "string",
+        "enum": [
+          "hangoutsMeet"
+        ],
+        "description": "Add Google Meet link."
+      },
+      "recurrence": {
+        "type": "array",
+        "items": {
+          "type": "string"
+        },
+        "description": "RRULE strings for recurring events (e.g., [\"RRULE:FREQ=WEEKLY;COUNT=5\"])."
+      },
+      "visibility": {
+        "type": "string",
+        "enum": [
+          "default",
+          "public",
+          "private",
+          "confidential"
+        ],
+        "description": "Event visibility."
+      }
+    },
+    "required": [
+      "summary",
+      "start",
+      "end"
+    ],
+    "additionalProperties": false,
+    "$schema": "http://json-schema.org/draft-07/schema#"
+  }
+}

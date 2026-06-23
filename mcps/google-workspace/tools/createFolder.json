@@ -1,0 +1,23 @@
+{
+  "name": "createFolder",
+  "description": "Creates a new folder in Google Drive.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "name": {
+        "type": "string",
+        "minLength": 1,
+        "description": "Name for the new folder."
+      },
+      "parentFolderId": {
+        "type": "string",
+        "description": "Parent folder ID. If not provided, creates folder in Drive root."
+      }
+    },
+    "required": [
+      "name"
+    ],
+    "additionalProperties": false,
+    "$schema": "http://json-schema.org/draft-07/schema#"
+  }
+}

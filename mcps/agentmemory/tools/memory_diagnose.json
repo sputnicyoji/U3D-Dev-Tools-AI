@@ -1,0 +1,13 @@
+{
+  "name": "memory_diagnose",
+  "description": "Run health checks across all subsystems (actions, leases, sentinels, sketches, signals, sessions, memories, mesh). Identifies stuck, orphaned, and inconsistent state.",
+  "inputSchema": {
+    "properties": {
+      "categories": {
+        "description": "Comma-separated categories to check (default all)",
+        "type": "string"
+      }
+    },
+    "type": "object"
+  }
+}

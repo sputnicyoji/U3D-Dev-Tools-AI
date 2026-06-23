@@ -1,0 +1,32 @@
+{
+  "name": "memory_lesson_save",
+  "description": "Save a lesson learned from this session. Lessons have confidence scores that strengthen when reinforced and decay when not used. Duplicate content auto-strengthens the existing lesson.",
+  "inputSchema": {
+    "properties": {
+      "confidence": {
+        "description": "Initial confidence 0.0-1.0 (default 0.5)",
+        "type": "number"
+      },
+      "content": {
+        "description": "The lesson learned (what worked, what to avoid, when to use X approach)",
+        "type": "string"
+      },
+      "context": {
+        "description": "When/where this lesson applies",
+        "type": "string"
+      },
+      "project": {
+        "description": "Project this lesson is about",
+        "type": "string"
+      },
+      "tags": {
+        "description": "Comma-separated tags",
+        "type": "string"
+      }
+    },
+    "required": [
+      "content"
+    ],
+    "type": "object"
+  }
+}

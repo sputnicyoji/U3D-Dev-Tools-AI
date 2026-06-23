@@ -1,0 +1,24 @@
+{
+  "name": "addSpreadsheetSheet",
+  "description": "Adds a new sheet/tab to an existing Google Spreadsheet.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "spreadsheetId": {
+        "type": "string",
+        "description": "The ID of the Google Spreadsheet (from the URL)."
+      },
+      "sheetTitle": {
+        "type": "string",
+        "minLength": 1,
+        "description": "Title for the new sheet/tab."
+      }
+    },
+    "required": [
+      "spreadsheetId",
+      "sheetTitle"
+    ],
+    "additionalProperties": false,
+    "$schema": "http://json-schema.org/draft-07/schema#"
+  }
+}

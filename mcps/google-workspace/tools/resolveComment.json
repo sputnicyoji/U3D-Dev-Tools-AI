@@ -1,0 +1,23 @@
+{
+  "name": "resolveComment",
+  "description": "Marks a comment as resolved. NOTE: Due to Google API limitations, the Drive API does not support resolving comments on Google Docs files. This operation will attempt to update the comment but the resolved status may not persist in the UI. Comments can be resolved manually in the Google Docs interface.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "documentId": {
+        "type": "string",
+        "description": "The ID of the Google Document (from the URL)."
+      },
+      "commentId": {
+        "type": "string",
+        "description": "The ID of the comment to resolve"
+      }
+    },
+    "required": [
+      "documentId",
+      "commentId"
+    ],
+    "additionalProperties": false,
+    "$schema": "http://json-schema.org/draft-07/schema#"
+  }
+}

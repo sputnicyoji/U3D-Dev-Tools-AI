@@ -1,0 +1,16 @@
+{
+  "name": "listCalendars",
+  "description": "List all accessible Google Calendars for the authenticated user.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "showHidden": {
+        "type": "boolean",
+        "default": false,
+        "description": "Include hidden calendars."
+      }
+    },
+    "additionalProperties": false,
+    "$schema": "http://json-schema.org/draft-07/schema#"
+  }
+}
