@@ -4,10 +4,11 @@ from __future__ import annotations
 
 import json
 import os
+import socket
 import urllib.error
 import urllib.request
 from pathlib import Path
-from typing import Any
+from typing import Any, Sequence
 
 
 DEFAULT_VALIDATE_TIMEOUT = 3.0
@@ -15,23 +16,46 @@ PROJECT_PORTS_FILE = Path(".u3d-ai-linker") / "ports.json"
 GLOBAL_REGISTRY_FILE = Path("Yoji") / "U3D-Dev-Tools-AI" / "instances.json"
 
 
+class EndpointResolutionError(RuntimeError):
+    def __init__(self, code: str, message: str, *, service_id: str, context: dict[str, Any] | None = None):
+        super().__init__(message)
+        self.code = code
+        self.service_id = service_id
+        self.context = context or {}
+
+    def as_error(self) -> dict[str, Any]:
+        return {"code": self.code, "message": str(self), "serviceId": self.service_id, "context": self.context}
+
+
 def resolve_endpoint(
     service_id: str,
     host: str,
-    port: int | None,
-    default_port: int,
+    port: int | None = None,
+    default_port: int | None = None,
     project: str | None = None,
     pid: int | None = None,
     timeout: float | None = None,
+    legacy_ports: Sequence[int] | None = None,
+    *,
+    explicit_port: int | None = None,
 ) -> tuple[str, int, str]:
+    if explicit_port is not None:
+        if port is not None and port != explicit_port:
+            raise ValueError("port and explicit_port disagree")
+        port = explicit_port
     if port is not None:
         return host, port, "explicit"
+    if default_port is None:
+        raise TypeError("default_port is required")
 
     project_root = _resolve_project_root(project)
     records = _candidate_records(service_id, project_root, pid)
-    valid = []
+    valid: list[dict[str, Any]] = []
+    probe_results: list[dict[str, Any]] = []
     for record in records:
-        if _validate_candidate(service_id, record["host"], record["port"], timeout):
+        result = _probe_candidate(service_id, record["host"], record["port"], timeout)
+        probe_results.append(_result_context(record["host"], record["port"], record["source"], result))
+        if result["status"] == "healthy":
             valid.append(record)
 
     if len(valid) == 1:
@@ -42,7 +66,31 @@ def resolve_endpoint(
         summary = ", ".join(_format_summary(record) for record in valid)
         raise SystemExit(f"ambiguous {service_id} instances; pass --pid or --port: {summary}")
 
-    return host, default_port, "legacy-default"
+    legacy_results: list[dict[str, Any]] = []
+    for legacy_port in _legacy_port_candidates(default_port, legacy_ports):
+        result = _probe_candidate(service_id, host, legacy_port, timeout)
+        legacy_results.append(_result_context(host, legacy_port, "legacy", result))
+        if result["status"] == "healthy":
+            return host, legacy_port, "legacy-healthy"
+
+    all_results = probe_results + legacy_results
+    if any(item["source"] == "legacy" and item["status"] == "service_mismatch" for item in legacy_results):
+        raise EndpointResolutionError(
+            "SERVICE_MISMATCH",
+            f"legacy port responded with a different service for {service_id}",
+            service_id=service_id,
+            context={"candidates": legacy_results},
+        )
+
+    if any(item["status"] == "timeout" for item in all_results):
+        raise EndpointResolutionError(
+            "ENDPOINT_TIMEOUT",
+            f"timed out while resolving {service_id}; pass --pid or --port if needed",
+            service_id=service_id,
+            context={"candidates": all_results},
+        )
+
+    return host, default_port, "legacy-default-unverified"
 
 
 def _candidate_records(service_id: str, project_root: Path | None, pid: int | None) -> list[dict[str, Any]]:
@@ -173,15 +221,26 @@ def _load_json(path: Path) -> Any | None:
 
 
 def _validate_candidate(service_id: str, host: str, port: int, timeout: float | None) -> bool:
-    ping_timeout = _validation_timeout(timeout)
-    for method in ("GET", "POST"):
-        payload = _ping(host, port, method, ping_timeout)
-        if _response_service_id(payload) == service_id:
-            return True
-    return False
+    return _probe_candidate(service_id, host, port, timeout)["status"] == "healthy"
 
 
-def _ping(host: str, port: int, method: str, timeout: float) -> Any | None:
+def _probe_candidate(service_id: str, host: str, port: int, timeout: float | None) -> dict[str, Any]:
+    results = [_ping(host, port, method, _validation_timeout(timeout)) for method in ("GET", "POST")]
+    for result in results:
+        if result["status"] == "response" and _response_service_id(result.get("payload")) == service_id:
+            return {"status": "healthy"}
+
+    statuses = [result["status"] for result in results]
+    if "timeout" in statuses:
+        return {"status": "timeout", "details": results}
+    if any(result["status"] == "response" for result in results):
+        return {"status": "service_mismatch", "details": results}
+    if "bad_json" in statuses:
+        return {"status": "bad_json", "details": results}
+    return {"status": "connection_failed", "details": results}
+
+
+def _ping(host: str, port: int, method: str, timeout: float) -> dict[str, Any]:
     url = f"http://{host}:{port}/ping"
     try:
         if method == "POST":
@@ -194,16 +253,34 @@ def _ping(host: str, port: int, method: str, timeout: float) -> Any | None:
         else:
             req = urllib.request.Request(url, method="GET")
         with urllib.request.urlopen(req, timeout=timeout) as resp:
-            return _json_from_bytes(resp.read())
+            payload = _json_from_bytes(resp.read())
+            if payload is None:
+                return {"method": method, "status": "bad_json"}
+            return {"method": method, "status": "response", "payload": payload}
     except urllib.error.HTTPError as exc:
-        try:
-            return _json_from_bytes(exc.read())
-        except Exception:
-            return None
-    except urllib.error.URLError:
-        return None
-    except Exception:
-        return None
+        payload = _json_from_bytes(exc.read())
+        if payload is None:
+            return {"method": method, "status": "bad_json", "error": str(exc)}
+        return {"method": method, "status": "response", "payload": payload, "httpStatus": exc.code}
+    except urllib.error.URLError as exc:
+        if _is_timeout(exc.reason):
+            return {"method": method, "status": "timeout", "error": str(exc.reason)}
+        return {"method": method, "status": "connection_failed", "error": str(exc.reason)}
+    except (TimeoutError, socket.timeout) as exc:
+        return {"method": method, "status": "timeout", "error": str(exc)}
+    except OSError as exc:
+        if _is_timeout(exc):
+            return {"method": method, "status": "timeout", "error": str(exc)}
+        return {"method": method, "status": "connection_failed", "error": str(exc)}
+    except ValueError as exc:
+        return {"method": method, "status": "bad_json", "error": str(exc)}
+
+
+def _is_timeout(exc: Any) -> bool:
+    if isinstance(exc, (TimeoutError, socket.timeout)):
+        return True
+    text = str(exc).lower()
+    return "timed out" in text or "timeout" in text
 
 
 def _json_from_bytes(raw: bytes) -> Any | None:
@@ -242,6 +319,28 @@ def _validation_timeout(timeout: float | None) -> float:
     if value <= 0:
         return DEFAULT_VALIDATE_TIMEOUT
     return min(value, DEFAULT_VALIDATE_TIMEOUT)
+
+
+def _legacy_port_candidates(default_port: int, legacy_ports: Sequence[int] | None) -> list[int]:
+    raw = list(legacy_ports) if legacy_ports is not None else [default_port]
+    result: list[int] = []
+    seen: set[int] = set()
+    for value in raw:
+        port = _as_int(value)
+        if port is None or port <= 0 or port in seen:
+            continue
+        seen.add(port)
+        result.append(port)
+    return result
+
+
+def _result_context(host: str, port: int, source: str, result: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "host": host,
+        "port": port,
+        "source": source,
+        "status": result.get("status", "unknown"),
+    }
 
 
 def _as_int(value: Any) -> int | None:

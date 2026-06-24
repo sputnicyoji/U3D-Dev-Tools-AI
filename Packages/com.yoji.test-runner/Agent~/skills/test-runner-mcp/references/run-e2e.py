@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """TestRunnerMCP 端到端冒烟。
 
-前提：Unity Editor 已打开 TestProjects/test-runner 工程，服务在 21890。
-用法：python run-e2e.py [--port 21890] [--include-recompile] [-v]
+前提：Unity Editor 已打开目标工程，TestRunnerMCP 服务已启动。
+用法：python run-e2e.py [--project G:/Project] [--port 21890] [--include-recompile] [-v]
 """
 from __future__ import annotations
 
@@ -12,9 +12,18 @@ import sys
 import time
 import urllib.error
 import urllib.request
+from pathlib import Path
+
+SKILL_DIR = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(SKILL_DIR))
+from port_resolver import resolve_endpoint  # noqa: E402
 
 PASS_FIX = "Yoji.TestRunner.Tests.FixtureTests.AlwaysPasses"
 FAIL_FIX = "Yoji.TestRunner.Tests.FixtureTests.AlwaysFails"
+DEFAULT_HOST = "127.0.0.1"
+DEFAULT_PORT = 21890
+LEGACY_PORTS = (21890, 21896, 21897)
+SERVICE_ID = "test-runner-mcp"
 
 
 def get(base, path, timeout=10):
@@ -62,11 +71,26 @@ def run_and_wait(base, payload, timeout_s=120):
 
 def main(argv):
     ap = argparse.ArgumentParser()
-    ap.add_argument("--port", type=int, default=21890)
+    ap.add_argument("--host", default=DEFAULT_HOST)
+    ap.add_argument("--port", type=int, default=None)
+    ap.add_argument("--project", help="Unity project root. Defaults to walking up from cwd.")
+    ap.add_argument("--pid", type=int, help="Unity Editor process id when multiple instances are open.")
+    ap.add_argument("--resolve-timeout", type=float, default=5.0, help="Endpoint resolution probe timeout in seconds.")
     ap.add_argument("--include-recompile", action="store_true")
     ap.add_argument("-v", "--verbose", action="store_true")
     args = ap.parse_args(argv[1:])
-    base = f"http://127.0.0.1:{args.port}"
+    host, port, source = resolve_endpoint(
+        SERVICE_ID,
+        args.host,
+        args.port,
+        DEFAULT_PORT,
+        args.project,
+        args.pid,
+        args.resolve_timeout,
+        LEGACY_PORTS,
+    )
+    base = f"http://{host}:{port}"
+    print(f"target: {base} source={source}")
 
     code, ping = get(base, "/ping", timeout=5)
     if code != 200:

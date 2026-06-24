@@ -11,28 +11,57 @@ import json
 import sys
 import urllib.error
 import urllib.request
+from typing import Any
 
-from port_resolver import resolve_endpoint
+from port_resolver import EndpointResolutionError, resolve_endpoint
 
 DEFAULT_HOST = "127.0.0.1"
 DEFAULT_PORT = 21890
+LEGACY_PORTS = (21890, 21896, 21897)
 SERVICE_ID = "test-runner-mcp"
 
 
-def http_get(url: str, timeout: float):
+def error_body(message: str, port: int | None, source: str | None) -> dict[str, Any]:
+    body: dict[str, Any] = {"error": message}
+    if port is not None:
+        body["port"] = port
+    if source is not None:
+        body["source"] = source
+    return body
+
+
+def with_endpoint_context(body: Any, port: int | None, source: str | None) -> Any:
+    if isinstance(body, dict):
+        if port is not None:
+            body.setdefault("port", port)
+        if source is not None:
+            body.setdefault("source", source)
+    return body
+
+
+def http_get(url: str, timeout: float, *, port: int | None = None, source: str | None = None) -> tuple[int, dict[str, Any]]:
     try:
         with urllib.request.urlopen(url, timeout=timeout) as r:
             return r.getcode(), json.loads(r.read().decode("utf-8"))
     except urllib.error.HTTPError as e:
         try:
-            return e.code, json.loads(e.read().decode("utf-8"))
+            return e.code, with_endpoint_context(json.loads(e.read().decode("utf-8")), port, source)
         except Exception:
-            return e.code, {"error": str(e)}
+            return e.code, error_body(str(e), port, source)
     except urllib.error.URLError as e:
-        return 0, {"error": str(e.reason)}
+        return 0, error_body(str(e.reason), port, source)
+    except (TimeoutError, OSError) as e:
+        return 0, error_body(str(e), port, source)
 
 
-def http_post(url: str, payload: dict, timeout: float):
+def http_post(
+    url: str,
+    payload: dict[str, Any],
+    timeout: float,
+    *,
+    port: int | None = None,
+    source: str | None = None,
+) -> tuple[int, dict[str, Any]]:
     body = json.dumps(payload).encode("utf-8")
     req = urllib.request.Request(
         url, data=body,
@@ -42,15 +71,17 @@ def http_post(url: str, payload: dict, timeout: float):
             return r.getcode(), json.loads(r.read().decode("utf-8"))
     except urllib.error.HTTPError as e:
         try:
-            return e.code, json.loads(e.read().decode("utf-8"))
+            return e.code, with_endpoint_context(json.loads(e.read().decode("utf-8")), port, source)
         except Exception:
-            return e.code, {"error": str(e)}
+            return e.code, error_body(str(e), port, source)
     except urllib.error.URLError as e:
-        return 0, {"error": str(e.reason)}
+        return 0, error_body(str(e.reason), port, source)
+    except (TimeoutError, OSError) as e:
+        return 0, error_body(str(e), port, source)
 
 
-def base(a) -> str:
-    host, port, _ = resolve_endpoint(
+def endpoint(a: argparse.Namespace) -> tuple[str, int, str]:
+    return resolve_endpoint(
         SERVICE_ID,
         a.host,
         a.port,
@@ -58,19 +89,26 @@ def base(a) -> str:
         getattr(a, "project", None),
         getattr(a, "pid", None),
         getattr(a, "timeout", None),
+        LEGACY_PORTS,
     )
-    return f"http://{host}:{port}"
 
 
-def cmd_ping(a):
-    return http_get(f"{base(a)}/ping", a.timeout)
+def request_base(a: argparse.Namespace) -> tuple[str, int, str]:
+    host, port, source = endpoint(a)
+    return f"http://{host}:{port}", port, source
 
 
-def cmd_recompile(a):
-    return http_get(f"{base(a)}/recompile", a.timeout)
+def cmd_ping(a: argparse.Namespace) -> tuple[int, dict[str, Any]]:
+    base, port, source = request_base(a)
+    return http_get(f"{base}/ping", a.timeout, port=port, source=source)
 
 
-def cmd_run(a):
+def cmd_recompile(a: argparse.Namespace) -> tuple[int, dict[str, Any]]:
+    base, port, source = request_base(a)
+    return http_get(f"{base}/recompile", a.timeout, port=port, source=source)
+
+
+def cmd_run(a: argparse.Namespace) -> tuple[int, dict[str, Any]]:
     payload = {"testMode": a.mode}
     if a.names:
         payload["testNames"] = a.names
@@ -78,19 +116,22 @@ def cmd_run(a):
         payload["assemblyNames"] = a.assemblies
     if a.categories:
         payload["categoryNames"] = a.categories
-    return http_post(f"{base(a)}/run-tests", payload, a.timeout)
+    base, port, source = request_base(a)
+    return http_post(f"{base}/run-tests", payload, a.timeout, port=port, source=source)
 
 
-def cmd_status(a):
-    url = f"{base(a)}/test-status"
+def cmd_status(a: argparse.Namespace) -> tuple[int, dict[str, Any]]:
+    base, port, source = request_base(a)
+    url = f"{base}/test-status"
     if a.job_id:
         url += f"?jobId={a.job_id}"
-    return http_get(url, a.timeout)
+    return http_get(url, a.timeout, port=port, source=source)
 
 
-def cmd_list_tests(a):
-    url = f"{base(a)}/list-tests?mode={a.mode}"
-    return http_get(url, a.timeout)
+def cmd_list_tests(a: argparse.Namespace) -> tuple[int, dict[str, Any]]:
+    base, port, source = request_base(a)
+    url = f"{base}/list-tests?mode={a.mode}"
+    return http_get(url, a.timeout, port=port, source=source)
 
 
 def build_parser():
@@ -124,7 +165,11 @@ def build_parser():
 
 def main() -> int:
     args = build_parser().parse_args()
-    status, body = args.func(args)
+    try:
+        status, body = args.func(args)
+    except EndpointResolutionError as exc:
+        status = 0
+        body = {"error": exc.as_error()}
     json.dump({"httpStatus": status, "body": body}, sys.stdout, ensure_ascii=False, indent=2)
     sys.stdout.write("\n")
     return 0 if 200 <= status < 300 else 1

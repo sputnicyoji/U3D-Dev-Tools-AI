@@ -3,6 +3,8 @@
   "rootNamespace": "Yoji.LuaDeviceDebug.Tests",
   "references": [
     "Yoji.LuaDeviceDebug.Runtime",
+    "Yoji.LuaDeviceDebug.Editor",
+    "Yoji.EditorCore.Editor",
     "UnityEngine.TestRunner",
     "UnityEditor.TestRunner"
   ],

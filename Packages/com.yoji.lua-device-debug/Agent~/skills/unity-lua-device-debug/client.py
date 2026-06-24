@@ -14,11 +14,12 @@ import uuid
 from pathlib import Path
 from typing import Any
 
-from port_resolver import resolve_endpoint
+from port_resolver import EndpointResolutionError, resolve_endpoint
 
 
 DEFAULT_HOST = "127.0.0.1"
 DEFAULT_PORT = 21894
+LEGACY_PORTS = (21894,)
 SERVICE_ID = "unity-lua-device-debug"
 
 
@@ -34,8 +35,8 @@ def error(code: str, message: str, **context: Any) -> tuple[int, dict[str, Any]]
     return 1, body
 
 
-def base_url(args: argparse.Namespace) -> str:
-    host, port, _ = resolve_endpoint(
+def endpoint(args: argparse.Namespace) -> tuple[str, int, str]:
+    return resolve_endpoint(
         SERVICE_ID,
         args.host,
         args.port,
@@ -43,11 +44,50 @@ def base_url(args: argparse.Namespace) -> str:
         getattr(args, "project", None),
         getattr(args, "pid", None),
         getattr(args, "timeout", None),
+        LEGACY_PORTS,
     )
-    return f"http://{host}:{port}"
 
 
-def post_json(url: str, payload: dict[str, Any], timeout: float) -> tuple[int, dict[str, Any]]:
+def request_base(args: argparse.Namespace) -> tuple[str, int, str]:
+    host, port, source = endpoint(args)
+    return f"http://{host}:{port}", port, source
+
+
+def endpoint_context(port: int | None, source: str | None) -> dict[str, Any]:
+    context: dict[str, Any] = {}
+    if port is not None:
+        context["port"] = port
+    if source is not None:
+        context["source"] = source
+    return context
+
+
+def with_endpoint_context(body: Any, port: int | None, source: str | None) -> Any:
+    if isinstance(body, dict) and body.get("ok") is False:
+        error_info = body.get("error")
+        if isinstance(error_info, dict):
+            context = error_info.setdefault("context", {})
+            if isinstance(context, dict):
+                context.update(endpoint_context(port, source))
+    return body
+
+
+def transport_error(code: str, message: str, port: int | None, source: str | None) -> dict[str, Any]:
+    body: dict[str, Any] = {"ok": False, "error": {"code": code, "message": message}}
+    context = endpoint_context(port, source)
+    if context:
+        body["error"]["context"] = context
+    return body
+
+
+def post_json(
+    url: str,
+    payload: dict[str, Any],
+    timeout: float,
+    *,
+    port: int | None = None,
+    source: str | None = None,
+) -> tuple[int, dict[str, Any]]:
     raw = json.dumps(payload, separators=(",", ":")).encode("utf-8")
     req = urllib.request.Request(
         url,
@@ -60,11 +100,13 @@ def post_json(url: str, payload: dict[str, Any], timeout: float) -> tuple[int, d
             return resp.getcode(), json.loads(resp.read().decode("utf-8"))
     except urllib.error.HTTPError as exc:
         try:
-            return exc.code, json.loads(exc.read().decode("utf-8"))
+            return exc.code, with_endpoint_context(json.loads(exc.read().decode("utf-8")), port, source)
         except Exception:
-            return exc.code, {"ok": False, "error": {"code": "HTTP_ERROR", "message": str(exc)}}
+            return exc.code, transport_error("HTTP_ERROR", str(exc), port, source)
     except urllib.error.URLError as exc:
-        return 0, {"ok": False, "error": {"code": "CONNECTION_FAILED", "message": str(exc.reason)}}
+        return 0, transport_error("CONNECTION_FAILED", str(exc.reason), port, source)
+    except (TimeoutError, OSError) as exc:
+        return 0, transport_error("CONNECTION_FAILED", str(exc), port, source)
 
 
 def request_payload() -> dict[str, Any]:
@@ -72,12 +114,14 @@ def request_payload() -> dict[str, Any]:
 
 
 def cmd_ping(args: argparse.Namespace) -> tuple[int, dict[str, Any]]:
-    status, body = post_json(f"{base_url(args)}/ping", request_payload(), args.timeout)
+    base, port, source = request_base(args)
+    status, body = post_json(f"{base}/ping", request_payload(), args.timeout, port=port, source=source)
     return exit_code(status, body), {"httpStatus": status, "body": body}
 
 
 def cmd_commands(args: argparse.Namespace) -> tuple[int, dict[str, Any]]:
-    status, body = post_json(f"{base_url(args)}/commands", request_payload(), args.timeout)
+    base, port, source = request_base(args)
+    status, body = post_json(f"{base}/commands", request_payload(), args.timeout, port=port, source=source)
     return exit_code(status, body), {"httpStatus": status, "body": body}
 
 
@@ -86,7 +130,8 @@ def cmd_execute(args: argparse.Namespace) -> tuple[int, dict[str, Any]]:
     payload["command"] = args.command
     payload["args"] = parse_args(args.arg)
     payload["allowMutation"] = bool(args.allow_mutation)
-    status, body = post_json(f"{base_url(args)}/execute", payload, args.timeout)
+    base, port, source = request_base(args)
+    status, body = post_json(f"{base}/execute", payload, args.timeout, port=port, source=source)
     return exit_code(status, body), {"httpStatus": status, "body": body}
 
 
@@ -255,8 +300,8 @@ def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="client.py", description="Unity Lua Device Debug CLI")
     parser.add_argument("--host", default=DEFAULT_HOST)
     parser.add_argument("--port", type=int, default=None)
-    parser.add_argument("--project", help="Unity project root. Only used if shared registry records exist; lua-device-debug 0.1.0 normally falls back to 21894.")
-    parser.add_argument("--pid", type=int, help="Unity Editor process id. Only useful with shared registry records; lua-device-debug 0.1.0 normally uses fixed port 21894.")
+    parser.add_argument("--project", help="Unity project root. Used to resolve project ports before falling back to legacy 21894.")
+    parser.add_argument("--pid", type=int, help="Unity Editor process id when multiple instances are open.")
     parser.add_argument("--timeout", type=float, default=10.0)
     parser.add_argument("--serial", help="adb device serial; required when multiple devices are connected")
     sub = parser.add_subparsers(dest="cmd", required=True)
@@ -282,6 +327,8 @@ def main() -> int:
     args = build_parser().parse_args()
     try:
         code, payload = args.func(args)
+    except EndpointResolutionError as exc:
+        code, payload = error(exc.code, str(exc), **exc.context)
     except RuntimeError as exc:
         code, payload = error("RUNTIME_ERROR", str(exc))
     emit(payload)

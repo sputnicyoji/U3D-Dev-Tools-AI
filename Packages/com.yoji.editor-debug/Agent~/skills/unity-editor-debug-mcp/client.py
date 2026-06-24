@@ -17,14 +17,55 @@ import urllib.error
 import urllib.request
 from typing import Any
 
-from port_resolver import resolve_endpoint
+from port_resolver import EndpointResolutionError, resolve_endpoint
 
 DEFAULT_HOST = "127.0.0.1"
 DEFAULT_PORT = 21891
+LEGACY_PORTS = (21891, 21892, 21893)
 SERVICE_ID = "unity-editor-debug-mcp"
 
 
-def http_post(url: str, payload: dict[str, Any], timeout: float = 30.0) -> dict[str, Any]:
+def endpoint_context(port: int | None, source: str | None) -> dict[str, Any]:
+    context: dict[str, Any] = {}
+    if port is not None:
+        context["port"] = port
+    if source is not None:
+        context["source"] = source
+    return context
+
+
+def error_response(
+    error_type: str,
+    message: str,
+    *,
+    port: int | None = None,
+    source: str | None = None,
+) -> dict[str, Any]:
+    error: dict[str, Any] = {"type": error_type, "message": message}
+    context = endpoint_context(port, source)
+    if context:
+        error["context"] = context
+    return {"ok": False, "error": error}
+
+
+def with_endpoint_context(body: Any, port: int | None, source: str | None) -> Any:
+    if isinstance(body, dict) and body.get("ok") is False:
+        error = body.get("error")
+        if isinstance(error, dict):
+            context = error.setdefault("context", {})
+            if isinstance(context, dict):
+                context.update(endpoint_context(port, source))
+    return body
+
+
+def http_post(
+    url: str,
+    payload: dict[str, Any],
+    timeout: float = 30.0,
+    *,
+    port: int | None = None,
+    source: str | None = None,
+) -> dict[str, Any]:
     """POST JSON 并返回反序列化后的 dict。HTTP 非 200 时仍尝试解析 body。"""
     body = json.dumps(payload).encode("utf-8")
     req = urllib.request.Request(
@@ -39,24 +80,34 @@ def http_post(url: str, payload: dict[str, Any], timeout: float = 30.0) -> dict[
     except urllib.error.HTTPError as e:
         # 服务端永远应该返回 200；走到这里通常是奇怪的网关错误，仍尝试读 body
         try:
-            return json.loads(e.read().decode("utf-8"))
+            return with_endpoint_context(json.loads(e.read().decode("utf-8")), port, source)
         except Exception:
-            return {"ok": False, "error": {"type": "HTTPError", "message": str(e)}}
+            return error_response("HTTPError", str(e), port=port, source=source)
     except urllib.error.URLError as e:
-        return {"ok": False, "error": {"type": "URLError", "message": str(e.reason)}}
+        return error_response("URLError", str(e.reason), port=port, source=source)
+    except (TimeoutError, OSError) as e:
+        return error_response(e.__class__.__name__, str(e), port=port, source=source)
 
 
-def http_get(url: str, timeout: float = 5.0) -> dict[str, Any]:
+def http_get(
+    url: str,
+    timeout: float = 5.0,
+    *,
+    port: int | None = None,
+    source: str | None = None,
+) -> dict[str, Any]:
     """GET JSON。"""
     try:
         with urllib.request.urlopen(url, timeout=timeout) as resp:
             return json.loads(resp.read().decode("utf-8"))
     except urllib.error.URLError as e:
-        return {"ok": False, "error": {"type": "URLError", "message": str(e.reason)}}
+        return error_response("URLError", str(e.reason), port=port, source=source)
+    except (TimeoutError, OSError) as e:
+        return error_response(e.__class__.__name__, str(e), port=port, source=source)
 
 
-def base_url(args: argparse.Namespace) -> str:
-    host, port, _ = resolve_endpoint(
+def endpoint(args: argparse.Namespace) -> tuple[str, int, str]:
+    return resolve_endpoint(
         SERVICE_ID,
         args.host,
         args.port,
@@ -64,13 +115,19 @@ def base_url(args: argparse.Namespace) -> str:
         getattr(args, "project", None),
         getattr(args, "pid", None),
         getattr(args, "timeout", None),
+        LEGACY_PORTS,
     )
-    return f"http://{host}:{port}"
+
+
+def request_base(args: argparse.Namespace) -> tuple[str, int, str]:
+    host, port, source = endpoint(args)
+    return f"http://{host}:{port}", port, source
 
 
 def cmd_ping(args: argparse.Namespace) -> dict[str, Any]:
     """/ping —— 健康检查。Server 端 GET 也走同一 handler。"""
-    return http_post(f"{base_url(args)}/ping", payload={})
+    base, port, source = request_base(args)
+    return http_post(f"{base}/ping", payload={}, timeout=args.timeout, port=port, source=source)
 
 
 def parse_target(target_object_id: str | None) -> dict[str, Any] | None:
@@ -107,7 +164,8 @@ def cmd_invoke(args: argparse.Namespace) -> dict[str, Any]:
     target = parse_target(args.target_object_id)
     if target is not None:
         payload["target"] = target
-    return http_post(f"{base_url(args)}/invoke", payload, timeout=args.timeout)
+    base, port, source = request_base(args)
+    return http_post(f"{base}/invoke", payload, timeout=args.timeout, port=port, source=source)
 
 
 def cmd_invoke_chain(args: argparse.Namespace) -> dict[str, Any]:
@@ -129,12 +187,14 @@ def cmd_invoke_chain(args: argparse.Namespace) -> dict[str, Any]:
     target = parse_target(args.target_object_id)
     if target is not None:
         payload["target"] = target
-    return http_post(f"{base_url(args)}/invoke", payload, timeout=args.timeout)
+    base, port, source = request_base(args)
+    return http_post(f"{base}/invoke", payload, timeout=args.timeout, port=port, source=source)
 
 
 def cmd_describe(args: argparse.Namespace) -> dict[str, Any]:
     """/describe —— 列出类型成员清单。"""
-    return http_post(f"{base_url(args)}/describe", payload={"type": args.type}, timeout=args.timeout)
+    base, port, source = request_base(args)
+    return http_post(f"{base}/describe", payload={"type": args.type}, timeout=args.timeout, port=port, source=source)
 
 
 def cmd_console(args: argparse.Namespace) -> dict[str, Any]:
@@ -142,7 +202,8 @@ def cmd_console(args: argparse.Namespace) -> dict[str, Any]:
     payload: dict[str, Any] = {"count": args.count, "filter": args.filter}
     if args.include_stack:
         payload["includeStack"] = True
-    return http_post(f"{base_url(args)}/console", payload, timeout=args.timeout)
+    base, port, source = request_base(args)
+    return http_post(f"{base}/console", payload, timeout=args.timeout, port=port, source=source)
 
 
 def cmd_batch(args: argparse.Namespace) -> dict[str, Any]:
@@ -152,17 +213,20 @@ def cmd_batch(args: argparse.Namespace) -> dict[str, Any]:
             requests = json.load(f)
     else:
         requests = json.load(sys.stdin)
-    return http_post(f"{base_url(args)}/batch", {"requests": requests}, timeout=args.timeout)
+    base, port, source = request_base(args)
+    return http_post(f"{base}/batch", {"requests": requests}, timeout=args.timeout, port=port, source=source)
 
 
 def cmd_recompile(args: argparse.Namespace) -> dict[str, Any]:
     """/recompile —— 触发脚本重编译。挂住直到完成（typically 30-60s）。"""
-    return http_post(f"{base_url(args)}/recompile", payload={}, timeout=args.timeout)
+    base, port, source = request_base(args)
+    return http_post(f"{base}/recompile", payload={}, timeout=args.timeout, port=port, source=source)
 
 
 def cmd_eval(args: argparse.Namespace) -> dict[str, Any]:
     """/eval —— 轻量表达式求值（链式属性/方法访问；不支持 lambda/new/typeof）。请写类型全名。"""
-    return http_post(f"{base_url(args)}/eval", {"code": args.code}, timeout=args.timeout)
+    base, port, source = request_base(args)
+    return http_post(f"{base}/eval", {"code": args.code}, timeout=args.timeout, port=port, source=source)
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -227,7 +291,10 @@ def build_parser() -> argparse.ArgumentParser:
 def main() -> int:
     parser = build_parser()
     args = parser.parse_args()
-    result = args.func(args)
+    try:
+        result = args.func(args)
+    except EndpointResolutionError as exc:
+        result = {"ok": False, "error": {"type": exc.code, "message": str(exc), "context": exc.context}}
     json.dump(result, sys.stdout, ensure_ascii=False, indent=2)
     sys.stdout.write("\n")
     return 0 if result.get("ok") else 1

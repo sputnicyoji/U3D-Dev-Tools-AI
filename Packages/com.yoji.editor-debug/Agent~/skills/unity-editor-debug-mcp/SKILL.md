@@ -27,7 +27,9 @@ python client.py --port 21891 ping
 1. 显式 `--port` 优先。
 2. `--project` 或当前目录向上查找 `.u3d-ai-linker/ports.json`。
 3. 机器 registry。
-4. 旧默认端口 `21891`，再回退 `21892/21893`。
+4. 健康扫描 legacy ports：`21891`，再回退 `21892/21893`。
+
+Use `--project` when available. The client resolves the endpoint from the project ports file and global registry before falling back to legacy ports. Use `--port` only to force a specific debugging endpoint.
 
 同一项目存在多个在线 Editor 实例时，未传 `--pid` 或 `--port` 会返回 ambiguity。
 

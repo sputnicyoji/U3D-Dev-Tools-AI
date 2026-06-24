@@ -6,9 +6,9 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 Unity3D AI 自动化开发工具 monorepo。四个 UPM 包让 AI agent 不经 GUI 操作运行中的 Unity Editor，并把工具批量接入目标工程：
 
-- `com.yoji.test-runner`：headless 跑 EditMode 测试 + 触发重编译（HTTP 21890）。
-- `com.yoji.editor-debug`：任意 C# 反射调用 / 检视 Unity 类型与成员（HTTP+JSON 21891）。
-- `com.yoji.lua-device-debug`：Unity Lua 运行时诊断的通用传输层（HTTP+JSON 21894）。
+- `com.yoji.test-runner`：headless 跑 EditMode 测试 + 触发重编译（project-aware HTTP；legacy `21890/21896/21897`，offset `+0`）。
+- `com.yoji.editor-debug`：任意 C# 反射调用 / 检视 Unity 类型与成员（project-aware HTTP+JSON；legacy `21891/21892/21893`，offset `+1`）。
+- `com.yoji.lua-device-debug`：Unity Lua 运行时诊断的通用传输层（project-aware HTTP+JSON；legacy `21894`，offset `+4`）。
 - `com.yoji.u3d-ai-linker`：Editor-only 编排包，按 Registry 白名单把上述工具批量装入目标工程，并同步 Skills/规则到 Claude Code / Codex。
 
 目标环境：Windows + Unity 2022.3+ + Python 3.8+。`lua-device-debug` 已在 Unity 2022.3.62f2c1 Git UPM 安装和 EditMode 中验证，但目标工程必须注册 `ILuaDeviceDebugHost`。所有调试服务只绑定 127.0.0.1。本工具集仅面向**非 HybridCLR** 工程。
@@ -38,9 +38,9 @@ docs/superpowers/{specs,plans}/  # 设计与实现文档
 
 | 包 | skill | 端口 | 协议 | minUnity |
 |----|-------|------|------|----------|
-| com.yoji.test-runner | test-runner-mcp | 21890（回退 21896/21897）| HTTP，真实状态码 | 2022.3 |
-| com.yoji.editor-debug | unity-editor-debug-mcp | 21891（回退 21892/21893）| HTTP+JSON，恒 200 | 2022.3 |
-| com.yoji.lua-device-debug | unity-lua-device-debug | 21894（无回退）| HTTP+JSON，真实状态码 | 6000.3 |
+| com.yoji.test-runner | test-runner-mcp | legacy 21890/21896/21897；project offset +0 | HTTP，真实状态码 | 2022.3 |
+| com.yoji.editor-debug | unity-editor-debug-mcp | legacy 21891/21892/21893；project offset +1 | HTTP+JSON，恒 200 | 2022.3 |
+| com.yoji.lua-device-debug | unity-lua-device-debug | legacy 21894；project offset +4 | HTTP+JSON，真实状态码 | 2022.3 |
 | com.yoji.u3d-ai-linker | -（Project Settings 面板）| -（Editor 编排）| - | 2022.3 |
 
 ## 常用命令
@@ -114,7 +114,7 @@ python .../unity-lua-device-debug/client.py adb-forward [--serial <serial>]
 ### editor-debug（com.yoji.editor-debug）
 
 - 所有响应 HTTP 恒 200，错误在 body `error` 字段，envelope `{ok, result|error, elapsedMs}`。永远检查 `ok`/`error`，不看状态码。
-- 21891 被占静默落 21892/21893，从 `/ping` 的 `result.port` 取实际端口，client.py 用 `--port` 指定；全部被占则不启动并报错。
+- 端口由 editor-core 统一分配。client.py 优先 `--project` 解析 project ports file / global registry，再健康扫描 legacy `21891/21892/21893`；`--port` 仅用于强制指定调试端点。
 - 全局 flag `--host`/`--port`/`--timeout` 必须在子命令前：`client.py --port 21892 ping`。
 - `UnityEngine.Object` 派生类降级为 ref 摘要 `{__ref, instanceID, type, name, ...}`，用 `--target-instance-id`（亦接受 `--target-entity-id`）续接访问。Unity 6.4+ 用 `EntityId`（UInt64 十进制字符串），线上字段名仍是 `instanceID`。
 - 多步访问优先 `invoke-chain`（一次 HTTP 链式，中间值留服务端）；`/eval` 仅简单场景兜底。
@@ -125,7 +125,7 @@ python .../unity-lua-device-debug/client.py adb-forward [--serial <serial>]
 
 ### lua-device-debug（com.yoji.lua-device-debug）
 
-- 通用传输层，**不含任意 Lua eval / C# 反射 eval / HybridCLR / xLua**。仅 `/ping` `/commands` `/execute`，真实 HTTP 状态码。端口 21894 单一无回退。
+- 通用传输层，**不含任意 Lua eval / C# 反射 eval / HybridCLR / xLua**。仅 `/ping` `/commands` `/execute`，真实 HTTP 状态码。Editor 端口由 editor-core 统一分配，legacy `21894`，project offset `+4`。
 - 目标工程必须实现 `ILuaDeviceDebugHost`（IsReady/DescribeCommands/Execute）并 `LuaDeviceDebugRuntime.RegisterHost()` 注册；未注册时 `/commands` `/execute` 返 409 HOST_NOT_READY，未知命令返 404 COMMAND_NOT_FOUND。同一时刻只能注册一个 host。
 - 变更类命令双重闸：descriptor 声明 `mutating=true` 且 CLI 传 `--allow-mutation`，缺一返 403 MUTATION_DENIED。
 - 主线程队列上限 16（超返 429 QUEUE_FULL），单请求主线程等待默认 5s（超返 408）。请求体 1MB / 响应体 4MB 上限（413），JSON 深度 32 / 成员 4096。
@@ -138,7 +138,7 @@ Editor-only 编排包，8 子系统（LINK-0..LINK-7）全部落地，239/239 Ed
 
 - **当前面板所有动作按钮被门控禁用**（`U3DAILinkerSettingsProvider.cs` `ActionsWired=false`），`Request*` 仅 `Debug.Log`，只展示 registry/settings 状态。真实安装/同步/Junction/域重载续跑等副作用为 live-editor 手验项，未接线。
 - Registry 解析硬约束：`schemaVersion=1` 是硬门槛（`RegistryParser.cs`），未知值整体拒绝；`MissingMemberHandling.Error`，未知字段抛异常不静默跳过；只白名单 `com.yoji.*`，`packagePath` 必须等于 `Packages/<packageName>`。
-- 双通道 revision：stable 为 `<id>-v<semver>` tag（如 `editor-debug-v0.1.0`，各工具独立版本）；dev 为 40 位 SHA（仓库内当前是全零占位，需 `git ls-remote` 解析 main HEAD 后才可用，禁止长期留占位 / `#main`）。
+- 双通道 revision：stable 为 `<id>-v<semver>` tag（各工具独立版本）；dev 为 40 位 SHA（通过 `git ls-remote` 解析 main HEAD，禁止长期留占位 / `#main`）。
 - manifest 七步原子事务：备份 → 只改 `com.yoji.*` 依赖 → 写 `.u3d-ai-linker.tmp` → parse 校验 → `File.Replace` → 写 `operation.json`。安装队列严格串行，`operation.json`（`Library/U3DAILinker/`）先写后 `Client.Add`，跨 domain reload 续跑；linker 自更新永远排队尾。
 - Agent 同步：内容哈希 + 所有权 `.u3d-ai-owner.json` 校验，无所有权文件的目录视为用户内容（Foreign）不得覆盖；六步事务式目录复制 + Windows Junction（P/Invoke DeviceIoControl，非 mklink）落到 `.u3d-ai-linker/skills/<tool>` 链到 `.claude`/`.agents`。
 - 目标工程 CLAUDE.md/AGENTS.md 托管块定界 `<!-- u3d-ai-linker:start -->` / `<!-- u3d-ai-linker:end -->`，.gitignore 用 `# >>> u3d-ai-linker >>>` / `# <<< u3d-ai-linker <<<`；标记重复或不平衡返 Conflict 不写入，块外用户内容不动。
@@ -150,7 +150,7 @@ Editor-only 编排包，8 子系统（LINK-0..LINK-7）全部落地，239/239 Ed
 - `Registry/stable.json` + `dev.json` 是分发源，linker 内嵌一份逐字节一致的快照（`Packages/com.yoji.u3d-ai-linker/Registry/`）。
 - entry 字段：`id/status/kind/order/packageName/packagePath/revision/defaultEnabled/userToggle/agentAssets/minUnity/dependsOn`。
 - 5 个 stable entry：editor-core、editor-debug、test-runner、lua-device-debug、u3d-ai-linker。kind `infra`（editor-core，agentAssets=null、userToggle=false）/ `tool`（其余）。当前 stable 五项均为 `ready`，revision 对应各自发布 tag。
-- editor-core（`com.yoji.editor-core`）是已实现的共享基础包，承载主线程调度、HTTP 服务生命周期与端口分配等公共能力；editor-debug、test-runner、lua-device-debug 均声明 `dependsOn: [editor-core]`。
+- editor-core（`com.yoji.editor-core`）是共享基础包，承载主线程调度、HTTP 请求体读取、Editor 服务生命周期、端口分配、registry/project ports 心跳与清理；editor-debug、test-runner、lua-device-debug 均声明 `dependsOn: [editor-core]`。
 
 ### TestProjects 与 headless 测试
 
@@ -159,7 +159,7 @@ Editor-only 编排包，8 子系统（LINK-0..LINK-7）全部落地，239/239 Ed
 
 ## 接入目标工程的注意
 
-- 端口与 Tap4Fun 内部包完全重叠：`com.tfw.test-runner-mcp` 用 21890、`com.tfw.unity-editor-debug-mcp` 用 21891（+21892/21893）。目标工程若已装 `com.tfw` 这套，再装 `com.yoji` 会端口竞争、二者并存——同一工程二选一。
+- legacy 端口与 Tap4Fun 内部包重叠：test-runner `21890/21896/21897`，editor-debug `21891/21892/21893`，lua-device-debug `21894`。目标工程若已装 `com.tfw` 这套，优先二选一，避免语义混淆。套接字地址被占用时，先查 registry 与 `/ping.portSource`；不要改 `Library/PackageCache`，不要在单包里硬塞新固定端口。
 - 本工具集仅非 HybridCLR；`lua-device-debug` 支持 Unity 2022.3+，但目标工程必须注册 `ILuaDeviceDebugHost` 才能执行项目 Lua 诊断命令。
 
 ## 目录性质

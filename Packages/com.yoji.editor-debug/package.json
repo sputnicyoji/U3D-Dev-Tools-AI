@@ -1,11 +1,11 @@
 {
   "name": "com.yoji.editor-debug",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "displayName": "Editor Debug MCP",
   "description": "HTTP+JSON reflection service inside Unity Editor for AI agent debugging.",
   "unity": "2022.3",
   "dependencies": {
-    "com.yoji.editor-core": "0.1.0",
+    "com.yoji.editor-core": "0.1.1",
     "com.unity.nuget.newtonsoft-json": "3.2.2"
   }
 }

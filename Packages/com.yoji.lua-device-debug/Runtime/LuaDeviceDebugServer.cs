@@ -89,6 +89,11 @@ namespace Yoji.LuaDeviceDebug
             get { return m_Running; }
         }
 
+        public int Port
+        {
+            get { return m_Port; }
+        }
+
         public void SetServiceMetadata(LuaDeviceDebugServiceMetadata metadata)
         {
             m_Metadata = metadata ?? LuaDeviceDebugServiceMetadata.Empty;
@@ -206,7 +211,7 @@ namespace Yoji.LuaDeviceDebug
             var metadata = m_Metadata ?? LuaDeviceDebugServiceMetadata.Empty;
             return new JObject
             {
-                ["service"] = LuaDeviceDebugPackage.ServiceName,
+                ["service"] = LuaDeviceDebugPackage.ServiceId,
                 ["serviceId"] = metadata.ServiceId ?? string.Empty,
                 ["instanceId"] = metadata.InstanceId ?? string.Empty,
                 ["processId"] = metadata.ProcessId,
@@ -222,6 +227,7 @@ namespace Yoji.LuaDeviceDebug
                 ["isDevelopmentBuild"] = m_IsDevelopmentBuild,
                 ["hostRegistered"] = host != null,
                 ["hostReady"] = host != null && host.IsReady,
+                ["hostType"] = host != null ? host.GetType().FullName : string.Empty,
             };
         }
 

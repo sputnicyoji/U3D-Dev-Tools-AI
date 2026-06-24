@@ -28,14 +28,20 @@ namespace Yoji.TestRunner
             new int[] { 21890, 21896, 21897 });
 
         private static HttpListener s_Listener;
+        private static Thread s_Thread;
         private static int s_Port;
         private static string s_UnityVersion;
         private static string s_ProjectName;
         private static JobStore s_Jobs;
         private static TestRunService s_Service;
-        private static ServiceInstanceRecord s_Record;
+        private static EditorServiceEndpoint s_Endpoint;
         private static double s_NextHeartbeatAt;
         private static double s_NextHeartbeatErrorLogAt;
+
+        internal static ServicePortDefinition PortDefinitionForTests
+        {
+            get { return k_PortDefinition; }
+        }
 
         static TestRunnerMCP()
         {
@@ -44,13 +50,14 @@ namespace Yoji.TestRunner
 
         private static void Start()
         {
-            if (s_Listener != null) return;
+            if (s_Endpoint != null)
+            {
+                s_Endpoint.Heartbeat();
+                return;
+            }
+
             try
             {
-                var identity = ProjectIdentityProvider.Current();
-                var policy = ServicePortSettingsStore.BuildPolicy(identity.ProjectRoot, identity);
-                var assignment = ServicePortAllocator.Allocate(k_PortDefinition, policy, new TcpPortProbe());
-
                 s_UnityVersion = Application.unityVersion;
                 s_ProjectName = Application.productName;
                 var projectPath = Directory.GetParent(Application.dataPath).FullName;
@@ -60,25 +67,7 @@ namespace Yoji.TestRunner
                 s_Service = new TestRunService(s_Jobs, resultDir);
                 s_Service.EnsureRegistered(); // 域重载后重建时重注册 TestRunnerApi 回调
 
-                var listener = new HttpListener();
-                listener.Prefixes.Add("http://127.0.0.1:" + assignment.Port + "/");
-                listener.Start();
-                s_Listener = listener;
-                s_Port = assignment.Port;
-
-                s_Record = ServiceInstanceRecord.Create(
-                    assignment.ServiceId,
-                    assignment.DisplayName,
-                    assignment.ProjectRoot,
-                    assignment.ProjectId,
-                    Process.GetCurrentProcess().Id,
-                    assignment.Port,
-                    assignment.Source);
-                ServiceInstanceRegistry.Default().Register(s_Record);
-                ProjectPortsFile.Upsert(s_Record.ProjectRoot, s_Record);
-
-                var thread = new Thread(Loop) { IsBackground = true, Name = "TestRunnerMCP" };
-                thread.Start();
+                s_Endpoint = EditorServiceEndpoint.Start(k_PortDefinition, StartHttpListener);
 
                 s_NextHeartbeatAt = EditorApplication.timeSinceStartup + 10.0;
                 s_NextHeartbeatErrorLogAt = 0.0;
@@ -92,20 +81,41 @@ namespace Yoji.TestRunner
             }
         }
 
+        private static IDisposable StartHttpListener(ServicePortAssignment assignment)
+        {
+            var listener = new HttpListener();
+            listener.Prefixes.Add("http://127.0.0.1:" + assignment.Port + "/");
+            listener.Start();
+            s_Listener = listener;
+            s_Port = assignment.Port;
+
+            s_Thread = new Thread(Loop) { IsBackground = true, Name = "TestRunnerMCP" };
+            s_Thread.Start();
+
+            return new CallbackDisposable(StopHttpListenerOnly);
+        }
+
         private static void Stop()
         {
             EditorApplication.update -= Heartbeat;
 
-            var record = s_Record;
-            if (record != null)
+            if (s_Endpoint != null)
             {
-                try { ServiceInstanceRegistry.Default().Unregister(record.InstanceId); }
-                catch (Exception e) { Debug.LogError("[TestRunnerMCP] 注销全局实例失败: " + e.Message); }
-
-                try { ProjectPortsFile.Remove(record.ProjectRoot, record.InstanceId); }
-                catch (Exception e) { Debug.LogError("[TestRunnerMCP] 移除项目端口记录失败: " + e.Message); }
+                s_Endpoint.Dispose();
+                s_Endpoint = null;
             }
 
+            s_Jobs = null;
+            s_Service = null;
+            s_Port = 0;
+            s_UnityVersion = null;
+            s_ProjectName = null;
+            s_NextHeartbeatAt = 0.0;
+            s_NextHeartbeatErrorLogAt = 0.0;
+        }
+
+        private static void StopHttpListenerOnly()
+        {
             if (s_Listener != null)
                 RecompileHandler.WaitForPendingResponse(2000);
 
@@ -115,14 +125,7 @@ namespace Yoji.TestRunner
                 s_Listener = null;
             }
 
-            s_Record = null;
-            s_Jobs = null;
-            s_Service = null;
-            s_Port = 0;
-            s_UnityVersion = null;
-            s_ProjectName = null;
-            s_NextHeartbeatAt = 0.0;
-            s_NextHeartbeatErrorLogAt = 0.0;
+            s_Thread = null;
         }
 
         private static void Loop()
@@ -206,7 +209,7 @@ namespace Yoji.TestRunner
         private static JObject Ping(JobStore jobs)
         {
             jobs.SweepStale(k_StaleJobMs);
-            var record = s_Record;
+            var record = s_Endpoint != null ? s_Endpoint.Record : null;
             var port = record != null ? record.Port : s_Port;
             var unityVersion = s_UnityVersion;
             var projectName = s_ProjectName;
@@ -319,7 +322,7 @@ namespace Yoji.TestRunner
 
         private static void Heartbeat()
         {
-            if (s_Record == null)
+            if (s_Endpoint == null)
                 return;
 
             var now = EditorApplication.timeSinceStartup;
@@ -330,9 +333,7 @@ namespace Yoji.TestRunner
 
             try
             {
-                s_Record.Touch();
-                ServiceInstanceRegistry.Default().Register(s_Record);
-                ProjectPortsFile.Upsert(s_Record.ProjectRoot, s_Record);
+                s_Endpoint.Heartbeat(true);
             }
             catch (Exception e)
             {

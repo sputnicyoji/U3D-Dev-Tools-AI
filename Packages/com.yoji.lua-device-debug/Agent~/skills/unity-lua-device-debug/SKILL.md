@@ -7,7 +7,7 @@ description: Connect to Unity Lua Device Debug over HTTP+JSON for Editor and And
 
 `com.yoji.lua-device-debug` is the generic transport package for Lua runtime diagnostics in Unity 2022.3 LTS or newer.
 
-Editor mode listens on fixed local port 21894. Android Development Build players use port 21894 by default, or `Assets/Resources/YojiLuaDeviceDebugRuntimeConfig.asset` when a custom remote port is needed.
+Editor mode uses project-aware local endpoint resolution. Legacy/default local port is `21894`; multi-project Editor sessions use the shared port registry and project offset `+4`. Android Development Build players use remote port `21894` by default, or `Assets/Resources/YojiLuaDeviceDebugRuntimeConfig.asset` when a custom remote port is needed.
 
 Use this skill when the target Unity project has installed the package and registered an `ILuaDeviceDebugHost`.
 
@@ -28,9 +28,11 @@ python client.py adb-remove
 Resolution order:
 
 1. Explicit `--port` wins.
-2. Otherwise the client uses fixed default `21894`.
+2. `--project` or cwd walks up to `.u3d-ai-linker/ports.json`.
+3. The client checks the global registry.
+4. The client healthy-scans legacy port `21894`.
 
-`--project` and `--pid` are accepted by shared CLI plumbing, but `lua-device-debug` `0.1.0` does not publish project registry records from the Editor bootstrap. Do not rely on them for disambiguation. If multiple Editor instances need Lua diagnostics, only one can own port `21894`.
+Use `--project` when available. The client resolves the endpoint from the project ports file and global registry before falling back to legacy ports. Use `--port` only to force a specific debugging endpoint. `21894` is legacy/default, not the only Editor entrypoint. Use `--pid` to disambiguate multiple online Editor instances for the same project.
 
 `adb-forward` and `adb-remove` do not use the Editor resolver; without `--port`, they use local tunnel port `21894`.
 

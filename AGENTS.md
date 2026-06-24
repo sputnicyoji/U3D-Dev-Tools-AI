@@ -4,9 +4,9 @@
 
 本仓库是面向 AI 辅助工作流的 Unity3D 自动化开发工具 monorepo。四个 UPM 包让 AI agent 不经 GUI 操作运行中的 Unity Editor，并把工具批量接入目标工程：
 
-- `com.yoji.test-runner`：headless 跑 EditMode 测试 + 触发重编译（HTTP 21890）。
-- `com.yoji.editor-debug`：任意 C# 反射调用 / 检视 Unity 类型与成员（HTTP+JSON 21891）。
-- `com.yoji.lua-device-debug`：Unity Lua 运行时诊断的通用传输层（HTTP+JSON 21894）。
+- `com.yoji.test-runner`：headless 跑 EditMode 测试 + 触发重编译（project-aware HTTP；legacy `21890/21896/21897`，offset `+0`）。
+- `com.yoji.editor-debug`：任意 C# 反射调用 / 检视 Unity 类型与成员（project-aware HTTP+JSON；legacy `21891/21892/21893`，offset `+1`）。
+- `com.yoji.lua-device-debug`：Unity Lua 运行时诊断的通用传输层（project-aware HTTP+JSON；legacy `21894`，offset `+4`）。
 - `com.yoji.u3d-ai-linker`：Editor-only 编排包，按 Registry 白名单批量安装上述工具并同步 Skills/规则到 Claude Code / Codex。
 
 目标环境：Windows + Unity 2022.3+ + Python 3.8+。`lua-device-debug` 已在 Unity 2022.3.62f2c1 Git UPM 安装和 EditMode 中验证，但目标工程必须注册 `ILuaDeviceDebugHost`。仅面向**非 HybridCLR** 工程；调试服务只绑定 127.0.0.1。每个包应保持可独立理解、验证和迁移。
@@ -73,4 +73,6 @@ python Packages/com.yoji.editor-debug/Agent~/skills/unity-editor-debug-mcp/refer
 
 - 调试服务默认只绑定 `127.0.0.1`。禁止提交凭据、内网地址和项目私有数据。
 - 接入其他 Unity 工程优先用 UPM `file:` / git-URL 或 u3d-ai-linker 的可撤销流程，不直接污染目标工程配置。
-- 端口与 Tap4Fun 内部包 `com.tfw.test-runner-mcp`(21890) / `com.tfw.unity-editor-debug-mcp`(21891 + 21892/21893) 完全重叠；目标工程若已装 com.tfw 这套，二选一，避免端口竞争。本工具集仅非 HybridCLR。
+- 端口策略：`test-runner` legacy `21890/21896/21897` + project offset `+0`；`editor-debug` legacy `21891/21892/21893` + offset `+1`；`lua-device-debug` legacy `21894` + offset `+4`。客户端优先 `--project`，再读 project ports file / global registry，最后健康扫描 legacy ports。
+- 如果 Unity Console 报 “only one usage of each socket address is normally permitted”，先查 registry 与 `/ping` 的 `portSource`。不要改 `Library/PackageCache`。不要在单个包里硬塞新固定端口。
+- 与 Tap4Fun 内部包存在 legacy 端口重叠；目标工程若已装 com.tfw 这套，优先二选一，避免语义混淆。本工具集仅非 HybridCLR。

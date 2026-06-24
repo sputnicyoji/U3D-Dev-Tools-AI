@@ -45,7 +45,7 @@ namespace Yoji.LuaDeviceDebug.Tests
 
             Assert.AreEqual(200, response.Status);
             Assert.IsTrue(response.Body.Value<bool>("ok"));
-            Assert.AreEqual("LuaDeviceDebug", response.Body["result"].Value<string>("service"));
+            Assert.AreEqual(LuaDeviceDebugPackage.ServiceId, response.Body["result"].Value<string>("service"));
             Assert.AreEqual(m_Port, response.Body["result"].Value<int>("port"));
         }
 

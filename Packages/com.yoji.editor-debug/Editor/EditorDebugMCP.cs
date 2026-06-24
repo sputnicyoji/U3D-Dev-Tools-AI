@@ -16,7 +16,7 @@ namespace Yoji.EditorDebug
     [InitializeOnLoad]
     internal static class EditorDebugMCP
     {
-        private const string k_Version = "0.1.0";
+        private const string k_Version = "0.1.1";
         private static readonly bool c_AllowEval = false; // 需要 /eval 时显式改成 true
         private const int k_MaxBodyBytes = 4 * 1024 * 1024;
         private static readonly ServicePortDefinition k_PortDefinition = ServicePortDefinition.Create(
@@ -26,12 +26,18 @@ namespace Yoji.EditorDebug
             new int[] { 21891, 21892, 21893 });
 
         private static HttpListener s_Listener;
+        private static Thread s_Thread;
         private static int s_Port;
         private static string s_UnityVersion;
         private static string s_ProjectName;
-        private static ServiceInstanceRecord s_Record;
+        private static EditorServiceEndpoint s_Endpoint;
         private static double s_NextHeartbeatAt;
         private static double s_NextHeartbeatErrorLogAt;
+
+        internal static ServicePortDefinition PortDefinitionForTests
+        {
+            get { return k_PortDefinition; }
+        }
 
         static EditorDebugMCP()
         {
@@ -40,35 +46,18 @@ namespace Yoji.EditorDebug
 
         private static void Start()
         {
-            if (s_Listener != null) return;
+            if (s_Endpoint != null)
+            {
+                s_Endpoint.Heartbeat();
+                return;
+            }
+
             try
             {
-                var identity = ProjectIdentityProvider.Current();
-                var policy = ServicePortSettingsStore.BuildPolicy(identity.ProjectRoot, identity);
-                var assignment = ServicePortAllocator.Allocate(k_PortDefinition, policy, new TcpPortProbe());
-
                 s_UnityVersion = Application.unityVersion;
                 s_ProjectName = Application.productName;
 
-                var listener = new HttpListener();
-                listener.Prefixes.Add("http://127.0.0.1:" + assignment.Port + "/");
-                listener.Start();
-                s_Listener = listener;
-                s_Port = assignment.Port;
-
-                s_Record = ServiceInstanceRecord.Create(
-                    assignment.ServiceId,
-                    assignment.DisplayName,
-                    assignment.ProjectRoot,
-                    assignment.ProjectId,
-                    Process.GetCurrentProcess().Id,
-                    assignment.Port,
-                    assignment.Source);
-                ServiceInstanceRegistry.Default().Register(s_Record);
-                ProjectPortsFile.Upsert(s_Record.ProjectRoot, s_Record);
-
-                var thread = new Thread(Loop) { IsBackground = true, Name = "EditorDebugMCP" };
-                thread.Start();
+                s_Endpoint = EditorServiceEndpoint.Start(k_PortDefinition, StartHttpListener);
 
                 s_NextHeartbeatAt = EditorApplication.timeSinceStartup + 10.0;
                 s_NextHeartbeatErrorLogAt = 0.0;
@@ -82,20 +71,39 @@ namespace Yoji.EditorDebug
             }
         }
 
+        private static IDisposable StartHttpListener(ServicePortAssignment assignment)
+        {
+            var listener = new HttpListener();
+            listener.Prefixes.Add("http://127.0.0.1:" + assignment.Port + "/");
+            listener.Start();
+            s_Listener = listener;
+            s_Port = assignment.Port;
+
+            s_Thread = new Thread(Loop) { IsBackground = true, Name = "EditorDebugMCP" };
+            s_Thread.Start();
+
+            return new CallbackDisposable(StopHttpListenerOnly);
+        }
+
         private static void Stop()
         {
             EditorApplication.update -= Heartbeat;
 
-            var record = s_Record;
-            if (record != null)
+            if (s_Endpoint != null)
             {
-                try { ServiceInstanceRegistry.Default().Unregister(record.InstanceId); }
-                catch (Exception e) { Debug.LogError("[EditorDebugMCP] 注销全局实例失败: " + e.Message); }
-
-                try { ProjectPortsFile.Remove(record.ProjectRoot, record.InstanceId); }
-                catch (Exception e) { Debug.LogError("[EditorDebugMCP] 移除项目端口记录失败: " + e.Message); }
+                s_Endpoint.Dispose();
+                s_Endpoint = null;
             }
 
+            s_Port = 0;
+            s_UnityVersion = null;
+            s_ProjectName = null;
+            s_NextHeartbeatAt = 0.0;
+            s_NextHeartbeatErrorLogAt = 0.0;
+        }
+
+        private static void StopHttpListenerOnly()
+        {
             if (s_Listener != null)
                 RecompileHandler.WaitForPendingResponse(2000);
 
@@ -106,12 +114,7 @@ namespace Yoji.EditorDebug
                 s_Listener = null;
             }
 
-            s_Record = null;
-            s_Port = 0;
-            s_UnityVersion = null;
-            s_ProjectName = null;
-            s_NextHeartbeatAt = 0.0;
-            s_NextHeartbeatErrorLogAt = 0.0;
+            s_Thread = null;
         }
 
         private static void Loop()
@@ -169,7 +172,7 @@ namespace Yoji.EditorDebug
 
         private static JObject Ping()
         {
-            var record = s_Record;
+            var record = s_Endpoint != null ? s_Endpoint.Record : null;
             var port = record != null ? record.Port : s_Port;
             var unityVersion = s_UnityVersion;
             var projectName = s_ProjectName;
@@ -256,7 +259,7 @@ namespace Yoji.EditorDebug
 
         private static void Heartbeat()
         {
-            if (s_Record == null)
+            if (s_Endpoint == null)
                 return;
 
             var now = EditorApplication.timeSinceStartup;
@@ -267,9 +270,7 @@ namespace Yoji.EditorDebug
 
             try
             {
-                s_Record.Touch();
-                ServiceInstanceRegistry.Default().Register(s_Record);
-                ProjectPortsFile.Upsert(s_Record.ProjectRoot, s_Record);
+                s_Endpoint.Heartbeat(true);
             }
             catch (Exception e)
             {

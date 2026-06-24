@@ -2,11 +2,12 @@
 # 版权所有[成都创人所爱科技股份有限公司]
 """EditorDebugMCP 端到端冒烟测试。
 
-前提：Unity Editor 已打开 f:/git/x15_client_222/client 工程，HTTP 服务已在 21891 端口。
+前提：Unity Editor 已打开目标工程，HTTP 服务已启动。
 用法：
     python run-e2e.py                 # 跑除 /recompile 之外的全部用例（~10s）
     python run-e2e.py --include-recompile  # 加测 /recompile（~30-60s，会触发 domain reload）
     python run-e2e.py --port 21892    # 指定端口
+    python run-e2e.py --project G:/Project # 项目感知解析端口
 
 每个用例独立 PASS/FAIL，最后给汇总。
 """
@@ -19,7 +20,17 @@ import sys
 import urllib.error
 import urllib.request
 from dataclasses import dataclass, field
+from pathlib import Path
 from typing import Any, Callable, Optional
+
+SKILL_DIR = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(SKILL_DIR))
+from port_resolver import resolve_endpoint  # noqa: E402
+
+DEFAULT_HOST = "127.0.0.1"
+DEFAULT_PORT = 21891
+LEGACY_PORTS = (21891, 21892, 21893)
+SERVICE_ID = "unity-editor-debug-mcp"
 
 
 @dataclass
@@ -255,17 +266,31 @@ def recompile_case() -> TestCase:
 
 def main(argv: list[str]) -> int:
     parser = argparse.ArgumentParser(description="EditorDebugMCP e2e smoke test")
-    parser.add_argument("--port", type=int, default=21891, help="HTTP service port (default 21891)")
+    parser.add_argument("--host", default=DEFAULT_HOST, help="HTTP service host (default 127.0.0.1)")
+    parser.add_argument("--port", type=int, default=None, help="HTTP service port. Bypasses project-aware resolution.")
+    parser.add_argument("--project", help="Unity project root. Defaults to walking up from cwd.")
+    parser.add_argument("--pid", type=int, help="Unity Editor process id when multiple instances are open.")
+    parser.add_argument("--resolve-timeout", type=float, default=5.0, help="Endpoint resolution probe timeout in seconds.")
     parser.add_argument("--include-recompile", action="store_true",
                         help="Also test /recompile (slow, triggers domain reload)")
     parser.add_argument("--verbose", "-v", action="store_true",
                         help="Print response body on failure")
     args = parser.parse_args(argv[1:])
 
-    base = f"http://127.0.0.1:{args.port}"
+    host, port, source = resolve_endpoint(
+        SERVICE_ID,
+        args.host,
+        args.port,
+        DEFAULT_PORT,
+        args.project,
+        args.pid,
+        args.resolve_timeout,
+        LEGACY_PORTS,
+    )
+    base = f"http://{host}:{port}"
 
     print(f"== EditorDebugMCP e2e ==")
-    print(f"target: {base}")
+    print(f"target: {base} source={source}")
 
     # 前置 ping
     ping = http_post(base, "/ping", {}, timeout=5.0)

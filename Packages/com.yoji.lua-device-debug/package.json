@@ -1,12 +1,12 @@
 {
   "name": "com.yoji.lua-device-debug",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "displayName": "Lua Device Debug",
   "description": "HTTP+JSON device diagnostics transport for Unity Lua runtimes, targeting Unity 2022.3 LTS or newer.",
   "unity": "2022.3",
   "dependencies": {
     "com.unity.nuget.newtonsoft-json": "3.2.2",
     "com.unity.test-framework": "1.1.33",
-    "com.yoji.editor-core": "0.1.0"
+    "com.yoji.editor-core": "0.1.1"
   }
 }
