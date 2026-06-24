@@ -57,7 +57,7 @@ Stable Git install uses tags instead of local paths:
 ```json
 {
   "dependencies": {
-    "com.yoji.u3d-ai-linker": "https://github.com/sputnicyoji/U3D-Dev-Tools-AI.git?path=/Packages/com.yoji.u3d-ai-linker#u3d-ai-linker-v0.1.5"
+    "com.yoji.u3d-ai-linker": "https://github.com/sputnicyoji/U3D-Dev-Tools-AI.git?path=/Packages/com.yoji.u3d-ai-linker#u3d-ai-linker-v0.1.6"
   }
 }
 ```
@@ -68,8 +68,8 @@ dependency:
 ```json
 {
   "dependencies": {
-    "com.yoji.editor-core": "https://github.com/sputnicyoji/U3D-Dev-Tools-AI.git?path=/Packages/com.yoji.editor-core#editor-core-v0.1.1",
-    "com.yoji.test-runner": "https://github.com/sputnicyoji/U3D-Dev-Tools-AI.git?path=/Packages/com.yoji.test-runner#test-runner-v0.1.5"
+    "com.yoji.editor-core": "https://github.com/sputnicyoji/U3D-Dev-Tools-AI.git?path=/Packages/com.yoji.editor-core#editor-core-v0.1.2",
+    "com.yoji.test-runner": "https://github.com/sputnicyoji/U3D-Dev-Tools-AI.git?path=/Packages/com.yoji.test-runner#test-runner-v0.1.6"
   }
 }
 ```
@@ -79,8 +79,8 @@ Direct `lua-device-debug` install is also a two-package Git install:
 ```json
 {
   "dependencies": {
-    "com.yoji.editor-core": "https://github.com/sputnicyoji/U3D-Dev-Tools-AI.git?path=/Packages/com.yoji.editor-core#editor-core-v0.1.1",
-    "com.yoji.lua-device-debug": "https://github.com/sputnicyoji/U3D-Dev-Tools-AI.git?path=/Packages/com.yoji.lua-device-debug#lua-device-debug-v0.1.1"
+    "com.yoji.editor-core": "https://github.com/sputnicyoji/U3D-Dev-Tools-AI.git?path=/Packages/com.yoji.editor-core#editor-core-v0.1.2",
+    "com.yoji.lua-device-debug": "https://github.com/sputnicyoji/U3D-Dev-Tools-AI.git?path=/Packages/com.yoji.lua-device-debug#lua-device-debug-v0.1.2"
   }
 }
 ```
@@ -166,8 +166,8 @@ fragments.
 
 Current stable scope is `editor-core`, `editor-debug`, `test-runner`,
 `lua-device-debug`, and `u3d-ai-linker`. The current stable revisions are
-`editor-core-v0.1.1`, `editor-debug-v0.1.1`, `test-runner-v0.1.5`,
-`lua-device-debug-v0.1.1`, and `u3d-ai-linker-v0.1.5`.
+`editor-core-v0.1.2`, `editor-debug-v0.1.2`, `test-runner-v0.1.6`,
+`lua-device-debug-v0.1.2`, and `u3d-ai-linker-v0.1.6`.
 The stable registry points consumers to those Git tags; consumer lock files
 should resolve them as `source=git` after install. Editor services resolve endpoints from project ports/global registry before healthy-scanning legacy ports. `lua-device-debug` still
 requires the target project to register an `ILuaDeviceDebugHost`, but its Git
@@ -199,18 +199,18 @@ Additional `test-runner` compatibility checks:
 | Check | Result |
 |-------|--------|
 | Unity `2022.3.62f2c1` Roslyn compile for `Yoji.TestRunner.Editor` | Passed |
-| Unity `2022.3.62f2c1` HD2D Git UPM smoke for `test-runner-v0.1.5` + `u3d-ai-linker-v0.1.3` | Passed |
+| Unity `2022.3.62f2c1` HD2D Git UPM smoke for `test-runner-v0.1.6` + `u3d-ai-linker-v0.1.3` | Passed |
 | TestRunnerMCP `ping` / `list-tests` / `recompile` on Unity `2022.3.62f2c1` | Passed |
 | Missing-test run returns controlled `status=error` / `overallResult=Error` instead of a false green | Passed |
 | `UNITY_6000_0_OR_NEWER` define-simulated Roslyn compile for `Yoji.TestRunner.Editor` | Passed |
-| Stable registry remote tag check for `test-runner-v0.1.5` and `u3d-ai-linker-v0.1.3` | Passed |
+| Stable registry remote tag check for `test-runner-v0.1.6` and `u3d-ai-linker-v0.1.3` | Passed |
 
 Additional `lua-device-debug` compatibility checks:
 
 | Check | Result |
 |-------|--------|
 | Unity `2022.3.62f2c1` Git UPM smoke in `G:\PurgeDemo\arttest-c6` (`/ping` + `14/14` EditMode) | Passed |
-| Stable registry remote tag check for `lua-device-debug-v0.1.1` and `u3d-ai-linker-v0.1.5` | Passed |
+| Stable registry remote tag check for `lua-device-debug-v0.1.2` and `u3d-ai-linker-v0.1.6` | Passed |
 
 HTTP e2e scripts live under each tool's `Agent~/skills/.../references/`
 folder. They require the matching Unity project to be open with the service
