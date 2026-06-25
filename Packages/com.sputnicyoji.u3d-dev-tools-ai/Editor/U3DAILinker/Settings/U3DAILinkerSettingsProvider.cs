@@ -20,7 +20,8 @@ namespace Yoji.U3DAILinker.Settings
 
         private static U3DAILinkerSettings _project;
         private static U3DAILinkerUserSettings _user;
-        private static Vector2 _scroll;
+        private static Vector2 _pageScroll;
+        private static Vector2 _toolScroll;
         private static AgentSkillStatusRow[] _agentSkillRows;
         private static string _agentSkillError;
         private static bool _agentSkillDirty = true;
@@ -49,17 +50,22 @@ namespace Yoji.U3DAILinker.Settings
             if (_user == null)
                 _user = U3DAILinkerSettingsStore.LoadOrCreateUserSettings();
 
-            DrawStatusSection();
-            EditorGUILayout.Space();
-            DrawToolList();
-            EditorGUILayout.Space();
-            DrawLocalChannelWarning();
-            EditorGUILayout.Space();
-            DrawPortsSection();
-            EditorGUILayout.Space();
-            DrawAgentSkillsSection();
-            EditorGUILayout.Space();
-            DrawActionSection();
+            using (var scope = new EditorGUILayout.ScrollViewScope(_pageScroll))
+            {
+                _pageScroll = scope.scrollPosition;
+
+                DrawStatusSection();
+                EditorGUILayout.Space();
+                DrawAgentSkillsSection();
+                EditorGUILayout.Space();
+                DrawToolList();
+                EditorGUILayout.Space();
+                DrawLocalChannelWarning();
+                EditorGUILayout.Space();
+                DrawPortsSection();
+                EditorGUILayout.Space();
+                DrawActionSection();
+            }
         }
 
         private static void DrawStatusSection()
@@ -121,9 +127,9 @@ namespace Yoji.U3DAILinker.Settings
                 _registry, _installed, _project.EnabledToolIds, _agentStates,
                 _project.Channel, _user.LocalRepoRoot);
 
-            using (var scope = new EditorGUILayout.ScrollViewScope(_scroll))
+            using (var scope = new EditorGUILayout.ScrollViewScope(_toolScroll))
             {
-                _scroll = scope.scrollPosition;
+                _toolScroll = scope.scrollPosition;
                 foreach (var row in rows)
                     DrawToolRow(row);
             }

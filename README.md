@@ -17,7 +17,7 @@ Add the package from Git URL:
 ```json
 {
   "dependencies": {
-    "com.sputnicyoji.u3d-dev-tools-ai": "https://github.com/sputnicyoji/U3D-Dev-Tools-AI.git?path=/Packages/com.sputnicyoji.u3d-dev-tools-ai#u3d-dev-tools-ai-v0.2.2"
+    "com.sputnicyoji.u3d-dev-tools-ai": "https://github.com/sputnicyoji/U3D-Dev-Tools-AI.git?path=/Packages/com.sputnicyoji.u3d-dev-tools-ai#u3d-dev-tools-ai-v0.2.3"
   }
 }
 ```
