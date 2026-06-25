@@ -2,23 +2,27 @@
 
 ## Purpose
 
-This repository contains Unity Package Manager packages for AI-assisted Unity Editor automation.
+This repository contains one Unity Package Manager package for AI-assisted Unity Editor automation.
 
-Packages:
+Package:
 
-- `com.yoji.editor-core`: shared Editor-only infrastructure.
-- `com.yoji.editor-debug`: local HTTP+JSON Editor inspection and reflection service.
-- `com.yoji.test-runner`: local HTTP test runner and recompilation service.
-- `com.yoji.lua-device-debug`: Lua diagnostics transport for project-provided hosts.
-- `com.yoji.u3d-ai-linker`: Project Settings UI for installing tools and syncing agent assets.
+- `com.sputnicyoji.u3d-dev-tools-ai`
+
+Internal modules:
+
+- `Editor/Core`: shared Editor-only infrastructure.
+- `Editor/EditorDebug`: local HTTP+JSON Editor inspection and reflection service.
+- `Editor/TestRunner`: local HTTP test runner and recompilation service.
+- `Runtime/LuaDeviceDebug` and `Editor/LuaDeviceDebug`: Lua diagnostics transport for project-provided hosts.
+- `Editor/U3DAILinker`: Project Settings UI for registry inspection and agent asset sync.
 
 ## Development rules
 
-- Keep packages independently understandable and installable.
+- Keep internal modules independently understandable inside the single package.
 - Do not commit credentials, private project data, device identifiers, local machine paths, Unity caches, or generated logs.
 - Prefer placeholders such as `<repo-root>` and `<project-root>` in docs.
-- Keep `Registry/stable.json` and `Packages/com.yoji.u3d-ai-linker/Registry/stable.json` synchronized.
-- Keep `Registry/dev.json` and `Packages/com.yoji.u3d-ai-linker/Registry/dev.json` synchronized.
+- Keep `Registry/stable.json` and `Packages/com.sputnicyoji.u3d-dev-tools-ai/Registry/stable.json` synchronized.
+- Keep `Registry/dev.json` and `Packages/com.sputnicyoji.u3d-dev-tools-ai/Registry/dev.json` synchronized.
 - If a protocol, CLI, or port changes, update the matching `README.md`, `SKILL.md`, and e2e reference script.
 
 ## Validation

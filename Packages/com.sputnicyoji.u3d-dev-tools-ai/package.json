@@ -1,0 +1,19 @@
+{
+  "name": "com.sputnicyoji.u3d-dev-tools-ai",
+  "version": "0.2.0",
+  "displayName": "U3D Dev Tools AI",
+  "description": "Unity Editor automation tools for AI agents: test runner, reflection debug service, Lua diagnostics transport, and agent linker.",
+  "unity": "2022.3",
+  "keywords": [
+    "unity",
+    "editor",
+    "ai",
+    "mcp",
+    "testing",
+    "debugging"
+  ],
+  "dependencies": {
+    "com.unity.nuget.newtonsoft-json": "3.2.2",
+    "com.unity.test-framework": "1.1.33"
+  }
+}

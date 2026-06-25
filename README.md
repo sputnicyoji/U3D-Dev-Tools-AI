@@ -2,106 +2,71 @@
 
 Unity Package Manager tools for AI-assisted Unity Editor automation.
 
-This repository is a UPM monorepo. It provides local Editor services and agent-side clients so an AI coding agent can run Unity tests, inspect Editor state, diagnose Lua runtime state through a project adapter, and install the toolset into another Unity project.
+This repository is distributed as one UPM package:
 
-## Packages
+```text
+com.sputnicyoji.u3d-dev-tools-ai
+```
 
-| Package | Version | Purpose |
-|---|---:|---|
-| `com.yoji.editor-core` | `0.1.2` | Shared Editor-only infrastructure: main-thread dispatch, bounded request body reading, service lifecycle, and project-aware port registry. |
-| `com.yoji.editor-debug` | `0.1.2` | HTTP+JSON reflection/debug service for Unity Editor inspection. |
-| `com.yoji.test-runner` | `0.1.6` | HTTP service for recompilation, EditMode tests, PlayMode tests, and test discovery. |
-| `com.yoji.lua-device-debug` | `0.1.2` | Transport layer for project-provided Lua runtime diagnostics in Editor and Android Development Builds. |
-| `com.yoji.u3d-ai-linker` | `0.1.6` | Project Settings package that installs the tools and syncs Claude Code / Codex skills into a target project. |
+It contains local Editor services and agent-side clients so an AI coding agent can run Unity tests, inspect Editor state, diagnose Lua runtime state through a project adapter, and sync agent skills into a Unity project.
 
 ## Install
 
-### Recommended: install the linker
-
-Add the linker from Git URL:
+Add the package from Git URL:
 
 ```json
 {
   "dependencies": {
-    "com.yoji.u3d-ai-linker": "https://github.com/sputnicyoji/U3D-Dev-Tools-AI.git?path=/Packages/com.yoji.u3d-ai-linker#u3d-ai-linker-v0.1.6"
+    "com.sputnicyoji.u3d-dev-tools-ai": "https://github.com/sputnicyoji/U3D-Dev-Tools-AI.git?path=/Packages/com.sputnicyoji.u3d-dev-tools-ai#u3d-dev-tools-ai-v0.2.0"
   }
 }
 ```
 
-Then open Unity and use:
-
-```text
-Edit > Project Settings > U3D AI Linker
-```
-
-The linker reads `Registry/stable.json` and installs the selected tools as top-level UPM dependencies.
-
-### Direct Git URL install
-
-Unity does not resolve sibling Git packages from this monorepo automatically. If installing tools directly, add `editor-core` as a top-level dependency.
+For local development, replace `<repo-root>` with an absolute path on your workstation:
 
 ```json
 {
   "dependencies": {
-    "com.yoji.editor-core": "https://github.com/sputnicyoji/U3D-Dev-Tools-AI.git?path=/Packages/com.yoji.editor-core#editor-core-v0.1.2",
-    "com.yoji.editor-debug": "https://github.com/sputnicyoji/U3D-Dev-Tools-AI.git?path=/Packages/com.yoji.editor-debug#editor-debug-v0.1.2",
-    "com.yoji.test-runner": "https://github.com/sputnicyoji/U3D-Dev-Tools-AI.git?path=/Packages/com.yoji.test-runner#test-runner-v0.1.6"
+    "com.sputnicyoji.u3d-dev-tools-ai": "file:<repo-root>/Packages/com.sputnicyoji.u3d-dev-tools-ai"
   }
 }
 ```
 
-For Lua diagnostics:
+If the repository is private, configure Git authentication before opening Unity. Use an SSH key or a Git credential helper. Do not put access tokens in `manifest.json`.
 
-```json
-{
-  "dependencies": {
-    "com.yoji.editor-core": "https://github.com/sputnicyoji/U3D-Dev-Tools-AI.git?path=/Packages/com.yoji.editor-core#editor-core-v0.1.2",
-    "com.yoji.lua-device-debug": "https://github.com/sputnicyoji/U3D-Dev-Tools-AI.git?path=/Packages/com.yoji.lua-device-debug#lua-device-debug-v0.1.2"
-  }
-}
-```
+## Contents
 
-### Local development install
+| Module | Path | Purpose |
+|---|---|---|
+| Core | `Editor/Core` | Shared Editor-only infrastructure: main-thread dispatch, bounded request body reading, service lifecycle, and project-aware port registry. |
+| Test Runner | `Editor/TestRunner` | HTTP service for recompilation, EditMode tests, PlayMode tests, and test discovery. |
+| Editor Debug | `Editor/EditorDebug` | HTTP+JSON reflection/debug service for Unity Editor inspection. |
+| Lua Device Debug | `Runtime/LuaDeviceDebug`, `Editor/LuaDeviceDebug` | Transport layer for project-provided Lua runtime diagnostics in Editor and Android Development Builds. |
+| U3D Dev Tools AI Settings | `Editor/U3DAILinker` | Project Settings UI for agent asset sync and package registry inspection. |
+| Agent assets | `Agent~` | Python clients, skills, and managed rule fragments for Claude Code / Codex. |
 
-Replace `<repo-root>` with an absolute path on your workstation:
-
-```json
-{
-  "dependencies": {
-    "com.yoji.editor-core": "file:<repo-root>/Packages/com.yoji.editor-core",
-    "com.yoji.test-runner": "file:<repo-root>/Packages/com.yoji.test-runner"
-  }
-}
-```
-
-### Private repository access
-
-If the GitHub repository is private, configure Git authentication before adding the package in Unity. Use an SSH key or a Git credential helper. Do not put tokens in `manifest.json`.
+The package keeps multiple asmdef assemblies internally. Users install one UPM package.
 
 ## Tool summary
 
 ### Test Runner MCP
 
-Package path: `Packages/com.yoji.test-runner`
-
 Default ports: legacy `21890`, `21896`, `21897`; project offset `+0`.
 
 ```powershell
-python Packages/com.yoji.test-runner/Agent~/skills/test-runner-mcp/client.py ping
-python Packages/com.yoji.test-runner/Agent~/skills/test-runner-mcp/client.py list-tests --mode EditMode
-python Packages/com.yoji.test-runner/Agent~/skills/test-runner-mcp/client.py run-tests --mode EditMode
+python Packages/com.sputnicyoji.u3d-dev-tools-ai/Agent~/skills/test-runner-mcp/client.py ping
+python Packages/com.sputnicyoji.u3d-dev-tools-ai/Agent~/skills/test-runner-mcp/client.py list-tests --mode EditMode
+python Packages/com.sputnicyoji.u3d-dev-tools-ai/Agent~/skills/test-runner-mcp/client.py run-tests --mode EditMode
 ```
 
 PlayMode tests are supported through a temporary `EnterPlayModeOptions.DisableDomainReload` overlay. The service restores the user's PlayMode settings when the run ends.
 
 ### Editor Debug MCP
 
-Package path: `Packages/com.yoji.editor-debug`
-
 Default ports: legacy `21891`, `21892`, `21893`; project offset `+1`.
 
 ```powershell
-cd Packages/com.yoji.editor-debug/Agent~/skills/unity-editor-debug-mcp
+cd Packages/com.sputnicyoji.u3d-dev-tools-ai/Agent~/skills/unity-editor-debug-mcp
 python client.py ping
 python client.py describe --type UnityEngine.Application
 python client.py invoke --type UnityEngine.Application --member isPlaying --kind get
@@ -112,14 +77,12 @@ python client.py console --count 30 --filter error
 
 ### Lua Device Debug
 
-Package path: `Packages/com.yoji.lua-device-debug`
-
 Default port: legacy `21894`; project offset `+4`.
 
 The package provides transport only. The target project must implement and register `ILuaDeviceDebugHost`.
 
 ```powershell
-cd Packages/com.yoji.lua-device-debug/Agent~/skills/unity-lua-device-debug
+cd Packages/com.sputnicyoji.u3d-dev-tools-ai/Agent~/skills/unity-lua-device-debug
 python client.py ping
 python client.py commands
 python client.py execute system.info
@@ -133,44 +96,48 @@ python client.py ping
 python client.py adb-remove
 ```
 
-### U3D AI Linker
+### U3D Dev Tools AI settings
 
-Package path: `Packages/com.yoji.u3d-ai-linker`
+Open:
 
-The linker provides a Project Settings surface for:
+```text
+Edit > Project Settings > U3D Dev Tools AI
+```
+
+The linker manages:
 
 - stable/dev registry inspection
-- manifest transaction planning
-- tool install/update
 - agent asset sync
 - Windows junction repair for `.claude/skills` and `.agents/skills`
+- managed fragments for Claude Code and Codex
 
 ## Repository layout
 
 ```text
-Packages/com.yoji.editor-core/
-Packages/com.yoji.editor-debug/
-Packages/com.yoji.test-runner/
-Packages/com.yoji.lua-device-debug/
-Packages/com.yoji.u3d-ai-linker/
+Packages/com.sputnicyoji.u3d-dev-tools-ai/
+  package.json
+  Editor/
+  Runtime/
+  Tests/
+  Agent~/
+  Registry/
 Registry/stable.json
 Registry/dev.json
-TestProjects/<package>/
+TestProjects/<fixture>/
 tools/run-editmode.ps1
 ```
-
-Each package keeps its Unity code under `Editor/` or `Runtime/`. Agent clients and skills live under `Agent~/`, which Unity does not compile.
 
 ## Validation
 
 Run syntax checks after editing scripts or registry files:
 
 ```powershell
-python -m py_compile Packages/com.yoji.test-runner/Agent~/skills/test-runner-mcp/client.py
-python -m py_compile Packages/com.yoji.editor-debug/Agent~/skills/unity-editor-debug-mcp/client.py
-python -m py_compile Packages/com.yoji.lua-device-debug/Agent~/skills/unity-lua-device-debug/client.py
+python -m py_compile Packages/com.sputnicyoji.u3d-dev-tools-ai/Agent~/skills/test-runner-mcp/client.py
+python -m py_compile Packages/com.sputnicyoji.u3d-dev-tools-ai/Agent~/skills/unity-editor-debug-mcp/client.py
+python -m py_compile Packages/com.sputnicyoji.u3d-dev-tools-ai/Agent~/skills/unity-lua-device-debug/client.py
 python -m json.tool Registry/stable.json
 python -m json.tool Registry/dev.json
+python tools/test-single-package-layout.py
 ```
 
 Run EditMode tests with an installed Unity Editor:
@@ -198,8 +165,8 @@ You can also set `UNITY_EXE` or `UNITY_EDITOR_PATH` instead of passing `-Unity`.
 - Debug services are intended for local development automation.
 - `lua-device-debug` starts in Player only for Android Development Builds.
 - Mutating Lua commands require both a mutating descriptor and an explicit CLI flag.
-- No telemetry service is included in these packages.
+- No telemetry service is included.
 
 ## Publishing model
 
-Current distribution is Git URL UPM. A future Asset Store UPM release can use the same package folders, but package namespaces must match the publisher namespace claimed in the Unity Publisher Portal.
+Current distribution is Git URL UPM. A future Asset Store UPM release can use the same package folder, but the package namespace must match the publisher namespace claimed in the Unity Publisher Portal.

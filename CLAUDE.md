@@ -1,18 +1,22 @@
 # CLAUDE.md
 
-This repository is a Unity Package Manager monorepo for AI-assisted Unity Editor automation.
+This repository is a single Unity Package Manager package for AI-assisted Unity Editor automation.
 
-## Packages
+## Package
 
-- `com.yoji.editor-core`: shared Editor service primitives.
-- `com.yoji.editor-debug`: local Editor reflection/debug HTTP service.
-- `com.yoji.test-runner`: local Unity recompilation and test HTTP service.
-- `com.yoji.lua-device-debug`: transport for project-provided Lua diagnostics hosts.
-- `com.yoji.u3d-ai-linker`: Project Settings linker for tool install and agent asset sync.
+- `com.sputnicyoji.u3d-dev-tools-ai`
+
+Internal modules:
+
+- `Editor/Core`: shared Editor service primitives.
+- `Editor/EditorDebug`: local Editor reflection/debug HTTP service.
+- `Editor/TestRunner`: local Unity recompilation and test HTTP service.
+- `Runtime/LuaDeviceDebug` and `Editor/LuaDeviceDebug`: transport for project-provided Lua diagnostics hosts.
+- `Editor/U3DAILinker`: Project Settings linker for registry inspection and agent asset sync.
 
 ## Working rules
 
-- Treat `Packages/com.yoji.*` as the product surface.
+- Treat `Packages/com.sputnicyoji.*` as the product surface.
 - Treat `TestProjects/*` as validation fixtures.
 - Do not commit machine-specific paths, tokens, private project names, generated Unity caches, or device identifiers.
 - Keep README examples copyable. Use `<repo-root>` and `<project-root>` for placeholders.

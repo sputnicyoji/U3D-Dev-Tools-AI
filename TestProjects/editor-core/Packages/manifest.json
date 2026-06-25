@@ -1,11 +1,11 @@
 {
   "dependencies": {
     "com.unity.test-framework": "1.1.33",
-    "com.yoji.editor-core": "file:../../../Packages/com.yoji.editor-core",
+    "com.sputnicyoji.u3d-dev-tools-ai": "file:../../../Packages/com.sputnicyoji.u3d-dev-tools-ai",
     "com.unity.modules.imgui": "1.0.0",
     "com.unity.modules.jsonserialize": "1.0.0"
   },
   "testables": [
-    "com.yoji.editor-core"
+    "com.sputnicyoji.u3d-dev-tools-ai"
   ]
 }

@@ -2,10 +2,10 @@ from pathlib import Path
 import filecmp
 
 ROOT = Path(__file__).resolve().parents[1]
-SOURCE = ROOT / 'Packages/com.yoji.test-runner/Agent~/skills/test-runner-mcp/port_resolver.py'
+SOURCE = ROOT / 'Packages/com.sputnicyoji.u3d-dev-tools-ai/Agent~/skills/test-runner-mcp/port_resolver.py'
 TARGETS = [
-    ROOT / 'Packages/com.yoji.editor-debug/Agent~/skills/unity-editor-debug-mcp/port_resolver.py',
-    ROOT / 'Packages/com.yoji.lua-device-debug/Agent~/skills/unity-lua-device-debug/port_resolver.py',
+    ROOT / 'Packages/com.sputnicyoji.u3d-dev-tools-ai/Agent~/skills/unity-editor-debug-mcp/port_resolver.py',
+    ROOT / 'Packages/com.sputnicyoji.u3d-dev-tools-ai/Agent~/skills/unity-lua-device-debug/port_resolver.py',
 ]
 
 

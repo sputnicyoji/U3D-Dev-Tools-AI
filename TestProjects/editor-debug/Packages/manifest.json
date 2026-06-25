@@ -1,14 +1,13 @@
 {
   "dependencies": {
     "com.unity.test-framework": "1.1.33",
-    "com.yoji.editor-core": "file:../../../Packages/com.yoji.editor-core",
-    "com.yoji.editor-debug": "file:../../../Packages/com.yoji.editor-debug",
+    "com.sputnicyoji.u3d-dev-tools-ai": "file:../../../Packages/com.sputnicyoji.u3d-dev-tools-ai",
     "com.unity.modules.imgui": "1.0.0",
     "com.unity.modules.jsonserialize": "1.0.0",
     "com.unity.modules.uielements": "1.0.0",
     "com.unity.modules.physics": "1.0.0"
   },
   "testables": [
-    "com.yoji.editor-debug"
+    "com.sputnicyoji.u3d-dev-tools-ai"
   ]
 }

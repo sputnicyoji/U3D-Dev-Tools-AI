@@ -9,8 +9,12 @@ function Read-Json($path) {
   Get-Content -LiteralPath $path -Raw | ConvertFrom-Json
 }
 
+$packageName = "com.sputnicyoji.u3d-dev-tools-ai"
+$packagePath = "Packages/com.sputnicyoji.u3d-dev-tools-ai"
+$entryId = "u3d-dev-tools-ai"
+
 $stablePath = Join-Path $RepoRoot "Registry/stable.json"
-$snapshotPath = Join-Path $RepoRoot "Packages/com.yoji.u3d-ai-linker/Registry/stable.json"
+$snapshotPath = Join-Path $RepoRoot "$packagePath/Registry/stable.json"
 $stable = Read-Json $stablePath
 $snapshot = Read-Json $snapshotPath
 
@@ -20,28 +24,26 @@ if ($stableText -ne $snapshotText) {
   throw "stable registry snapshot differs from root Registry/stable.json"
 }
 
-$ready = @($stable.entries | Where-Object { $_.status -eq "ready" })
-$requiredReadyIds = @("editor-core", "editor-debug", "test-runner", "lua-device-debug", "u3d-ai-linker")
-$readyIds = @($ready | ForEach-Object { $_.id })
-$duplicateIds = @($stable.entries | Group-Object -Property id | Where-Object { $_.Count -gt 1 } | ForEach-Object { $_.Name })
-
-if ($duplicateIds.Count -gt 0) {
-  throw "stable registry has duplicate entry id(s): $($duplicateIds -join ', ')"
+$entries = @($stable.entries)
+if ($entries.Count -ne 1) {
+  throw "stable registry must contain exactly one package entry"
 }
 
-foreach ($id in $requiredReadyIds) {
-  if ($readyIds -notcontains $id) {
-    throw "stable registry missing required ready entry: $id"
-  }
+$entry = $entries[0]
+if ($entry.id -ne $entryId) { throw "unexpected stable entry id: $($entry.id)" }
+if ($entry.status -ne "ready") { throw "stable registry entry must be ready" }
+if ($entry.packageName -ne $packageName) { throw "unexpected packageName: $($entry.packageName)" }
+if ($entry.packagePath -ne $packagePath) { throw "unexpected packagePath: $($entry.packagePath)" }
+
+$pkgPath = Join-Path $RepoRoot "$packagePath/package.json"
+if (!(Test-Path -LiteralPath $pkgPath)) {
+  throw "missing package.json: $pkgPath"
 }
 
-foreach ($entry in $stable.entries) {
-  if ($requiredReadyIds -notcontains $entry.id) {
-    throw "stable registry has unexpected entry: $($entry.id)"
-  }
-  if ($entry.status -ne "ready") {
-    throw "stable registry entry must be ready: $($entry.id)"
-  }
+$pkg = Read-Json $pkgPath
+$expectedRevision = "$entryId-v$($pkg.version)"
+if ($entry.revision -ne $expectedRevision) {
+  throw "revision mismatch: registry=$($entry.revision) expected=$expectedRevision"
 }
 
 function Assert-LocalTag($tag) {
@@ -59,25 +61,7 @@ function Assert-RemoteTag($tag) {
   }
 }
 
-foreach ($entry in $ready) {
-  $pkgPath = Join-Path $RepoRoot ($entry.packagePath + "/package.json")
-  if (!(Test-Path -LiteralPath $pkgPath)) {
-    throw "missing package.json for $($entry.id): $pkgPath"
-  }
-
-  $pkg = Read-Json $pkgPath
-  $expectedRevision = "$($entry.id)-v$($pkg.version)"
-  if ($entry.revision -ne $expectedRevision) {
-    throw "revision mismatch for $($entry.id): registry=$($entry.revision) expected=$expectedRevision"
-  }
-
-  Assert-LocalTag $entry.revision
-  Assert-RemoteTag $entry.revision
-}
-
-$linkerPkg = Read-Json (Join-Path $RepoRoot "Packages/com.yoji.u3d-ai-linker/package.json")
-$linkerTag = "u3d-ai-linker-v$($linkerPkg.version)"
-Assert-LocalTag $linkerTag
-Assert-RemoteTag $linkerTag
+Assert-LocalTag $entry.revision
+Assert-RemoteTag $entry.revision
 
 Write-Host "stable release checks passed"
