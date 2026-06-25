@@ -29,10 +29,13 @@ namespace Yoji.U3DAILinker.Operations
         {
             if (string.IsNullOrEmpty(tag))
                 throw new InvalidOperationException("tag missing");
+            var peeled = ResolveRefSha("refs/tags/" + tag + "^{}", allowMissing: true);
+            if (!string.IsNullOrEmpty(peeled))
+                return peeled;
             return ResolveRefSha("refs/tags/" + tag);
         }
 
-        private string ResolveRefSha(string gitRef)
+        private string ResolveRefSha(string gitRef, bool allowMissing = false)
         {
             var psi = new ProcessStartInfo
             {
@@ -57,6 +60,8 @@ namespace Yoji.U3DAILinker.Operations
                     throw new InvalidOperationException("git ls-remote failed: " + stderr);
 
                 var sha = ExtractSha(stdout);
+                if (string.IsNullOrEmpty(sha) && allowMissing)
+                    return null;
                 if (!Sha40.IsMatch(sha))
                     throw new InvalidOperationException("git ls-remote returned non-SHA output: " + stdout);
                 return sha;

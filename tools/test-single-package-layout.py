@@ -26,7 +26,7 @@ def test_single_public_package_exists():
     manifest = load_json(PKG / "package.json")
     assert manifest["name"] == EXPECTED_NAME
     assert manifest["displayName"] == "U3D Dev Tools AI"
-    assert manifest["version"] == "0.2.3"
+    assert manifest["version"] == "0.2.4"
     dependencies = manifest.get("dependencies", {})
     assert "com.unity.nuget.newtonsoft-json" in dependencies
     assert "com.unity.test-framework" in dependencies
@@ -41,6 +41,15 @@ def test_old_package_roots_removed():
 def test_expected_modules_moved_into_single_package():
     for rel in EXPECTED_MODULES:
         assert (PKG / rel).exists(), f"missing module path: {rel}"
+
+
+def test_all_csharp_sources_have_unity_meta():
+    missing = [
+        str(path.relative_to(ROOT)).replace("\\", "/")
+        for path in sorted(PKG.rglob("*.cs"))
+        if not Path(str(path) + ".meta").is_file()
+    ]
+    assert missing == []
 
 
 def test_test_projects_reference_single_package():
