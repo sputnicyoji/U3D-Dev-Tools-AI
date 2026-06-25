@@ -1,49 +1,49 @@
 ---
 name: unity-lua-device-debug
-description: Connect to Unity Lua Device Debug over HTTP+JSON for Editor and Android Development Build diagnostics. Use when inspecting project-registered Lua debug commands on Unity 2022.3 LTS or newer without arbitrary eval.
+description: Inspect Unity Lua runtime diagnostics through registered commands. Use for Editor or Android Development Build Lua state, command listing, command execution, and adb forwarding.
 ---
 
 # Unity Lua Device Debug
 
-`com.sputnicyoji.u3d-dev-tools-ai` is the generic transport package for Lua runtime diagnostics in Unity 2022.3 LTS or newer.
+Use this skill for project-registered Lua diagnostics.
+It exposes command transport only.
+It does not provide arbitrary Lua eval.
 
-Editor mode uses project-aware local endpoint resolution. Legacy/default local port is `21894`; multi-project Editor sessions use the shared port registry and project offset `+4`. Android Development Build players use remote port `21894` by default, or `Assets/Resources/YojiLuaDeviceDebugRuntimeConfig.asset` when a custom remote port is needed.
+## Operational loop
 
-Use this skill when the target Unity project has installed the package and registered an `ILuaDeviceDebugHost`.
+1. Select the target.
+   Use Editor mode for an open Unity Editor.
+   Use Android mode for a Development Build device.
+   Completion: the report states `Editor` or `Android` target mode.
 
-## Commands
+2. Resolve or forward.
+   Editor: run `python client.py --project <unity-project-root> ping`.
+   Android: run `python client.py adb-forward`, then `python client.py ping`.
+   Use `--port <port>` only for a forced endpoint.
+   Completion: ping proves the Lua debug service is reachable.
 
-```powershell
-python client.py adb-forward
-python client.py ping
-python client.py --port 21894 ping
-python client.py commands
-python client.py execute system.info
-python client.py adb-remove
-```
+3. List registered commands.
+   Run `python client.py commands` before execution.
+   Completion: command descriptors are visible.
 
+4. Execute only listed commands.
+   Run `python client.py execute <command-id>` with `--arg key=value` pairs from the descriptor contract.
+   Completion: the command id exists in the descriptor list and returns JSON.
 
-## Editor port resolution
+5. Guard mutation.
+   Mutating commands require descriptor `mutating=true` and CLI `--allow-mutation`.
+   Completion: the mutation gate is satisfied, or the command is not executed.
 
-Resolution order:
+6. Clean up owned Android forwards.
+   Run `python client.py adb-remove` after Android diagnostics when this CLI created the forward.
+   Completion: owned adb forward is removed or reported as already absent.
 
-1. Explicit `--port` wins.
-2. `--project` or cwd walks up to `.u3d-ai-linker/ports.json`.
-3. The client checks the global registry.
-4. The client healthy-scans legacy port `21894`.
+## Fallback
 
-Use `--project` when available. The client resolves the endpoint from the project ports file and global registry before falling back to legacy ports. Use `--port` only to force a specific debugging endpoint. `21894` is legacy/default, not the only Editor entrypoint. Use `--pid` to disambiguate multiple online Editor instances for the same project.
+If `commands` is empty or ping reports no host, state that the target project must register `ILuaDeviceDebugHost`.
+Do not invent Lua commands.
 
-`adb-forward` and `adb-remove` do not use the Editor resolver; without `--port`, they use local tunnel port `21894`.
+## References
 
-Global flags must come before the subcommand:
-
-```powershell
-python client.py --port 21894 --timeout 10 ping
-python client.py --serial <device-serial> adb-forward
-python client.py execute config.get --arg table=Activity --arg id=1001
-```
-
-Mutating commands are blocked unless both the Unity command descriptor declares `mutating=true` and the CLI call passes `--allow-mutation`.
-
-`adb-forward` reuses an existing same-target forward without taking ownership. `adb-remove` only removes forwards recorded as created by this CLI.
+- `references/protocol.md` for command descriptors and mutation rules.
+- `references/android-adb-forwarding.md` for Development Build transport.
