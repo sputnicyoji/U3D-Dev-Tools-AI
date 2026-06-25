@@ -14,7 +14,7 @@
       "agentAssets": "Agent~",
       "minUnity": "2022.3",
       "dependsOn": [],
-      "revision": "u3d-dev-tools-ai-v0.2.0"
+      "revision": "u3d-dev-tools-ai-v0.2.1"
     }
   ]
 }

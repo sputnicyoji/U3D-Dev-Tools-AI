@@ -26,7 +26,7 @@ def test_single_public_package_exists():
     manifest = load_json(PKG / "package.json")
     assert manifest["name"] == EXPECTED_NAME
     assert manifest["displayName"] == "U3D Dev Tools AI"
-    assert manifest["version"] == "0.2.0"
+    assert manifest["version"] == "0.2.1"
     dependencies = manifest.get("dependencies", {})
     assert "com.unity.nuget.newtonsoft-json" in dependencies
     assert "com.unity.test-framework" in dependencies
@@ -86,4 +86,3 @@ if __name__ == "__main__":
         if name.startswith("test_") and callable(fn):
             fn()
             print(f"OK {name}")
-

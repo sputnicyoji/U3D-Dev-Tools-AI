@@ -9,7 +9,7 @@ namespace Yoji.U3DAILinker.Registry
 
         private const string FilePrefix = "file:";
 
-        /// Stable: tag 形如 u3d-dev-tools-ai-v0.2.0。packagePath 形如 Packages/com.sputnicyoji.u3d-dev-tools-ai。
+        /// Stable: tag 形如 u3d-dev-tools-ai-v0.2.1。packagePath 形如 Packages/com.sputnicyoji.u3d-dev-tools-ai。
         public static string BuildStable(string packagePath, string revision)
         {
             return RepoUrl + "?path=/" + Normalize(packagePath) + "#" + revision;
@@ -45,4 +45,3 @@ namespace Yoji.U3DAILinker.Registry
         }
     }
 }
-

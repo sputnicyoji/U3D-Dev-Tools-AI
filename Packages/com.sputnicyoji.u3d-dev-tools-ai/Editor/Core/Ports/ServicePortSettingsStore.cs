@@ -264,6 +264,12 @@ namespace Yoji.EditorCore.Ports
 
     internal static class PortPersistenceIO
     {
+        private const int k_WriteReplaceAttempts = 6;
+        private const int k_WriteRetryDelayMs = 50;
+        private const int c_HResultSharingViolation = unchecked((int)0x80070020);
+        private const int c_HResultLockViolation = unchecked((int)0x80070021);
+        private const int c_HResultAccessDenied = unchecked((int)0x80070005);
+
         public static T ReadJson<T>(string path) where T : class
         {
             try
@@ -301,11 +307,7 @@ namespace Yoji.EditorCore.Ports
                     writeLock = PortPersistenceLock.Acquire(path);
 
                 File.WriteAllText(tempPath, json ?? string.Empty, new UTF8Encoding(false));
-
-                if (File.Exists(path))
-                    File.Replace(tempPath, path, null);
-                else
-                    File.Move(tempPath, path);
+                ReplaceOrMoveWithRetry(tempPath, path);
             }
             finally
             {
@@ -323,6 +325,51 @@ namespace Yoji.EditorCore.Ports
                     }
                 }
             }
+        }
+
+        private static void ReplaceOrMoveWithRetry(string tempPath, string path)
+        {
+            Exception lastError = null;
+            for (var attempt = 1; attempt <= k_WriteReplaceAttempts; attempt++)
+            {
+                try
+                {
+                    ReplaceOrMove(tempPath, path);
+                    return;
+                }
+                catch (Exception e) when (IsTransientWriteError(e) && attempt < k_WriteReplaceAttempts)
+                {
+                    lastError = e;
+                    Thread.Sleep(k_WriteRetryDelayMs * attempt);
+                }
+                catch (Exception e) when (IsTransientWriteError(e))
+                {
+                    lastError = e;
+                }
+            }
+
+            throw new IOException("failed to atomically replace JSON file after retries: " + path, lastError);
+        }
+
+        private static void ReplaceOrMove(string tempPath, string path)
+        {
+            if (File.Exists(path))
+                File.Replace(tempPath, path, null);
+            else
+                File.Move(tempPath, path);
+        }
+
+        private static bool IsTransientWriteError(Exception e)
+        {
+            if (e is UnauthorizedAccessException)
+                return true;
+
+            if (!(e is IOException))
+                return false;
+
+            return e.HResult == c_HResultSharingViolation ||
+                   e.HResult == c_HResultLockViolation ||
+                   e.HResult == c_HResultAccessDenied;
         }
     }
 

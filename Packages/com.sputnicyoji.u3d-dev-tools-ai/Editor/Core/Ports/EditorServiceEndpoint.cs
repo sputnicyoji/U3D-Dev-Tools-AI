@@ -193,7 +193,7 @@ namespace Yoji.EditorCore.Ports
                     if (now >= m_NextHeartbeatErrorLogAt)
                     {
                         m_NextHeartbeatErrorLogAt = now + k_HeartbeatErrorLogIntervalSeconds;
-                        Debug.LogError("[EditorServiceEndpoint] 心跳刷新失败: " + e.Message);
+                        Debug.LogWarning("[EditorServiceEndpoint] 心跳刷新失败: " + e.Message);
                     }
                 }
             }
