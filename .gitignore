@@ -1,3 +1,4 @@
+# Unity generated folders
 TestProjects/*/Library/
 TestProjects/*/Logs/
 TestProjects/*/UserSettings/
@@ -8,13 +9,24 @@ TestProjects/*/Assets/
 TestProjects/*/.vs/
 *.csproj
 *.sln
-_planning/
+
+# Python generated files
 __pycache__/
 *.pyc
 
-# Local agent-skill experiments. Keep disabled downloads out of commits.
+# Local planning and agent workspace state
+_planning/
+progress.md
+docs/superpowers/
+.agents/
+.claude/
+.codex/
 .disabled/
-.agents/skills/higgsfield-*/
-mcps/higgsfield-game-generation/
 skills-lock.json
 
+# Local MCP snapshots and experiments
+mcps/
+
+# Temporary local folders accidentally created by shells/tools
+null/
+PowerShell 7.6.0/

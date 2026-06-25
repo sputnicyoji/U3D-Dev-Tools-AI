@@ -66,13 +66,7 @@ function Resolve-UnityExecutable {
 
     $editorRoots = @(
         'C:\Program Files\Unity\Hub\Editor',
-        'C:\Program Files\Unity Hub\Editor',
-        'E:\Unity\Unity Editor',
-        'D:\Unity\Unity Editor',
-        'G:\Unity\Unity Editor',
-        'E:\Unity\Hub\Editor',
-        'D:\Unity\Hub\Editor',
-        'G:\Unity\Hub\Editor'
+        'C:\Program Files\Unity Hub\Editor'
     )
 
     if ($projectVersion) {
