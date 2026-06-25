@@ -107,9 +107,25 @@ Edit > Project Settings > U3D Dev Tools AI
 The linker manages:
 
 - stable/dev registry inspection
-- agent asset sync
+- agent skill sync
 - Windows junction repair for `.claude/skills` and `.agents/skills`
 - managed fragments for Claude Code and Codex
+
+### Updating agent skills
+
+The package is the source of truth for bundled skills.
+Do not edit `Library/PackageCache`.
+Do not git-pull directly into `.claude/skills` or `.agents/skills`.
+
+Update flow:
+
+1. Update the UPM Git URL or package revision in `Packages/manifest.json`.
+2. Let Unity resolve the package.
+3. Open `Edit > Project Settings > U3D Dev Tools AI`.
+4. Press `Sync Agent Skills`.
+5. The linker copies skills to `.u3d-ai-linker/skills` and repairs junctions into `.claude/skills` and `.agents/skills`.
+
+The Settings panel reports each skill as `Synced`, `Stale`, `Missing`, `Conflict`, or `Source Missing`.
 
 ## Repository layout
 
