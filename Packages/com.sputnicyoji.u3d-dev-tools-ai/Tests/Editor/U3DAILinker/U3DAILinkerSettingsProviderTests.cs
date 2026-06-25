@@ -59,6 +59,19 @@ namespace Yoji.U3DAILinker.Tests
         }
 
         [Test]
+        public void BuildSkillUpdateInstructions_IncludesSyncFlow()
+        {
+            var text = U3DAILinkerSettingsProvider.BuildSkillUpdateInstructions(
+                "com.sputnicyoji.u3d-dev-tools-ai",
+                "G:/Project/Library/PackageCache/com.sputnicyoji.u3d-dev-tools-ai@hash");
+
+            StringAssert.Contains("Update the UPM Git URL or package revision", text);
+            StringAssert.Contains("Project Settings > U3D Dev Tools AI", text);
+            StringAssert.Contains("Sync Agent Skills", text);
+            StringAssert.Contains(".u3d-ai-linker/skills", text);
+        }
+
+        [Test]
         public void RegistryChannelForProject_UsesDevSnapshotForLocalAndDev()
         {
             Assert.AreEqual(Registry.RegistryChannel.Stable,
@@ -180,12 +193,47 @@ namespace Yoji.U3DAILinker.Tests
                 StringAssert.Contains("Ports:", report);
                 StringAssert.Contains("test-runner-mcp", report);
                 StringAssert.Contains("21900", report);
+                StringAssert.Contains("Agent Skills:", report);
+                StringAssert.Contains("state=", report);
+                StringAssert.Contains("claudeLink=", report);
+                StringAssert.Contains("codexLink=", report);
+                StringAssert.Contains("ownershipHash=", report);
             }
             finally
             {
                 if (System.IO.Directory.Exists(projectRoot))
                     System.IO.Directory.Delete(projectRoot, true);
             }
+        }
+
+        [Test]
+        public void BuildDiagnosticReport_WithMissingAgentSkillRoots_WritesUnavailable()
+        {
+            var project = ScriptableObjectFactory.CreateSettings(LinkerChannel.Stable, "editor-debug");
+            var user = ScriptableObjectFactory.CreateUserSettings("C:/Example/U3D-Dev-Tools-AI");
+            var registry = new LinkerRegistry
+            {
+                Channel = LinkerChannel.Stable,
+                Entries =
+                {
+                    Entry("editor-debug", "com.sputnicyoji.u3d-dev-tools-ai"),
+                }
+            };
+
+            var report = U3DAILinkerSettingsProvider.BuildDiagnosticReport(
+                project,
+                user,
+                registry,
+                new System.Collections.Generic.Dictionary<string, InstalledPackageInfo>(),
+                new System.Collections.Generic.Dictionary<string, AgentState>(),
+                RegistrySource.BundledSnapshot,
+                OperationState.Idle,
+                "stable",
+                null,
+                "",
+                "E:/Project/Library/PackageCache/com.sputnicyoji.u3d-dev-tools-ai");
+
+            StringAssert.Contains("Agent Skills: unavailable:", report);
         }
 
         private static RegistryEntryView Entry(string id, string packageName)

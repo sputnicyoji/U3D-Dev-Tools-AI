@@ -21,6 +21,9 @@ namespace Yoji.U3DAILinker.Settings
         private static U3DAILinkerSettings _project;
         private static U3DAILinkerUserSettings _user;
         private static Vector2 _scroll;
+        private static AgentSkillStatusRow[] _agentSkillRows;
+        private static string _agentSkillError;
+        private static bool _agentSkillDirty = true;
 
         [SettingsProvider]
         public static SettingsProvider CreateProvider()
@@ -34,6 +37,7 @@ namespace Yoji.U3DAILinker.Settings
                 {
                     _project = U3DAILinkerSettingsStore.LoadOrCreateProjectSettings();
                     _user = U3DAILinkerSettingsStore.LoadOrCreateUserSettings();
+                    MarkAgentSkillsDirty();
                 },
             };
         }
@@ -52,6 +56,8 @@ namespace Yoji.U3DAILinker.Settings
             DrawLocalChannelWarning();
             EditorGUILayout.Space();
             DrawPortsSection();
+            EditorGUILayout.Space();
+            DrawAgentSkillsSection();
             EditorGUILayout.Space();
             DrawActionSection();
         }
@@ -236,11 +242,96 @@ namespace Yoji.U3DAILinker.Settings
             }
         }
 
+        private static void DrawAgentSkillsSection()
+        {
+            EditorGUILayout.LabelField("Agent Skills", EditorStyles.boldLabel);
+            EditorGUILayout.HelpBox(
+                "Package Agent~/skills is the source. Sync copies skills to .u3d-ai-linker/skills and repairs Claude/Codex skill links.",
+                MessageType.Info);
+
+            EditorGUILayout.LabelField("Source Package", U3DAILinkerPackage.PackageName);
+            EditorGUILayout.LabelField("PackageRoot", PackageRoot);
+
+            if (_agentSkillDirty)
+                RefreshAgentSkillsCache();
+
+            if (!string.IsNullOrEmpty(_agentSkillError))
+            {
+                EditorGUILayout.HelpBox("Agent Skills unavailable: " + _agentSkillError, MessageType.Warning);
+            }
+            else
+            {
+                using (new EditorGUILayout.HorizontalScope())
+                {
+                    EditorGUILayout.LabelField("skill", EditorStyles.miniBoldLabel, GUILayout.Width(180));
+                    EditorGUILayout.LabelField("state", EditorStyles.miniBoldLabel, GUILayout.Width(90));
+                    EditorGUILayout.LabelField("Claude link", EditorStyles.miniBoldLabel, GUILayout.Width(90));
+                    EditorGUILayout.LabelField("Codex link", EditorStyles.miniBoldLabel, GUILayout.Width(90));
+                    EditorGUILayout.LabelField("ownership hash", EditorStyles.miniBoldLabel);
+                }
+
+                foreach (var row in _agentSkillRows ?? new AgentSkillStatusRow[0])
+                {
+                    using (new EditorGUILayout.HorizontalScope())
+                    {
+                        EditorGUILayout.LabelField(row.SkillName, GUILayout.Width(180));
+                        EditorGUILayout.LabelField(row.State.ToString(), GUILayout.Width(90));
+                        EditorGUILayout.LabelField(row.ClaudeLinkState.ToString(), GUILayout.Width(90));
+                        EditorGUILayout.LabelField(row.AgentsLinkState.ToString(), GUILayout.Width(90));
+                        EditorGUILayout.LabelField(string.IsNullOrEmpty(row.OwnershipHash) ? "-" : row.OwnershipHash);
+                    }
+                }
+            }
+
+            using (new EditorGUI.DisabledScope(!AreAgentButtonsEnabled(_operationState, _registry != null)))
+            using (new EditorGUILayout.HorizontalScope())
+            {
+                if (GUILayout.Button("Sync Agent Skills")) RequestSyncAgents();
+                if (GUILayout.Button("Repair Skill Links")) RequestRepairLinks();
+            }
+
+            using (new EditorGUILayout.HorizontalScope())
+            {
+                if (GUILayout.Button("Refresh Agent Skills")) RefreshAgentSkillsCache();
+                if (GUILayout.Button("Open Generated Skills Folder")) RequestOpenFolder();
+                if (GUILayout.Button("Copy Skill Update Instructions"))
+                {
+                    EditorGUIUtility.systemCopyBuffer = BuildSkillUpdateInstructions(
+                        U3DAILinkerPackage.PackageName,
+                        PackageRoot);
+                    Debug.Log("[U3DAILinker] Skill update instructions copied to clipboard.");
+                }
+            }
+        }
+
+        private static void MarkAgentSkillsDirty()
+        {
+            _agentSkillDirty = true;
+        }
+
+        private static void RefreshAgentSkillsCache()
+        {
+            try
+            {
+                _agentSkillRows = AgentSkillStateModel.Build(ProjectRoot, PackageRoot, new WindowsJunctionManager());
+                _agentSkillError = null;
+            }
+            catch (System.Exception e)
+            {
+                _agentSkillRows = new AgentSkillStatusRow[0];
+                _agentSkillError = e.Message;
+            }
+            finally
+            {
+                _agentSkillDirty = false;
+            }
+        }
+
         private static void DrawActionSection()
         {
             EditorGUILayout.LabelField("Actions", EditorStyles.boldLabel);
             EditorGUILayout.HelpBox(
-                "Install/Update, Restore, Rollback, Agent asset sync, junction repair, folder reveal, and diagnostics are wired.",
+                "Install/Update, Restore, Rollback, Agent assets (skills/fragments/links), folder reveal, and diagnostics are wired.",
                 MessageType.Info);
 
             using (new EditorGUI.DisabledScope(!AreActionButtonsEnabled(_operationState)))
@@ -251,11 +342,11 @@ namespace Yoji.U3DAILinker.Settings
                 if (GUILayout.Button("Install/Update All")) RequestInstallAll();
                 using (new EditorGUI.DisabledScope(!AreAgentButtonsEnabled(_operationState, _registry != null)))
                 {
-                    if (GUILayout.Button("Sync Agent Assets")) RequestSyncAgents();
-                    if (GUILayout.Button("Repair Links")) RequestRepairLinks();
+                    if (GUILayout.Button("Sync Agent Skills")) RequestSyncAgents();
+                    if (GUILayout.Button("Repair Skill Links")) RequestRepairLinks();
                 }
                 if (GUILayout.Button("Rollback Manifest")) RequestRollback();
-                if (GUILayout.Button("Open Generated Folder")) RequestOpenFolder();
+                if (GUILayout.Button("Open Generated Skills Folder")) RequestOpenFolder();
                 if (GUILayout.Button("Copy Diagnostic Report")) RequestCopyDiagnostics();
             }
         }
@@ -268,6 +359,21 @@ namespace Yoji.U3DAILinker.Settings
         internal static bool AreAgentButtonsEnabled(OperationState state, bool registryLoaded)
         {
             return ActionsWired && registryLoaded && state != OperationState.Running;
+        }
+
+        internal static string BuildSkillUpdateInstructions(string packageName, string packageRoot)
+        {
+            var sb = new StringBuilder();
+            sb.AppendLine("Agent skill update flow");
+            sb.AppendLine("Package: " + (string.IsNullOrEmpty(packageName) ? "-" : packageName));
+            sb.AppendLine("PackageRoot: " + (string.IsNullOrEmpty(packageRoot) ? "-" : packageRoot));
+            sb.AppendLine();
+            sb.AppendLine("1. Update the UPM Git URL or package revision in Packages/manifest.json.");
+            sb.AppendLine("2. Let Unity resolve the package.");
+            sb.AppendLine("3. Open Project Settings > U3D Dev Tools AI.");
+            sb.AppendLine("4. Press Sync Agent Skills.");
+            sb.AppendLine("5. Skills are copied to .u3d-ai-linker/skills and linked into .claude/skills and .agents/skills.");
+            return sb.ToString();
         }
 
         // --- 外部子系统注入点(由组装阶段接线;此切片提供默认空实现以保证编译与手动验证)。---
@@ -396,17 +502,21 @@ namespace Yoji.U3DAILinker.Settings
                 if (!result.Success)
                 {
                     _operationState = OperationState.Failed;
-                    Debug.LogError("[U3DAILinker] Sync Agent Assets failed: " + result.Error);
+                    Debug.LogError("[U3DAILinker] Sync Agent Skills failed: " + result.Error);
                     return;
                 }
 
                 _operationState = OperationState.Idle;
-                Debug.Log("[U3DAILinker] Sync Agent Assets succeeded: " + targets.Count + " tools.");
+                Debug.Log("[U3DAILinker] Sync Agent Skills succeeded: " + targets.Count + " tools.");
             }
             catch (System.Exception e)
             {
                 _operationState = OperationState.Failed;
-                Debug.LogError("[U3DAILinker] Sync Agent Assets failed: " + e.Message);
+                Debug.LogError("[U3DAILinker] Sync Agent Skills failed: " + e.Message);
+            }
+            finally
+            {
+                MarkAgentSkillsDirty();
             }
         }
 
@@ -427,7 +537,9 @@ namespace Yoji.U3DAILinker.Settings
 
         private static void RequestOpenFolder()
         {
-            var path = Path.Combine(ProjectRoot, ".u3d-ai-linker");
+            var path = Path.Combine(ProjectRoot, ".u3d-ai-linker", "skills");
+            if (!Directory.Exists(path))
+                path = Path.Combine(ProjectRoot, ".u3d-ai-linker");
             if (!Directory.Exists(path))
             {
                 Debug.LogWarning("[U3DAILinker] Generated folder does not exist yet: " + path);
@@ -629,6 +741,8 @@ namespace Yoji.U3DAILinker.Settings
             sb.AppendLine("Ports:");
             sb.AppendLine(LoadPortsSummary(projectRoot));
             sb.AppendLine();
+            AppendAgentSkillsDiagnostics(sb, projectRoot, packageRoot);
+            sb.AppendLine();
 
             if (registry == null)
             {
@@ -659,6 +773,41 @@ namespace Yoji.U3DAILinker.Settings
                 sb.AppendLine("  targetHash=" + (row.ExpectedHash ?? "-"));
             }
             return sb.ToString();
+        }
+
+        private static void AppendAgentSkillsDiagnostics(
+            StringBuilder sb,
+            string projectRoot,
+            string packageRoot)
+        {
+            if (string.IsNullOrEmpty(projectRoot) || string.IsNullOrEmpty(packageRoot))
+            {
+                sb.AppendLine("Agent Skills: unavailable: projectRoot or packageRoot missing");
+                return;
+            }
+
+            try
+            {
+                var rows = AgentSkillStateModel.Build(projectRoot, packageRoot, new WindowsJunctionManager());
+                sb.AppendLine("Agent Skills:");
+                foreach (var row in rows)
+                {
+                    sb.AppendLine("- " + row.SkillName +
+                                  " state=" + row.State +
+                                  " claudeLink=" + row.ClaudeLinkState +
+                                  " codexLink=" + row.AgentsLinkState +
+                                  " ownershipHash=" + (row.OwnershipHash ?? "-"));
+                    sb.AppendLine("  source=" + (row.SourcePath ?? "-"));
+                    sb.AppendLine("  generated=" + (row.GeneratedPath ?? "-"));
+                    sb.AppendLine("  claude=" + (row.ClaudeLinkPath ?? "-"));
+                    sb.AppendLine("  codex=" + (row.AgentsLinkPath ?? "-"));
+                    sb.AppendLine("  message=" + (row.Message ?? "-"));
+                }
+            }
+            catch (System.Exception e)
+            {
+                sb.AppendLine("Agent Skills: unavailable: " + e.Message);
+            }
         }
 
         private static string LoadPortsSummary(string projectRoot)
