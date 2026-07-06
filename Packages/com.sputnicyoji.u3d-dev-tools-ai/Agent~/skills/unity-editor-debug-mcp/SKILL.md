@@ -28,6 +28,9 @@ Do not enable `/eval`; it is disabled by default.
 4. Invoke or batch.
    Use `invoke`, `invoke-chain`, `console`, or `batch`.
    Prefer batch for related reads.
+   Use `invoke --defer` for calls that trigger domain reload or play transition (`EnterPlaymode`, `ExitPlaymode`,
+   forced reimports): the action runs on the next editor tick after the response is written, so the reload cannot
+   race the pending HTTP response and stall the Editor. After a deferred call, poll `/ping` for the new state.
    Completion: the response is parsed and checked for `error` and truncation markers.
 
 5. Verify state-changing claims with a second signal.

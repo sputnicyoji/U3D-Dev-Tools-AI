@@ -44,6 +44,14 @@ namespace Yoji.EditorCore.Ports
 
         public void Register(ServiceInstanceRecord record)
         {
+            Register(record, null);
+        }
+
+        /// isProcessAlive 非空时顺带自愈: (a) 剔除同 serviceId+processId 的旧行——domain reload 换
+        /// instanceId/port 后的前身; (b) 剔除进程已死的行——崩溃/强杀不会走 Unregister, 注册与 10s
+        /// 心跳是唯一清理点。谓词判不准时应返回 true (从宽), 客户端 /ping 探活兜底。
+        public void Register(ServiceInstanceRecord record, Func<int, bool> isProcessAlive)
+        {
             if (record == null)
                 throw new ArgumentNullException(nameof(record));
             if (string.IsNullOrWhiteSpace(record.InstanceId))
@@ -58,11 +66,20 @@ namespace Yoji.EditorCore.Ports
                     for (var i = 0; i < document.instances.Length; i++)
                     {
                         var existing = document.instances[i];
-                        if (existing != null && string.Equals(existing.instanceId, record.InstanceId, StringComparison.Ordinal))
+                        if (existing == null)
                             continue;
+                        if (string.Equals(existing.instanceId, record.InstanceId, StringComparison.Ordinal))
+                            continue;
+                        if (isProcessAlive != null)
+                        {
+                            if (string.Equals(existing.serviceId, record.ServiceId, StringComparison.Ordinal)
+                                && existing.processId == record.ProcessId)
+                                continue;
+                            if (!isProcessAlive(existing.processId))
+                                continue;
+                        }
 
-                        if (existing != null)
-                            instances.Add(existing);
+                        instances.Add(existing);
                     }
                 }
 

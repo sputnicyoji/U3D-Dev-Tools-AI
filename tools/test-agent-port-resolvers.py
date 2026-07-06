@@ -193,6 +193,23 @@ class PortResolverTests(unittest.TestCase):
             self.assertEqual(resolved_port, port2)
             self.assertEqual(source, "project-registry")
 
+    def test_duplicate_instance_rows_same_pid_port_resolve_without_ambiguity(self) -> None:
+        # domain reload / 崩溃残留会给同一 pid+port 留多个 instanceId 行; 它们指向同一监听器, 不应报 ambiguous.
+        with ping_server("test-runner-mcp") as port:
+            write_json(
+                self.project / ".u3d-ai-linker" / "ports.json",
+                {"instances": [
+                    {"serviceId": "test-runner-mcp", "host": "127.0.0.1", "port": port, "processId": 101, "projectRoot": str(self.project), "instanceId": "old"},
+                    {"serviceId": "test-runner-mcp", "host": "127.0.0.1", "port": port, "processId": 101, "projectRoot": str(self.project), "instanceId": "new"},
+                ]},
+            )
+
+            host, resolved_port, source = self._resolve(project=str(self.project))
+
+            self.assertEqual(host, "127.0.0.1")
+            self.assertEqual(resolved_port, port)
+            self.assertEqual(source, "project-registry")
+
     def test_malformed_json_falls_back_to_legacy_default_unverified(self) -> None:
         ports = self.project / ".u3d-ai-linker" / "ports.json"
         ports.parent.mkdir(parents=True, exist_ok=True)

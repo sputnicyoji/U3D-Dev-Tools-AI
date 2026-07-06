@@ -17,6 +17,13 @@ namespace Yoji.EditorCore.Ports
 
         public static void Upsert(string projectRoot, ServiceInstanceRecord record)
         {
+            Upsert(projectRoot, record, null);
+        }
+
+        /// isProcessAlive 语义与 ServiceInstanceRegistry.Register(record, isProcessAlive) 一致:
+        /// 剔除同 serviceId+processId 旧行与死进程残留行, 注册/心跳时自愈。
+        public static void Upsert(string projectRoot, ServiceInstanceRecord record, Func<int, bool> isProcessAlive)
+        {
             if (record == null)
                 throw new ArgumentNullException(nameof(record));
             if (string.IsNullOrWhiteSpace(record.InstanceId))
@@ -34,11 +41,20 @@ namespace Yoji.EditorCore.Ports
                     for (var i = 0; i < document.instances.Length; i++)
                     {
                         var existing = document.instances[i];
-                        if (existing != null && string.Equals(existing.instanceId, record.InstanceId, StringComparison.Ordinal))
+                        if (existing == null)
                             continue;
+                        if (string.Equals(existing.instanceId, record.InstanceId, StringComparison.Ordinal))
+                            continue;
+                        if (isProcessAlive != null)
+                        {
+                            if (string.Equals(existing.serviceId, record.ServiceId, StringComparison.Ordinal)
+                                && existing.processId == record.ProcessId)
+                                continue;
+                            if (!isProcessAlive(existing.processId))
+                                continue;
+                        }
 
-                        if (existing != null)
-                            instances.Add(existing);
+                        instances.Add(existing);
                     }
                 }
 

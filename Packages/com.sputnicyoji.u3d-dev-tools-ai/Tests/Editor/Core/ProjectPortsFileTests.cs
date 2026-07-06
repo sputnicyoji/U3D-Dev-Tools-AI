@@ -34,6 +34,31 @@ namespace Yoji.EditorCore.Tests
             Assert.AreEqual(2, loaded.Count);
         }
 
+        // 与 ServiceInstanceRegistry 同语义的 stale 自愈: 死 pid 行与同 serviceId+pid 前身行在带谓词 Upsert 时清除.
+        [Test]
+        public void Upsert_WithLiveness_PrunesDeadAndSupersedesSameServicePid()
+        {
+            var root = Path.Combine(Path.GetTempPath(), "yoji-ports-" + Path.GetRandomFileName());
+            var dead = ServiceInstanceRecord.Create("test-runner-mcp", "TestRunnerMCP", root, "p", 111, 21900, "project-auto");
+            var alivePeer = ServiceInstanceRecord.Create("unity-lua-device-debug", "LuaDeviceDebug", root, "p", 222, 21894, "project-auto");
+            var predecessor = ServiceInstanceRecord.Create("unity-editor-debug-mcp", "EditorDebugMCP", root, "p", 333, 21891, "project-auto");
+            ProjectPortsFile.Upsert(root, dead);
+            ProjectPortsFile.Upsert(root, alivePeer);
+            ProjectPortsFile.Upsert(root, predecessor);
+
+            var reborn = ServiceInstanceRecord.Create("unity-editor-debug-mcp", "EditorDebugMCP", root, "p", 333, 21892, "project-auto");
+            ProjectPortsFile.Upsert(root, reborn, pid => pid != 111);
+
+            var loaded = ProjectPortsFile.Load(root);
+            Assert.AreEqual(2, loaded.Count);
+            foreach (var record in loaded)
+            {
+                Assert.AreNotEqual(111, record.ProcessId, "dead pid row must be pruned");
+                if (record.ProcessId == 333)
+                    Assert.AreEqual(reborn.InstanceId, record.InstanceId, "same service+pid predecessor must be superseded");
+            }
+        }
+
         [Test]
         public void Remove_DeletesOneInstanceAndKeepsOthers()
         {

@@ -161,6 +161,8 @@ def cmd_invoke(args: argparse.Namespace) -> dict[str, Any]:
         payload["args"] = parse_args_list(args.args)
     if args.arg_types:
         payload["argTypes"] = list(args.arg_types)
+    if args.defer:
+        payload["defer"] = True
     target = parse_target(args.target_object_id)
     if target is not None:
         payload["target"] = target
@@ -184,6 +186,8 @@ def cmd_invoke_chain(args: argparse.Namespace) -> dict[str, Any]:
         steps.append(step)
 
     payload: dict[str, Any] = {"type": args.type, "steps": steps}
+    if args.defer:
+        payload["defer"] = True
     target = parse_target(args.target_object_id)
     if target is not None:
         payload["target"] = target
@@ -251,6 +255,9 @@ def build_parser() -> argparse.ArgumentParser:
     sp_invoke.add_argument("--target-instance-id", "--target-entity-id",
                            dest="target_object_id",
                            help="实例调用时的对象 ID；Unity 6.4+ 可传 UInt64 十进制字符串")
+    sp_invoke.add_argument("--defer", action="store_true",
+                           help="延迟到下一 editor tick 执行（响应先回）；EnterPlaymode/ExitPlaymode 等会触发 "
+                                "domain reload 的调用必须用此开关，否则响应写回与 reload 互等")
     sp_invoke.set_defaults(func=cmd_invoke)
 
     sp_chain = sub.add_parser("invoke-chain", help="反射链式调用（多步）")
@@ -260,6 +267,8 @@ def build_parser() -> argparse.ArgumentParser:
     sp_chain.add_argument("--target-instance-id", "--target-entity-id",
                           dest="target_object_id",
                           help="起点对象 ID；Unity 6.4+ 可传 UInt64 十进制字符串")
+    sp_chain.add_argument("--defer", action="store_true",
+                          help="延迟到下一 editor tick 执行（响应先回）；会触发 domain reload 的链尾调用用此开关")
     sp_chain.set_defaults(func=cmd_invoke_chain)
 
     sp_desc = sub.add_parser("describe", help="列出类型成员清单")

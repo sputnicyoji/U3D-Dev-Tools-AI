@@ -95,7 +95,7 @@ def resolve_endpoint(
 
 def _candidate_records(service_id: str, project_root: Path | None, pid: int | None) -> list[dict[str, Any]]:
     records: list[dict[str, Any]] = []
-    seen: set[tuple[int | None, int, str]] = set()
+    seen: set[tuple[int | None, int]] = set()
 
     if project_root is not None:
         records.extend(_load_scoped_records(project_root, "project-registry"))
@@ -109,7 +109,9 @@ def _candidate_records(service_id: str, project_root: Path | None, pid: int | No
             continue
         if pid is not None and record["processId"] != pid:
             continue
-        key = (record["processId"], record["port"], record["instanceId"])
+        # 去重键不含 instanceId: domain reload / 崩溃残留会给同一 pid+port 留多个 instanceId 行,
+        # 它们指向同一监听器, 各自探活成功会造成假 ambiguous (同 pid/port 在错误摘要里出现两次).
+        key = (record["processId"], record["port"])
         if key in seen:
             continue
         seen.add(key)

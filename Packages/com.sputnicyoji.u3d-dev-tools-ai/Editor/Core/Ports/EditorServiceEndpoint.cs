@@ -17,6 +17,7 @@ namespace Yoji.EditorCore.Ports
         private readonly ServiceInstanceRegistry m_Registry;
         private readonly Action<string, ServiceInstanceRecord> m_ProjectUpsert;
         private readonly Action<string, string> m_ProjectRemove;
+        private readonly Func<int, bool> m_IsProcessAlive;
         private readonly IDisposable m_Listener;
         private readonly object m_Gate = new object();
         private double m_NextHeartbeatAt;
@@ -32,6 +33,7 @@ namespace Yoji.EditorCore.Ports
             ServiceInstanceRegistry registry,
             Action<string, ServiceInstanceRecord> projectUpsert,
             Action<string, string> projectRemove,
+            Func<int, bool> isProcessAlive,
             IDisposable listener)
         {
             Assignment = assignment;
@@ -39,6 +41,7 @@ namespace Yoji.EditorCore.Ports
             m_Registry = registry;
             m_ProjectUpsert = projectUpsert;
             m_ProjectRemove = projectRemove;
+            m_IsProcessAlive = isProcessAlive;
             m_Listener = listener;
             m_NextHeartbeatAt = EditorApplication.timeSinceStartup + k_HeartbeatIntervalSeconds;
         }
@@ -56,9 +59,10 @@ namespace Yoji.EditorCore.Ports
                 identity,
                 ServiceInstanceRegistry.Default(),
                 listenerFactory,
-                ProjectPortsFile.Upsert,
+                (root, record) => ProjectPortsFile.Upsert(root, record, ProcessLiveness.IsAlive),
                 (root, instanceId) => { ProjectPortsFile.Remove(root, instanceId); },
-                maxStartAttempts);
+                maxStartAttempts,
+                ProcessLiveness.IsAlive);
         }
 
         internal static EditorServiceEndpoint StartForTests(
@@ -69,7 +73,8 @@ namespace Yoji.EditorCore.Ports
             Func<ServicePortAssignment, IDisposable> listenerFactory,
             Action<string, ServiceInstanceRecord> projectUpsert,
             Action<string, string> projectRemove,
-            int maxStartAttempts = 8)
+            int maxStartAttempts = 8,
+            Func<int, bool> isProcessAlive = null)
         {
             if (definition == null)
                 throw new ArgumentNullException(nameof(definition));
@@ -120,7 +125,7 @@ namespace Yoji.EditorCore.Ports
                         assignment.Port,
                         assignment.Source);
 
-                    registry.Register(record);
+                    registry.Register(record, isProcessAlive);
                     projectUpsert(record.ProjectRoot, record);
 
                     return new EditorServiceEndpoint(
@@ -129,6 +134,7 @@ namespace Yoji.EditorCore.Ports
                         registry,
                         projectUpsert,
                         projectRemove,
+                        isProcessAlive,
                         listener);
                 }
                 catch (Exception ex)
@@ -185,7 +191,8 @@ namespace Yoji.EditorCore.Ports
                 try
                 {
                     Record.Touch();
-                    m_Registry.Register(Record);
+                    // 心跳即自愈: 每 10s 顺带清同 service+pid 旧行与死进程残留 (m_IsProcessAlive 为 null 时退化为纯刷新).
+                    m_Registry.Register(Record, m_IsProcessAlive);
                     m_ProjectUpsert(Record.ProjectRoot, Record);
                 }
                 catch (Exception e)

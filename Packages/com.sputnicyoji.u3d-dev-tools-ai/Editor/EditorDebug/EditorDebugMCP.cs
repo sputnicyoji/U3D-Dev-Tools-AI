@@ -16,7 +16,7 @@ namespace Yoji.EditorDebug
     [InitializeOnLoad]
     internal static class EditorDebugMCP
     {
-        private const string k_Version = "0.1.1";
+        private const string k_Version = "0.1.2";
         private static readonly bool c_AllowEval = false; // 需要 /eval 时显式改成 true
         private const int k_MaxBodyBytes = 4 * 1024 * 1024;
         private static readonly ServicePortDefinition k_PortDefinition = ServicePortDefinition.Create(
@@ -152,6 +152,8 @@ namespace Yoji.EditorDebug
                 case "/ping":
                     return new JObject { ["ok"] = true, ["elapsedMs"] = 0, ["result"] = Ping() };
                 case "/invoke":
+                    if (req.Value<bool?>("defer") == true)
+                        return RunDeferred(req);
                     return RunOnMain(() => ReflectionInvoker.Execute(req));
                 case "/describe":
                     return RunOnMain(() => DescribeHandler.Describe(req.Value<string>("type")));
@@ -207,6 +209,36 @@ namespace Yoji.EditorDebug
                 payload["ok"] = true;
                 payload["elapsedMs"] = elapsed;
                 return payload;
+            }
+            catch (Exception e)
+            {
+                return ErrorEnvelope(e);
+            }
+        }
+
+        /// defer=true：主线程跳内只把执行排进 delayCall（下一 editor tick），响应先写回、动作后执行。
+        /// 用于会触发 domain reload / play transition 的调用（EnterPlaymode / ExitPlaymode / 刷新导入等），
+        /// 避免"响应写回"与 reload 撕裂互等。结果不回传；失败 LogError 落 Console，客户端用 /console 或 /ping 追认。
+        private static JObject RunDeferred(JObject req)
+        {
+            try
+            {
+                MainThreadDispatcher.Run(() =>
+                {
+                    EditorApplication.delayCall += () =>
+                    {
+                        try { ReflectionInvoker.Execute(req); }
+                        catch (Exception e) { Debug.LogError("[EditorDebugMCP] deferred invoke failed: " + e.Message); }
+                    };
+                    return null;
+                }, out var elapsed);
+                return new JObject
+                {
+                    ["ok"] = true,
+                    ["elapsedMs"] = elapsed,
+                    ["deferred"] = true,
+                    ["result"] = new JObject { ["queued"] = true },
+                };
             }
             catch (Exception e)
             {
