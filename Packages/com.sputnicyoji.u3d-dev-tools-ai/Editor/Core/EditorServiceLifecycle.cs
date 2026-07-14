@@ -13,10 +13,20 @@ namespace Yoji.EditorCore
         /// start 须自身幂等（重复调用应早退）——delayCall 与 afterAssemblyReload 可能就同一次重载各触发一次。
         public static void Bind(Action start, Action stop)
         {
+            if (!ShouldBind(AssetDatabase.IsAssetImportWorkerProcess()))
+            {
+                return;
+            }
+
             EditorApplication.delayCall += () => start();
             AssemblyReloadEvents.afterAssemblyReload += () => start();
             AssemblyReloadEvents.beforeAssemblyReload += () => stop();
             EditorApplication.quitting += stop;
+        }
+
+        internal static bool ShouldBind(bool isAssetImportWorkerProcess)
+        {
+            return !isAssetImportWorkerProcess;
         }
     }
 }

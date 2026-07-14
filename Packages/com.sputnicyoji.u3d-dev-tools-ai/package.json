@@ -1,6 +1,6 @@
 {
   "name": "com.sputnicyoji.u3d-dev-tools-ai",
-  "version": "0.2.5",
+  "version": "0.2.6",
   "displayName": "U3D Dev Tools AI",
   "description": "Unity Editor automation tools for AI agents: test runner, reflection debug service, Lua diagnostics transport, and agent linker.",
   "unity": "2022.3",
