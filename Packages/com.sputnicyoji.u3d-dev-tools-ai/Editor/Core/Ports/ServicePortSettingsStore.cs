@@ -269,6 +269,8 @@ namespace Yoji.EditorCore.Ports
         private const int c_HResultSharingViolation = unchecked((int)0x80070020);
         private const int c_HResultLockViolation = unchecked((int)0x80070021);
         private const int c_HResultAccessDenied = unchecked((int)0x80070005);
+        private const int c_HResultUnableToRemoveReplaced = unchecked((int)0x80070497);
+        private const int c_HResultUnableToMoveReplacement = unchecked((int)0x80070498);
 
         public static T ReadJson<T>(string path) where T : class
         {
@@ -369,7 +371,9 @@ namespace Yoji.EditorCore.Ports
 
             return e.HResult == c_HResultSharingViolation ||
                    e.HResult == c_HResultLockViolation ||
-                   e.HResult == c_HResultAccessDenied;
+                   e.HResult == c_HResultAccessDenied ||
+                   e.HResult == c_HResultUnableToRemoveReplaced ||
+                   e.HResult == c_HResultUnableToMoveReplacement;
         }
     }
 

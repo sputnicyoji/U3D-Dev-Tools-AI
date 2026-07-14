@@ -1,4 +1,6 @@
+using System;
 using System.IO;
+using System.Reflection;
 using NUnit.Framework;
 using Yoji.EditorCore.Ports;
 
@@ -97,11 +99,42 @@ namespace Yoji.EditorCore.Tests
             Assert.IsFalse(policy.PreferLegacyPorts);
         }
 
+        [TestCase(unchecked((int)0x80070020), true)]
+        [TestCase(unchecked((int)0x80070497), true)]
+        [TestCase(unchecked((int)0x80070498), true)]
+        [TestCase(unchecked((int)0x80070499), false)]
+        public void PortPersistenceIO_ClassifiesOnlyRecoverableReplaceFileErrors(
+            int hResult,
+            bool expectedTransient)
+        {
+            var ioType = typeof(ServicePortSettingsStore).Assembly.GetType(
+                "Yoji.EditorCore.Ports.PortPersistenceIO",
+                true);
+            var classifier = ioType.GetMethod(
+                "IsTransientWriteError",
+                BindingFlags.NonPublic | BindingFlags.Static);
+
+            Assert.IsNotNull(classifier);
+            var error = new HResultIOException(hResult);
+            Assert.AreEqual(
+                expectedTransient,
+                (bool)classifier.Invoke(null, new object[] { error }));
+        }
+
         private static string CreateTempRoot()
         {
             var root = Path.Combine(Path.GetTempPath(), "yoji-port-tests", Path.GetRandomFileName());
             Directory.CreateDirectory(root);
             return root;
+        }
+
+        private sealed class HResultIOException : IOException
+        {
+            public HResultIOException(int hResult)
+                : base("synthetic ReplaceFile failure")
+            {
+                HResult = hResult;
+            }
         }
     }
 }
