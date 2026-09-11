@@ -96,13 +96,9 @@ namespace Yoji.TestRunner
             m_Jobs.FailJob(jobId, "filter matched 0 tests (check testNames/assemblyNames/categoryNames/groupNames)");
         }
 
-        public void TestStarted(UnityTestRunnerApiAdapter.TestNode test)
-        {
-            // 唯一的心跳来源。缺了它，SweepStale 的阈值就等价于「单次 run 的时长上限」，
-            // 超过阈值的正常 run 会被判孤儿并让出坑位（见 JobStore.Touch）。
-            var jobId = m_ActiveJobId;
-            if (jobId != null) m_Jobs.Touch(jobId);
-        }
+        // 心跳不在这里: 测试边界不等于「Editor 还活着」, 一个长时间 yield 的 [UnityTest] 中间
+        // 没有任何 TestStarted。续命由 TestRunnerMCP.Heartbeat 挂在 EditorApplication.update 上做。
+        public void TestStarted(UnityTestRunnerApiAdapter.TestNode test) { }
 
         public void TestFinished(UnityTestRunnerApiAdapter.TestResult result)
         {

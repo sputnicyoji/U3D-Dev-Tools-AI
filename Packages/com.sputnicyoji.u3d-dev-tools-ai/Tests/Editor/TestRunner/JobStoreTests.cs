@@ -163,46 +163,43 @@ namespace Yoji.TestRunner.Tests
             Assert.AreEqual(started, rec.StartedMs); // 原始 StartedMs 保留
         }
 
-        [Test] public void Touch_KeepsLongRunAlive_PastStaleThreshold()
+        [Test] public void TouchActive_KeepsLongRunAlive_PastStaleThreshold()
         {
             var s = New();
             var id = JobStore.NewJobId();
             s.StartJob(id);
-            // 一个总时长远超阈值、但一直在推进的 run: 每步都短于阈值, 每步都有心跳。
-            for (var i = 0; i < 5; i++)
-            {
-                m_Now += 20_000;
-                s.Touch(id);
-                s.SweepStale(30_000);
-            }
+            // 累计时长越过阈值也不该被回收, 只要相邻两次心跳的间隔短于阈值。
+            m_Now += 20_000; s.TouchActive(); s.SweepStale(30_000);
+            m_Now += 20_000; s.TouchActive(); s.SweepStale(30_000);
             Assert.AreEqual(ServiceState.Running, s.State);
             Assert.AreEqual("running", s.Find(id).Status);
         }
 
-        [Test] public void Touch_DoesNotResurrectSweptJob()
+        [Test] public void TouchActive_DoesNotResurrectSweptJob()
         {
             var s = New();
             var id = JobStore.NewJobId();
             s.StartJob(id);
             m_Now += 60_000;
-            s.SweepStale(30_000);        // 真失联: 心跳断了才被回收
+            s.SweepStale(30_000);        // 心跳真断了才被回收
             m_Now += 1_000;
-            s.Touch(id);                 // 回收之后到的心跳不该翻案
+            s.TouchActive();             // 回收之后到的心跳不该翻案
             Assert.IsTrue(s.IsIdle);
             Assert.AreEqual("error", s.Find(id).Status);
         }
 
-        [Test] public void Touch_IgnoresForeignJobId()
+        [Test] public void TouchActive_WithNoActiveJob_DoesNotReviveLast()
         {
             var s = New();
             var id = JobStore.NewJobId();
             s.StartJob(id);
+            s.CompleteJob(id, 1, 0, 0, "Passed", "x", null);
             var updated = s.Find(id).UpdatedMs;
             m_Now += 20_000;
-            s.Touch(JobStore.NewJobId()); // 用户手点 Test Runner 触发的 run 不该给本任务续命
+            s.TouchActive();             // 空闲期的心跳不该碰已完成的记录
+            Assert.IsTrue(s.IsIdle);
+            Assert.AreEqual("completed", s.Find(id).Status);
             Assert.AreEqual(updated, s.Find(id).UpdatedMs);
-            s.SweepStale(10_000);
-            Assert.AreEqual("error", s.Find(id).Status);
         }
     }
 }

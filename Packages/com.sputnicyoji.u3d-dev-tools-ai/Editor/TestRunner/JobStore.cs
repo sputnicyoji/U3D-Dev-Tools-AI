@@ -118,7 +118,7 @@ namespace Yoji.TestRunner
         {
             lock (m_Lock)
             {
-                if (m_Current != null && m_Current.JobId == jobId) return m_Current;
+                if (IsActive(jobId)) return m_Current;
                 if (m_Last != null && m_Last.JobId == jobId) return m_Last;
             }
             return LoadFromDisk(jobId);
@@ -129,16 +129,16 @@ namespace Yoji.TestRunner
             lock (m_Lock) return m_Current ?? m_Last;
         }
 
-        /// 心跳：run 仍在推进时刷新 UpdatedMs。只动内存不落盘 —— SweepStale 读的就是内存里的
-        /// m_Current，而域重载会连内存一起丢掉，那正是应当判孤儿的场景。没有心跳时
-        /// 「超过 staleMs 没更新」等价于「跑了 staleMs」，正常的长 run 会被误回收：坑位一让出，
-        /// 下一个 run 就会和仍在跑的这个重叠，两边的 RunFinished 互相覆盖 jobId。
-        public void Touch(string jobId)
+        /// 心跳：给活跃任务续命，没有活跃任务就是 no-op（m_Current 非空即 running —— 改 Status
+        /// 的路径都在同一次加锁里走 Finish 置空，已回收的任务落到 m_Last，这里碰不到）。
+        /// 只动内存不落盘：SweepStale 读的就是内存里的 m_Current，而域重载会连内存一起丢掉。
+        /// 没有心跳时「超过 staleMs 没更新」等价于「跑了 staleMs」，正常的长 run 会被误回收，
+        /// 坑位一让出，下一个 run 就与仍在跑的这个重叠，两边的 RunFinished 互相覆盖 jobId。
+        public void TouchActive()
         {
             lock (m_Lock)
             {
-                if (m_Current != null && m_Current.JobId == jobId && m_Current.Status == "running")
-                    m_Current.UpdatedMs = m_NowMs();
+                if (m_Current != null) m_Current.UpdatedMs = m_NowMs();
             }
         }
 
@@ -158,10 +158,13 @@ namespace Yoji.TestRunner
             }
         }
 
+        // 已持锁：jobId 是否就是当前活跃任务。Find / Touch / Target 共用同一条身份判定。
+        private bool IsActive(string jobId) => m_Current != null && m_Current.JobId == jobId;
+
         // 已持锁：取当前任务；晚到的 complete/fail 复用已落缓存的同 id 记录（保留 StartedMs）；都不匹配才新建
         private JobRecord Target(string jobId)
         {
-            if (m_Current != null && m_Current.JobId == jobId) return m_Current;
+            if (IsActive(jobId)) return m_Current;
             if (m_Last != null && m_Last.JobId == jobId) return m_Last;
             return new JobRecord { JobId = jobId, StartedMs = m_NowMs() };
         }

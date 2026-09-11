@@ -331,6 +331,12 @@ namespace Yoji.TestRunner
 
             s_NextHeartbeatAt = now + 10.0;
 
+            // 同一个信号也给活跃任务续命: 这个回调挂在 EditorApplication.update 上, 帧还在泵就说明
+            // Editor 没死。这样 k_StaleJobMs 量的是「Editor 失联多久」, 而不是「run 跑了多久」或
+            // 「两个测试之间隔了多久」—— 后两者会把长 run 和长单测误判成孤儿并让出坑位。
+            var jobs = s_Jobs;
+            if (jobs != null) jobs.TouchActive();
+
             try
             {
                 s_Endpoint.Heartbeat(true);
