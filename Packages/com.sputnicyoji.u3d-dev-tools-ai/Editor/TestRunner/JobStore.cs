@@ -129,6 +129,19 @@ namespace Yoji.TestRunner
             lock (m_Lock) return m_Current ?? m_Last;
         }
 
+        /// 心跳：run 仍在推进时刷新 UpdatedMs。只动内存不落盘 —— SweepStale 读的就是内存里的
+        /// m_Current，而域重载会连内存一起丢掉，那正是应当判孤儿的场景。没有心跳时
+        /// 「超过 staleMs 没更新」等价于「跑了 staleMs」，正常的长 run 会被误回收：坑位一让出，
+        /// 下一个 run 就会和仍在跑的这个重叠，两边的 RunFinished 互相覆盖 jobId。
+        public void Touch(string jobId)
+        {
+            lock (m_Lock)
+            {
+                if (m_Current != null && m_Current.JobId == jobId && m_Current.Status == "running")
+                    m_Current.UpdatedMs = m_NowMs();
+            }
+        }
+
         /// 孤儿清扫：活跃任务超过 staleMs 没更新，置 error（域重载/崩溃导致 RunFinished 没回）。
         public void SweepStale(long staleMs)
         {
