@@ -169,7 +169,8 @@ You can also set `UNITY_EXE` or `UNITY_EDITOR_PATH` instead of passing `-Unity`.
 
 ## Requirements
 
-- Unity 2022.3 or newer.
+- Supported Unity range: Unity 2022.3 LTS through Unity 6000.3.x.
+- Validated Editor versions: Unity 2022.3.62f2c1 and Unity 6000.3.12f1.
 - Python 3.8 or newer for agent clients.
 - Git on the machine that installs Git URL UPM packages.
 - Android SDK platform tools for Android `lua-device-debug` forwarding.

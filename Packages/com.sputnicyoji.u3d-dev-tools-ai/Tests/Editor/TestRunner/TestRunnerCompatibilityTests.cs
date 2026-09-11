@@ -41,7 +41,11 @@ namespace Yoji.TestRunner.Tests
         public void Unity2022Adapter_DoesNotSilentlySwallowAssemblyLoadFailure()
         {
             var packagePath = PackageInfo.FindForAssembly(typeof(TestRunnerMCP).Assembly).resolvedPath;
-            var source = File.ReadAllText(Path.Combine(packagePath, "Editor", "UnityTestRunnerApiAdapter.cs"));
+            var source = File.ReadAllText(Path.Combine(
+                packagePath,
+                "Editor",
+                "TestRunner",
+                "UnityTestRunnerApiAdapter.cs"));
 
             Assert.False(source.Contains("catch (Exception) { }"));
             StringAssert.Contains("loadException", source);
@@ -72,7 +76,11 @@ namespace Yoji.TestRunner.Tests
         public void Unity2022Adapter_DispatchProxyImplementationIsNotSealed()
         {
             var packagePath = PackageInfo.FindForAssembly(typeof(TestRunnerMCP).Assembly).resolvedPath;
-            var source = File.ReadAllText(Path.Combine(packagePath, "Editor", "UnityTestRunnerApiAdapter.cs"));
+            var source = File.ReadAllText(Path.Combine(
+                packagePath,
+                "Editor",
+                "TestRunner",
+                "UnityTestRunnerApiAdapter.cs"));
 
             Assert.False(
                 source.Contains("sealed class TestRunnerCallbackProxy"),

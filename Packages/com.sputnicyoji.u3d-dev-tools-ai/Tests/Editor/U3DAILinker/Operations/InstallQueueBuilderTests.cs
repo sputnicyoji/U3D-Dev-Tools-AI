@@ -90,7 +90,9 @@ namespace Yoji.U3DAILinker.Tests.Operations
 
         [Test] public void Build_QueueItemCarriesUrlAndPackageName()
         {
-            var q = New().Build(Registry(), new[] { "editor-debug" });
+            var tool = Tool("editor-debug", "tool", "ready");
+            tool.PackageName = "com.sputnicyoji.u3d-dev-tools-ai";
+            var q = New().Build(new[] { tool }, new[] { "editor-debug" });
             var item = q.First(i => i.ToolId == "editor-debug");
             Assert.AreEqual("com.sputnicyoji.u3d-dev-tools-ai", item.PackageName);
             Assert.AreEqual("url:editor-debug", item.PackageUrl);
