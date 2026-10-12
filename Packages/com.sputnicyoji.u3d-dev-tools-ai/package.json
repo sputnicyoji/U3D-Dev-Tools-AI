@@ -1,9 +1,13 @@
 {
   "name": "com.sputnicyoji.u3d-dev-tools-ai",
-  "version": "0.2.10",
+  "version": "0.2.11",
   "displayName": "U3D Dev Tools AI",
   "description": "Unity Editor automation tools for AI agents: test runner, reflection debug service, Lua diagnostics transport, and agent linker.",
   "unity": "2022.3",
+  "author": {
+    "name": "Yoji",
+    "url": "https://github.com/sputnicyoji"
+  },
   "keywords": [
     "unity",
     "editor",

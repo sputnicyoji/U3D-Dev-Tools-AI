@@ -26,7 +26,8 @@ def test_single_public_package_exists():
     manifest = load_json(PKG / "package.json")
     assert manifest["name"] == EXPECTED_NAME
     assert manifest["displayName"] == "U3D Dev Tools AI"
-    assert manifest["version"] == "0.2.8"
+    # Package Manager groups "In Project" packages by author.name; Yoji's packages share one group.
+    assert manifest["author"]["name"] == "Yoji"
     dependencies = manifest.get("dependencies", {})
     assert "com.unity.nuget.newtonsoft-json" in dependencies
     assert "com.unity.test-framework" in dependencies
