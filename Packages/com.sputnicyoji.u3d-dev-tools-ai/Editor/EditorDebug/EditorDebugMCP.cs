@@ -8,6 +8,7 @@ using UnityEditor;
 using UnityEngine;
 using Yoji.EditorCore.Ports;
 using Yoji.EditorCore;
+using Yoji.EditorDebug.Ui;
 using Process = System.Diagnostics.Process;
 
 namespace Yoji.EditorDebug
@@ -16,7 +17,7 @@ namespace Yoji.EditorDebug
     [InitializeOnLoad]
     internal static class EditorDebugMCP
     {
-        private const string k_Version = "0.1.2";
+        private const string k_Version = "0.1.3";
         private static readonly bool c_AllowEval = false; // 需要 /eval 时显式改成 true
         private const int k_MaxBodyBytes = 4 * 1024 * 1024;
         private static readonly ServicePortDefinition k_PortDefinition = ServicePortDefinition.Create(
@@ -134,9 +135,18 @@ namespace Yoji.EditorDebug
             JObject envelope;
             try
             {
+                // 浏览器跨站请求必带 Origin；本服务只给本机 CLI/agent 用，带 Origin 一律拒（防网页 CSRF 打 loopback）。
+                // 不校验 Content-Type：现有调用方有 curl -d（form 编码）的用法。
+                // DNS rebinding 由 HttpListener 前缀兜住：Host 不是 127.0.0.1 时监听器直接回 400 Invalid host（实测）。
+                if (!string.IsNullOrEmpty(ctx.Request.Headers["Origin"]))
+                    throw new UnauthorizedAccessException("cross-origin request rejected");
                 var body = RequestBodyReader.ReadUtf8(ctx.Request.InputStream, ctx.Request.ContentLength64);
                 var req = string.IsNullOrWhiteSpace(body) ? new JObject() : JObject.Parse(body);
-                envelope = Route(ctx.Request.Url.AbsolutePath, req);
+                var path = ctx.Request.Url.AbsolutePath;
+                // 只给只读的 /ui/ 端点开 GET 查询参数：跨站 <img> GET 不带 Origin，对 /invoke 开放就能触发任意静态调用
+                if (path.StartsWith("/ui/", StringComparison.Ordinal))
+                    MergeQuery(ctx.Request.QueryString, req);
+                envelope = Route(path, req);
             }
             catch (Exception e)
             {
@@ -167,8 +177,22 @@ namespace Yoji.EditorDebug
                     return RunOnMain(() => EvalParser.Evaluate(req.Value<string>("code")));
                 case "/recompile":
                     return RecompileHandler.Run();
+                case "/ui/snapshot":
+                    return RunOnMain(() => UiObserver.Snapshot(req));
+                case "/ui/hit":
+                    return RunOnMain(() => UiObserver.Hit(req));
                 default:
                     return ErrorEnvelope(new ArgumentException("unknown endpoint: " + path));
+            }
+        }
+
+        /// GET 查询参数并入请求体（body 同名字段优先），让 /ui/hit?x=&y= 与 POST JSON 两种写法等价。
+        internal static void MergeQuery(System.Collections.Specialized.NameValueCollection query, JObject req)
+        {
+            foreach (string key in query)
+            {
+                if (key != null && req[key] == null)
+                    req[key] = query[key];
             }
         }
 

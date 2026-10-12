@@ -4,6 +4,8 @@
   "references": [
     "Yoji.EditorDebug.Editor",
     "Yoji.EditorCore.Editor",
+    "UnityEngine.UI",
+    "Yoji.EditorDebug.TestSupport",
     "UnityEngine.TestRunner",
     "UnityEditor.TestRunner"
   ],

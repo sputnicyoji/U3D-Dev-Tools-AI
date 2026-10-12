@@ -10,6 +10,7 @@ EXPECTED = {
     "test-runner-mcp",
     "unity-editor-debug-mcp",
     "unity-lua-device-debug",
+    "unity-ui-observe",
 }
 MAX_DESCRIPTION_CHARS = 260
 
@@ -67,6 +68,8 @@ def test_reference_files_exist_for_long_protocols() -> None:
         SKILLS_ROOT / "unity-editor-debug-mcp" / "references" / "troubleshooting.md",
         SKILLS_ROOT / "unity-lua-device-debug" / "references" / "protocol.md",
         SKILLS_ROOT / "unity-lua-device-debug" / "references" / "android-adb-forwarding.md",
+        SKILLS_ROOT / "unity-ui-observe" / "references" / "protocol.md",
+        SKILLS_ROOT / "unity-ui-observe" / "references" / "troubleshooting.md",
     ]
     missing = [str(p.relative_to(ROOT)) for p in required if not p.is_file()]
     assert not missing, "missing references: " + ", ".join(missing)

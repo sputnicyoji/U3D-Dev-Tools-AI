@@ -6,6 +6,7 @@ SOURCE = ROOT / 'Packages/com.sputnicyoji.u3d-dev-tools-ai/Agent~/skills/test-ru
 TARGETS = [
     ROOT / 'Packages/com.sputnicyoji.u3d-dev-tools-ai/Agent~/skills/unity-editor-debug-mcp/port_resolver.py',
     ROOT / 'Packages/com.sputnicyoji.u3d-dev-tools-ai/Agent~/skills/unity-lua-device-debug/port_resolver.py',
+    ROOT / 'Packages/com.sputnicyoji.u3d-dev-tools-ai/Agent~/skills/unity-ui-observe/port_resolver.py',
 ]
 
 

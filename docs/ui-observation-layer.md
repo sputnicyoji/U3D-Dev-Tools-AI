@@ -1,6 +1,6 @@
 # 语义 UI 观测层 (Semantic UI Observation Layer)
 
-Status: design approved (2026-10-12, Yoji)。Phase 1 (observe) 待开工；Phase 2 (act) 后续 minor。
+Status: Phase 1 (observe) 已实现，随 v0.2.12 发布（2026-10-12）；Phase 2 (act) 后续 minor。
 
 ## 目的
 
@@ -90,6 +90,12 @@ MCP 管交互式操作与截图，都不碰"游戏 UI 语义真相"。
 **`hitTop` / `coveredBy` 是准确度核心**。`EventSystem.RaycastAll` 天然尊重 `ICanvasRaycastFilter`
 （遮罩的洞）与 sorting，所以"现在点它是否真打得到"一次算准。`coveredBy` 直接回答"为什么点不到"
 （如 `GuideClickMask`）。
+
+**实现注记（v0.2.12）**：没有直接调 `EventSystem.RaycastAll` / `GraphicRaycaster.Raycast`。两者都依赖渲染副产物——
+`RaycasterManager` 只收 OnEnable 过的 raycaster（`BaseRaycaster` 非 ExecuteAlways），`GraphicRaycaster` 跳过
+`depth==-1`（canvas 尚未渲染）的图元——编辑模式与 batchmode 下结果为空。`UiRaycast` 照搬 GraphicRaycaster 的逐图元过滤
+（`Graphic.Raycast` 仍走 `ICanvasRaycastFilter` 与 CanvasGroup），depth 换成根 canvas 下的先序遍历序，比较器镜像
+`EventSystem.RaycastComparer`。不覆盖 PhysicsRaycaster 与 `blockingObjects` 物理遮挡。
 
 ### guide —— 引导抢占一次判清
 

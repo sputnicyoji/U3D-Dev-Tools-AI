@@ -17,7 +17,7 @@ Add the package from Git URL:
 ```json
 {
   "dependencies": {
-    "com.sputnicyoji.u3d-dev-tools-ai": "https://github.com/sputnicyoji/U3D-Dev-Tools-AI.git?path=/Packages/com.sputnicyoji.u3d-dev-tools-ai#u3d-dev-tools-ai-v0.2.8"
+    "com.sputnicyoji.u3d-dev-tools-ai": "https://github.com/sputnicyoji/U3D-Dev-Tools-AI.git?path=/Packages/com.sputnicyoji.u3d-dev-tools-ai#u3d-dev-tools-ai-v0.2.12"
   }
 }
 ```
@@ -74,6 +74,19 @@ python client.py console --count 30 --filter error
 ```
 
 `/eval` is compiled into the service but disabled by default. Prefer `describe`, `invoke`, `console`, and `batch`.
+
+### UI Observe
+
+Read-only semantic uGUI state from the same Editor Debug service: layer stack, per-control `hitTop` / `coveredBy`, and guide-mask detection. See `docs/ui-observation-layer.md`.
+
+```powershell
+cd Packages/com.sputnicyoji.u3d-dev-tools-ai/Agent~/skills/unity-ui-observe
+python client.py guide
+python client.py snapshot --max 100
+python client.py hit --x 120 --y 640
+```
+
+Requests that carry an `Origin` header are rejected by the Editor Debug service.
 
 ### Lua Device Debug
 
@@ -151,6 +164,7 @@ Run syntax checks after editing scripts or registry files:
 python -m py_compile Packages/com.sputnicyoji.u3d-dev-tools-ai/Agent~/skills/test-runner-mcp/client.py
 python -m py_compile Packages/com.sputnicyoji.u3d-dev-tools-ai/Agent~/skills/unity-editor-debug-mcp/client.py
 python -m py_compile Packages/com.sputnicyoji.u3d-dev-tools-ai/Agent~/skills/unity-lua-device-debug/client.py
+python -m py_compile Packages/com.sputnicyoji.u3d-dev-tools-ai/Agent~/skills/unity-ui-observe/client.py
 python -m json.tool Registry/stable.json
 python -m json.tool Registry/dev.json
 python tools/test-single-package-layout.py

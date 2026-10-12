@@ -11,6 +11,7 @@ $refDst = Join-Path $dstDir "references"
 New-Item -ItemType Directory -Path $refDst | Out-Null
 Copy-Item -Path (Join-Path $srcDir "SKILL.md") -Destination $dstDir
 Copy-Item -Path (Join-Path $srcDir "client.py") -Destination $dstDir
+Copy-Item -Path (Join-Path $srcDir "port_resolver.py") -Destination $dstDir
 $refSrc = Join-Path $srcDir "references"
 if (Test-Path $refSrc) {
     Get-ChildItem -Path $refSrc -File | ForEach-Object { Copy-Item $_.FullName -Destination $refDst }

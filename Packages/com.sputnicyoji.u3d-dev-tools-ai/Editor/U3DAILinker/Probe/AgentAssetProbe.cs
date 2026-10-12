@@ -67,6 +67,10 @@ namespace Yoji.U3DAILinker.Probe
                     "lua-device-debug.SKILL.md",
                     packagePath,
                     "Agent~/skills/unity-lua-device-debug/SKILL.md"),
+                MakeFileTarget(
+                    "ui-observe.SKILL.md",
+                    packagePath,
+                    "Agent~/skills/unity-ui-observe/SKILL.md"),
                 MakeDirectoryTarget(
                     "agent.fragments",
                     packagePath,

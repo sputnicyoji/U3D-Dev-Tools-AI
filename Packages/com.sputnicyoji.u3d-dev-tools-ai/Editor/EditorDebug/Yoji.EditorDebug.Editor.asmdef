@@ -1,7 +1,7 @@
 {
   "name": "Yoji.EditorDebug.Editor",
   "rootNamespace": "Yoji.EditorDebug",
-  "references": ["Yoji.EditorCore.Editor"],
+  "references": ["Yoji.EditorCore.Editor", "UnityEngine.UI"],
   "includePlatforms": ["Editor"],
   "excludePlatforms": [],
   "allowUnsafeCode": false,

@@ -14,6 +14,7 @@ EXPECTED_MODULES = [
     "Agent~/skills/test-runner-mcp",
     "Agent~/skills/unity-editor-debug-mcp",
     "Agent~/skills/unity-lua-device-debug",
+    "Agent~/skills/unity-ui-observe",
 ]
 
 
@@ -83,6 +84,7 @@ def test_single_package_agent_sync_supports_each_skill():
         "test-runner-mcp",
         "unity-editor-debug-mcp",
         "unity-lua-device-debug",
+        "unity-ui-observe",
     ]
     for skill in expected_skills:
         assert (PKG / "Agent~" / "skills" / skill / "SKILL.md").is_file(), f"missing skill {skill}"

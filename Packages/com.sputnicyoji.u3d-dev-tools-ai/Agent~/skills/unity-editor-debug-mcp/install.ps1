@@ -25,6 +25,7 @@ New-Item -ItemType Directory -Path $refDst | Out-Null
 # 复制顶层文件（排除 .meta 与本脚本自身）
 Copy-Item -Path (Join-Path $srcDir "SKILL.md") -Destination $dstDir
 Copy-Item -Path (Join-Path $srcDir "client.py") -Destination $dstDir
+Copy-Item -Path (Join-Path $srcDir "port_resolver.py") -Destination $dstDir
 
 # 复制 references 子目录所有 .md（排除 .meta）
 $refSrc = Join-Path $srcDir "references"
