@@ -100,6 +100,24 @@ MCP 管交互式操作与截图，都不碰"游戏 UI 语义真相"。
 引导遮罩是 `ICanvasRaycastFilter`，带 `screenHole`，除了洞哪儿都吃点击。那个"截图抓错状态"的 bug，
 靠这块一次判掉：`active=true` 且 `targetId != 期望面板` ⇒ 当前被引导抢占。
 
+#### 怎么识别（2026-10-12 补，对照 Cargo 实现）
+
+host 的洞和目标拿不到：Cargo `SafehouseGuideClickMask` 的 `screenHole` / `hasHole` / `finger` 全是 private，
+公开面只有 `IsRaycastLocationValid`。"host 零改动 + 不靠反射"下，guide 块只能**用 filter 本身探出来**：
+
+1. **候选遮罩**：激活且 `raycastTarget` 的 Graphic，实现 `ICanvasRaycastFilter`，**类型不在 `UnityEngine.UI`
+   命名空间**（`Image` 本身就实现该接口，全屏背景图不能被当成遮罩），屏幕矩形覆盖全屏。多个取 `layers` 最顶者。
+   无候选 ⇒ `active=false`。
+2. **探洞**：按步长 `S`（默认 24px）网格调 `IsRaycastLocationValid(p, eventCamera)`；返回 `false` 的点即洞
+   （点击穿透）。`holeRect` = 这些点的包围盒，精度 ±`S`。全格都返回 `true` ⇒ 全屏吃点击，`holeRect=null`。
+   竖屏 1080x2400 约 4.5k 次调用，只在请求时跑，不进帧循环。Cargo 的 filter 每次调用重算洞，幂等，探测无副作用。
+3. **targetId**：`holeRect` 内中心命中、`hitTop=true` 的节点，取面积最小者。
+   **洞下没有 uGUI 控件 ⇒ `targetId=null` 而 `holeRect` 有值**：引导指向世界空间目标（Cargo 内城建筑
+   `GuidePos` 锚点，`finger.WorldTarget` 分支），这是正常态，不是识别失败。
+
+升级路径：探洞精度不够时，加 Runtime asmdef 定义 `IUiGuideMaskSource { bool TryGetHole(out Rect hole, out Transform target); }`
+由 host 实现。代价是新 asmdef（包里现有 Runtime 程序集只有 `LuaDeviceDebug.Runtime`）+ host 改一处，破"零改动"，Phase 1 不取。
+
 ## 语义 id
 
 主 id = **canvas 相对的层级路径**，如 `CityHud/BottomBar/BtnHeroes`。同名兄弟才追加下标 `[i]`。
@@ -119,7 +137,8 @@ MCP 管交互式操作与截图，都不碰"游戏 UI 语义真相"。
 - `layers` 排序正确（遮罩在底板之上）；
 - 洞里的按钮 `hitTop=true`；
 - 被盖的按钮 `hitTop=false` 且 `coveredBy=` 遮罩 id；
-- `guide` 块填着 holeRect/targetId。
+- `guide` 块填着 holeRect/targetId；
+- 洞挪到无控件处时 `targetId=null`、`holeRect` 仍有值；全屏 `Image` 背景不被认成遮罩。
 
 排序或 raycast 逻辑一坏这条就红。再借现成 `Agent~/skills/.../references/run-e2e.py` 骨架对活 Editor 冒烟
 （snapshot 能回、节点数合理）。不引新框架。
@@ -136,7 +155,7 @@ Phase 2 的 act 是 EditorDebug 上第一个真正的写操作，mutation guard 
   `Registry/*.json` revision + 打 tag `u3d-dev-tools-ai-v0.2.12` + 推 main 与 tag。
 - host 侧零改动——EditorDebug 读任意 uGUI，不挂游戏专属 host。
 - Cargo 侧两件（见 Cargo 票 `.scratch/ui-observation-layer/`）：UPM ref 升一行 + 装 `unity-ui-observe` skill +
-  `cargo-client/CLAUDE.md` "Unity 工具路由" 加一行路由规则。**没有这一步，工具重蹈 U3D 现状"造了没人用"。**
+  路由规则写进 `cargo-client/CLAUDE.md`（工作树只读它）与根仓 `CLAUDE.md` "Unity 工具路由" 两处。**没有这一步，工具重蹈 U3D 现状"造了没人用"。**
 
 ## Phase 2 速写（act）
 
