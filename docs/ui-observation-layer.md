@@ -185,3 +185,21 @@ Phase 2 的 act 是 EditorDebug 上第一个真正的写操作，mutation guard 
 `POST /ui/act {id, action: "click"|"drag", to?}`：路径解析回 GameObject → `ExecuteEvents.Execute` 注入
 pointerClick。注入前重算一次 `hitTop`，**被遮住就拒绝并回 `coveredBy`**——agent 不会"点"到真人也点不到的东西。
 observe 阶段把 `hitTop` 建对，act 阶段零额外判定直接复用。世界空间（CityCamera legacy Input）另案。
+
+## Phase 3：世界目标 act（v0.2.15 实现）
+
+内城建筑、大地图单位不在 canvas 下，Phase 2 的 act 点不到。方案 A（2026-10-13 定稿），代码见 `Editor/EditorDebug/Ui/UiWorldActor.cs`
+与 `ScriptedPointer.cs`，协议见 skill 的 `references/protocol.md`：
+
+- **U3D 不认识游戏的输入层。** 包里只有通用注册口 `ScriptedPointerRegistry` + `IScriptedPointer`（Begin / Apply / End / TryGetReportedHit），
+  游戏在 Editor 代码里注册自己的脚本指针（Cargo 是 `CargoScriptedPointerBridge` 包住 `CargoPointer` 的 `ScriptedPointerSource`）。
+- **按场景路径 + instanceId 指定物体**，不收屏幕坐标；用目标相机 `WorldToScreenPoint` 现算屏幕点（渲染包围盒中心）。
+- **逐帧喂**：一次 act 是一串 `ScriptedPointerFrame`，每当 `Time.frameCount` 前进才 Apply 下一帧，游戏自己的 tap 判定、拖动阈值、UI 遮挡判定原样跑。
+  Down 与 Up 各只喂一帧（点击 = Down、Held、Up、None）；编辑器暂停时计划停住，不会把 Down / Up 喂两帧变成双击。
+  Cargo 侧再加一道：Down / Up / 滚轮归第一个读到它的帧，之后的帧读到的是 Held / None / 0。
+- **拒绝**：相机背后 `behind_camera`、屏幕外 `offscreen`、被 UI 挡住 `covered` + `coveredBy`（与 `hitTop` 同一套 GraphicRaycaster 命中）。
+- **以游戏实际命中为准**：游戏的 tap 处理上报它判中的物体（Cargo `CargoPointer.ReportTap`），与目标不一致回 `hit_mismatch`；
+  游戏没上报才退回物理射线，什么都没有回 `unverified`。不默认成功。
+- **拖动与缩放**：脚本指针补上滚轮（`mouseScrollDelta` 与 `GetAxis("Mouse ScrollWheel")` 都答）与双指（`Touch` 数组，Began / Moved / Ended），
+  act 新增 `drag` / `scroll` / `pinch`，可以只给屏幕点 `at`。
+- HTTP 请求阻塞到手势结束（最多 20 s）；Play 退出或 domain reload 时取消手势并交还指针。

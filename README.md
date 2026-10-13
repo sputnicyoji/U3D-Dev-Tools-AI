@@ -79,6 +79,7 @@ python client.py console --count 30 --filter error
 
 Semantic uGUI state from the same Editor Debug service: layer stack, per-control `hitTop` / `coveredBy`, and guide-mask detection.
 `act` clicks or drags a control by id in Play mode and refuses with a `reason` when a real touch could not reach it. See `docs/ui-observation-layer.md`.
+`world` clicks a world object by scene path through the game's registered scripted pointer and checks what the game actually hit; it also drags, scrolls and pinches.
 
 ```powershell
 cd Packages/com.sputnicyoji.u3d-dev-tools-ai/Agent~/skills/unity-ui-observe
@@ -87,6 +88,8 @@ python client.py snapshot --max 100
 python client.py hit --x 120 --y 640
 python client.py act --id CityHud/SafeArea/BuildButton
 python client.py act --id <scroll-or-joystick-id> --to 443 1200
+python client.py world --path <scene-path-of-a-world-object>
+python client.py world --at 540 960 --action pinch --scale 1.5
 ```
 
 Requests that carry an `Origin` header are rejected by the Editor Debug service. `/ui/act` accepts only POST with `Content-Type: application/json`.

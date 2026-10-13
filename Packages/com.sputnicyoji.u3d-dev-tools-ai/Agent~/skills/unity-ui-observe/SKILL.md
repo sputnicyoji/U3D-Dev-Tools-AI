@@ -42,6 +42,12 @@ A screenshot shows pixels; it cannot tell which canvas wins the click or where a
    Events land in one frame: long-press, double-click and frame-timed handlers are not emulated.
    Completion: `acted=true` and a fresh `snapshot` shows the state you expected.
 
+   World objects (city buildings, world-map units) are not canvas controls: use `world`.
+   `world --path <scene path> [--iid <iid>]` clicks the object through the game's own scripted pointer, frame by frame,
+   and checks the object the game reports it hit: `hit_mismatch` or `unverified` (exit 2) means the click did not land on the target.
+   `world --at <x> <y> --action drag --by <dx> <dy>`, `--action scroll --scroll 1` and `--action pinch --scale 1.5` pan and zoom.
+   It needs the game to register a scripted pointer (`no_scripted_pointer` otherwise).
+
 6. Report bounded evidence.
    Quote the ids and flags you relied on, not the whole snapshot.
    Use a screenshot only for visual checks the snapshot cannot express (art, layout polish).
