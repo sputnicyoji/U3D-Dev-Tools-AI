@@ -130,3 +130,25 @@ Results also carry `camera`, `at`, `world` (aim point), `framesApplied`, and for
 (after the game has run the last frame), each `{orthographic, orthographicSize | fieldOfView, position {x,y,z}}`
 (`orthographicSize` for an orthographic camera, `fieldOfView` for a perspective one). Zoom in shows as a smaller value.
 A cancelled gesture still reports `cameraAfter` as of the cancel.
+
+### Cell targets
+
+`"target": {"cell": {"x", "y"}}` clicks a map cell (`click` only; not combined with `path`/`iid`).
+The package does not know the game's grid: the registered pointer must also implement `IScriptedPointerCells`
+(`CellCamera`, `TryCellToWorld`, `TryScreenToCell`, `TryGetReportedCell`). The press point is `CellCamera`'s
+(or `camera`'s) projection of the cell's world point, fed as Down, Held, Up, None like any click.
+Before pressing, the point is mapped back through `TryScreenToCell`; landing on another cell refuses the act.
+
+| reason | meaning |
+|---|---|
+| `no_cell_target` | the registered pointer has no `IScriptedPointerCells` |
+| `no_camera` | the game reports no active cell camera (map not shown), or `camera` names none |
+| `out_of_map` | the game says the cell is outside the map |
+| `behind_camera` / `offscreen` | as for objects |
+| `ambiguous_cell` | the cell's screen point maps back to another cell (`roundTrip` names it, or null); nothing was fed |
+| `covered` | a UI graphic is on top; `coveredBy` names it |
+
+After the click the result is checked against the cell the game reported (`TryGetReportedCell`, Cargo `CargoPointer.ReportCell`):
+`cell {x,y}` (null when the tap resolved to no cell), `hitSource: game`, `verified`; and `unit {path, iid}` when the game
+also reported an object for the tap (a unit on the cell). `cell_mismatch` when the reported cell differs or is null;
+`unverified` when the game reported no cell at all.

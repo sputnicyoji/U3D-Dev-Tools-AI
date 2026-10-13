@@ -86,7 +86,10 @@ def cmd_act(args: argparse.Namespace) -> dict[str, Any]:
 
 def cmd_world(args: argparse.Namespace) -> dict[str, Any]:
     """世界目标（Phase 3）：按场景路径 / iid 点世界物体，或在屏幕点上拖动、滚轮、双指缩放。"""
-    target = {"path": args.path, "iid": args.iid} if (args.path or args.iid is not None) else None
+    if args.cell:
+        target = {"cell": {"x": args.cell[0], "y": args.cell[1]}}
+    else:
+        target = {"path": args.path, "iid": args.iid} if (args.path or args.iid is not None) else None
     return post(args, "/ui/act", {"target": target, "at": point(args.at), "action": args.action,
                                   "to": point(args.to), "by": point(args.by), "steps": args.steps,
                                   "scroll": args.scroll, "scale": args.scale, "span": args.span,
@@ -130,6 +133,8 @@ def build_parser() -> argparse.ArgumentParser:
                                       "click checks the game's actual hit against the target")
     sw.add_argument("--path", help="scene path of the world object (hierarchy path, [i] for same-name siblings)")
     sw.add_argument("--iid", type=int, help="instance id of the world object")
+    sw.add_argument("--cell", type=int, nargs=2, metavar=("X", "Y"),
+                    help="map cell to click (the game resolves cells; click only, verified by the cell the game reports)")
     sw.add_argument("--at", type=float, nargs=2, metavar=("X", "Y"), help="screen point instead of a target (drag/scroll/pinch only)")
     sw.add_argument("--action", choices=["click", "drag", "scroll", "pinch"], default="click")
     sw.add_argument("--to", type=float, nargs=2, metavar=("X", "Y"), help="drag end point")
