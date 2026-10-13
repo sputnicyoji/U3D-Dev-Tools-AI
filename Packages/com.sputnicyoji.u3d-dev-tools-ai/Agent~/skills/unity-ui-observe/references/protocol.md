@@ -123,6 +123,7 @@ Refusals (`acted: false`, nothing was fed):
 | `behind_camera` | `WorldToScreenPoint(...).z <= 0`: the aim point is behind the camera (perspective or orthographic); nothing is fed even when x/y land on screen |
 | `offscreen` | the point is nearer than the near plane, past the far plane, or outside the screen or camera viewport (a pinch finger included) |
 | `covered` | a UI graphic (GraphicRaycaster) is on top; `coveredBy` names it, as `hitTop` would |
+| `blocked` | the game is swallowing world input as a whole (its pointer implements `IScriptedPointerInputBlocker`, e.g. an open panel that makes the map ignore taps even where it does not cover the point); `coveredBy` names the blocker; nothing was fed |
 
 After a `click`, the result reports what the game hit: `hit {path, iid}` and `hitSource`.
 `game` means the game reported the object its tap resolved to (`IScriptedPointer.TryGetReportedHit`);
@@ -159,6 +160,7 @@ Before pressing, the point is mapped back through `TryScreenToCell`; landing on 
 | `behind_camera` / `offscreen` | as for objects |
 | `ambiguous_cell` | the cell's screen point maps back to another cell (`roundTrip` names it, or null); nothing was fed |
 | `covered` | a UI graphic is on top; `coveredBy` names it |
+| `blocked` | the game is swallowing map input as a whole (`IScriptedPointerInputBlocker`); `coveredBy` names the blocker; nothing was fed |
 
 After the click the result is checked against the cell the game reported (`TryGetReportedCell`, Cargo `CargoPointer.ReportCell`):
 `cell {x,y}` (null when the tap resolved to no cell), `hitSource: game`, `verified`; and `unit {path, iid}` when the game

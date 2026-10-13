@@ -77,6 +77,22 @@ namespace Yoji.EditorDebug.Ui
         bool TryGetReportedCell(out Vector2Int? cell);
     }
 
+    /// <summary>
+    /// Optional capability of a registered <see cref="IScriptedPointer"/>: whether the game is swallowing world input as a
+    /// whole right now (for example an open panel that makes the map ignore taps even where the panel does not cover the
+    /// press point). /ui/act asks once before pressing and refuses with <c>blocked</c>, naming the blocker in
+    /// <c>coveredBy</c>, instead of pressing and getting no report back. Found with a type check, like
+    /// <see cref="IScriptedPointerCells"/>.
+    /// </summary>
+    public interface IScriptedPointerInputBlocker
+    {
+        /// <summary>
+        /// True when the game would swallow a world press now; <paramref name="blocker"/> is the object responsible
+        /// (a destroyed or null blocker is treated as not blocking).
+        /// </summary>
+        bool TryGetInputBlocker(out GameObject blocker);
+    }
+
     /// <summary>The one scripted pointer /ui/act drives. Main thread only.</summary>
     public static class ScriptedPointerRegistry
     {

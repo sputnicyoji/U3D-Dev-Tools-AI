@@ -224,6 +224,7 @@ observe 阶段把 `hitTop` 建对，act 阶段零额外判定直接复用。世�
   （`CellCamera` / `TryCellToWorld` / `TryScreenToCell` / `TryGetReportedCell`），Cargo 用 `WorldMapSpatial.CellCenter` 与大地图相机实现。
 - 按下前往返自检：格子中心 -> 屏幕点 -> 游戏判格，回不到同一格回 `ambiguous_cell`，不喂指针。
 - 拒绝：`no_cell_target`、`no_camera`、`out_of_map`、`behind_camera`、`offscreen`、`ambiguous_cell`、`covered` + `coveredBy`。
+- 输入阻塞（06）：游戏整块吞掉地图输入时（例如打开的面板让地图不收点击，哪怕面板没盖住按下点），指针可再实现可选的 `IScriptedPointerInputBlocker`。act 在按下前问一次，有阻塞者就回 `blocked`，`coveredBy` 给出阻塞者，不喂指针。物体目标和格子目标的 click、drag、scroll、pinch 都适用。
 - 核对：以游戏上报的格子为准（Cargo `CargoPointer.ReportCell`，与 `ReportTap` 分开）。不一致或判出无格回 `cell_mismatch`，
   没上报回 `unverified`；格子上有单位时 `ReportTap` 也上报，结果合并成 `cell` + `unit {path, iid}`。
 - 点击照旧逐帧喂 Down、Held、Up、None，Down / Up 各一帧。
