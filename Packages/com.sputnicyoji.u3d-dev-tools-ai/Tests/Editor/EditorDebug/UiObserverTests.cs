@@ -218,6 +218,174 @@ namespace Yoji.EditorDebug.Tests
             Assert.AreEqual("Base/GuideLayer/GuideMask", (string)hit["top"]);
         }
 
+        // ---- /ui/act（live=false：EditMode 下没有 Play 与 EventSystem）----
+
+        [Test]
+        public void Act_ClickInTheHole_InvokesOnClick()
+        {
+            int clicks = 0;
+            m_Open.GetComponent<Button>().onClick.AddListener(() => clicks++);
+
+            var result = UiActor.Act(new JObject { ["id"] = "Base/BtnOpen" }, live: false);
+
+            Assert.IsTrue((bool)result["acted"], result.ToString());
+            Assert.AreEqual(1, clicks);
+            Assert.AreEqual("Base/BtnOpen", (string)result["clickHandler"]);
+        }
+
+        [Test]
+        public void Act_CoveredButton_RefusesAndNamesTheMask()
+        {
+            int clicks = 0;
+            m_Covered.GetComponent<Button>().onClick.AddListener(() => clicks++);
+
+            var result = UiActor.Act(new JObject { ["id"] = "Base/BtnCovered" }, live: false);
+
+            Assert.IsFalse((bool)result["acted"]);
+            Assert.AreEqual("covered", (string)result["reason"]);
+            Assert.AreEqual("Base/GuideLayer/GuideMask", (string)result["coveredBy"]);
+            Assert.AreEqual(0, clicks);
+        }
+
+        [Test]
+        public void Act_RefusesUnknownIdsAndNonInteractableControls()
+        {
+            Assert.AreEqual("not_found", (string)UiActor.Act(new JObject { ["id"] = "Base/Nope" }, live: false)["reason"]);
+
+            int clicks = 0;
+            var button = m_Open.GetComponent<Button>();
+            button.onClick.AddListener(() => clicks++);
+            button.interactable = false;
+            Assert.AreEqual("not_interactable", (string)UiActor.Act(new JObject { ["id"] = "Base/BtnOpen" }, live: false)["reason"]);
+            Assert.AreEqual(0, clicks);
+        }
+
+        [Test]
+        public void Act_LiveRequestOutsidePlayMode_IsRefused()
+        {
+            var result = UiActor.Act(new JObject { ["id"] = "Base/BtnOpen" }, live: true);
+
+            Assert.IsFalse((bool)result["acted"]);
+            Assert.AreEqual("not_playing", (string)result["reason"]);
+        }
+
+        [Test]
+        public void Act_Drag_DeliversTheModuleSequenceAndEndsAtTo()
+        {
+            m_Mask.transform.parent.gameObject.SetActive(false);
+            var area = Child(m_Created[0].transform, "DragArea", 0.1f, 0.6f, 0.3f, 0.7f);
+            area.gameObject.AddComponent<Image>();
+            var receiver = area.gameObject.AddComponent<TestDragReceiver>();
+            var rect = Node(UiObserver.Snapshot(new JObject()), "Base/DragArea")["rect"];
+            int toX = (int)rect["x"] + (int)rect["w"] / 2 + 100;
+            int toY = (int)rect["y"] + (int)rect["h"] / 2 + 50;
+
+            var result = UiActor.Act(new JObject
+            {
+                ["id"] = "Base/DragArea",
+                ["action"] = "drag",
+                ["to"] = new JObject { ["x"] = toX, ["y"] = toY },
+                ["steps"] = 4,
+            }, live: false);
+
+            Assert.IsTrue((bool)result["acted"], result.ToString());
+            Assert.AreEqual(1, receiver.Init);
+            Assert.AreEqual(1, receiver.Begin);
+            Assert.AreEqual(4, receiver.Drags);
+            Assert.AreEqual(1, receiver.End);
+            Assert.AreEqual(0, receiver.Clicks, "a drag must not also click");
+            Assert.AreEqual(new Vector2(toX, Screen.height - toY), receiver.Last);
+        }
+
+        [Test]
+        public void Act_ChildOfADisabledButton_IsRefusedOnTheReceiver()
+        {
+            // 命中落在子 Label 上、冒泡到禁用的 Button：真机点了也不触发 onClick
+            var label = m_Open.Find("Label").GetComponent<Text>();
+            label.raycastTarget = true;
+            m_Open.GetComponent<Button>().interactable = false;
+
+            var result = UiActor.Act(new JObject { ["id"] = "Base/BtnOpen/Label" }, live: false);
+
+            Assert.AreEqual("not_interactable", (string)result["reason"], result.ToString());
+            Assert.AreEqual("Base/BtnOpen", (string)result["receiver"]);
+        }
+
+        [Test]
+        public void Act_Click_SendsEnterAndExitUpTheParentChain()
+        {
+            var recorder = m_Created[0].AddComponent<TestPointerRecorder>();
+
+            Assert.IsTrue((bool)UiActor.Act(new JObject { ["id"] = "Base/BtnOpen" }, live: false)["acted"]);
+
+            Assert.AreEqual(1, recorder.Enters, "the root sees the pointer arrive");
+            Assert.AreEqual(1, recorder.Exits, "and leave when the finger lifts");
+        }
+
+        [Test]
+        public void Act_Drag_DropsOnATargetRevealedByBeginDrag()
+        {
+            m_Mask.transform.parent.gameObject.SetActive(false);
+            var source = Child(m_Created[0].transform, "Source", 0.1f, 0.1f, 0.3f, 0.2f);
+            source.gameObject.AddComponent<Image>();
+            var receiver = source.gameObject.AddComponent<TestDragReceiver>();
+            // 后建的兄弟画在上层，盖住背景；开始拖拽前未激活
+            var zone = Child(m_Created[0].transform, "DropZone", 0.6f, 0.1f, 0.9f, 0.3f);
+            zone.gameObject.AddComponent<Image>();
+            var drop = zone.gameObject.AddComponent<TestPointerRecorder>();
+            receiver.RevealOnBegin = zone.gameObject;
+            var zoneRect = Node(UiObserver.Snapshot(new JObject { ["include"] = "all" }), "Base/DropZone")["rect"];
+            zone.gameObject.SetActive(false);
+
+            var result = UiActor.Act(new JObject
+            {
+                ["id"] = "Base/Source",
+                ["action"] = "drag",
+                ["to"] = new JObject { ["x"] = (int)zoneRect["x"] + (int)zoneRect["w"] / 2, ["y"] = (int)zoneRect["y"] + (int)zoneRect["h"] / 2 },
+            }, live: false);
+
+            Assert.IsTrue((bool)result["acted"], result.ToString());
+            Assert.AreEqual("Base/DropZone", (string)result["release"]);
+            Assert.AreEqual(1, drop.Drops);
+            Assert.AreEqual(1, drop.Enters, "the drop zone is hovered during the drag");
+            Assert.AreEqual(1, receiver.End);
+        }
+
+        [Test]
+        public void Act_Iid_FiltersTheIdMatches()
+        {
+            // 同 id 跨场景重名时靠 iid 消歧；EditMode 下未保存的 untitled 场景不能叠加新场景，这里只验证过滤本身
+            int clicks = 0;
+            m_Open.GetComponent<Button>().onClick.AddListener(() => clicks++);
+
+            var stale = UiActor.Act(new JObject { ["id"] = "Base/BtnOpen", ["iid"] = m_Covered.gameObject.GetInstanceID() }, live: false);
+            Assert.AreEqual("not_found", (string)stale["reason"]);
+
+            var picked = UiActor.Act(new JObject { ["id"] = "Base/BtnOpen", ["iid"] = m_Open.gameObject.GetInstanceID() }, live: false);
+            Assert.IsTrue((bool)picked["acted"], picked.ToString());
+            Assert.AreEqual(1, clicks);
+        }
+
+        [Test]
+        public void Act_MalformedParameters_NameTheKey()
+        {
+            var e = Assert.Throws<System.ArgumentException>(() => UiActor.Act(new JObject { ["id"] = "Base/BtnOpen", ["steps"] = "abc" }, live: false));
+            StringAssert.Contains("'steps'", e.Message);
+            e = Assert.Throws<System.ArgumentException>(() => UiActor.Act(new JObject { ["id"] = "Base/BtnOpen", ["at"] = new JObject { ["x"] = null, ["y"] = 1 } }, live: false));
+            StringAssert.Contains("'at.x'", e.Message);
+            Assert.IsTrue((bool)UiActor.Act(new JObject { ["id"] = "Base/BtnOpen", ["steps"] = null }, live: false)["acted"], "JSON null means absent");
+        }
+
+        [Test]
+        public void GuardUiWrite_ActNeedsJsonPost_OtherPathsUntouched()
+        {
+            Assert.Throws<System.UnauthorizedAccessException>(() => EditorDebugMCP.GuardUiWrite("/ui/act", "GET", null));
+            Assert.Throws<System.UnauthorizedAccessException>(() => EditorDebugMCP.GuardUiWrite("/ui/act", "POST", "application/x-www-form-urlencoded"));
+            Assert.Throws<System.UnauthorizedAccessException>(() => EditorDebugMCP.GuardUiWrite("/ui/act", "POST", "text/plain"));
+            EditorDebugMCP.GuardUiWrite("/ui/act", "POST", "application/json; charset=utf-8");
+            EditorDebugMCP.GuardUiWrite("/ui/snapshot", "GET", null);
+        }
+
         [Test]
         public void Snapshot_InvalidPagingArgument_Throws()
         {

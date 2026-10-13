@@ -25,13 +25,24 @@ SERVICE_ID = "unity-editor-debug-mcp"
 
 
 def get(args: argparse.Namespace, path: str, query: dict[str, Any]) -> dict[str, Any]:
+    params = {k: v for k, v in query.items() if v is not None}
+    suffix = "?" + urllib.parse.urlencode(params) if params else ""
+    return request(args, path + suffix, None)
+
+
+def post(args: argparse.Namespace, path: str, body: dict[str, Any]) -> dict[str, Any]:
+    """/ui/act 只收 POST + application/json（服务端拒绝 GET 与 form 编码）。"""
+    return request(args, path, json.dumps({k: v for k, v in body.items() if v is not None}).encode("utf-8"))
+
+
+def request(args: argparse.Namespace, path: str, data: bytes | None) -> dict[str, Any]:
     host, port, source = resolve_endpoint(
         SERVICE_ID, args.host, args.port, DEFAULT_PORT, args.project, args.pid, args.timeout, LEGACY_PORTS
     )
-    params = {k: v for k, v in query.items() if v is not None}
-    url = f"http://{host}:{port}{path}" + ("?" + urllib.parse.urlencode(params) if params else "")
+    req = urllib.request.Request(f"http://{host}:{port}{path}", data=data,
+                                 headers={"Content-Type": "application/json"} if data is not None else {})
     try:
-        with urllib.request.urlopen(url, timeout=args.timeout) as resp:
+        with urllib.request.urlopen(req, timeout=args.timeout) as resp:
             return json.loads(resp.read().decode("utf-8"))
     except (urllib.error.URLError, TimeoutError, OSError) as e:
         reason = getattr(e, "reason", e)
@@ -63,6 +74,16 @@ def cmd_hit(args: argparse.Namespace) -> dict[str, Any]:
     return get(args, "/ui/hit", {"x": args.x, "y": args.y})
 
 
+def point(xy: list[float] | None) -> dict[str, float] | None:
+    return {"x": xy[0], "y": xy[1]} if xy else None
+
+
+def cmd_act(args: argparse.Namespace) -> dict[str, Any]:
+    action = "drag" if args.to else "click"
+    return post(args, "/ui/act", {"id": args.id, "iid": args.iid, "action": action, "at": point(args.at),
+                                  "to": point(args.to), "steps": args.steps})
+
+
 def build_parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(prog="client.py", description="Semantic uGUI observation (read-only)")
     p.add_argument("--host", default=DEFAULT_HOST)
@@ -87,6 +108,14 @@ def build_parser() -> argparse.ArgumentParser:
     sh.add_argument("--x", type=float, required=True)
     sh.add_argument("--y", type=float, required=True)
     sh.set_defaults(func=cmd_hit)
+
+    sa = sub.add_parser("act", help="click (or drag with --to) a control by snapshot id; refused if a real click could not reach it")
+    sa.add_argument("--id", required=True, help="node id from snapshot")
+    sa.add_argument("--iid", type=int, help="node iid from the same snapshot, to pick one of several objects sharing an id")
+    sa.add_argument("--at", type=float, nargs=2, metavar=("X", "Y"), help="press point inside the control (default: its center)")
+    sa.add_argument("--to", type=float, nargs=2, metavar=("X", "Y"), help="drag to this screen point instead of clicking")
+    sa.add_argument("--steps", type=int, help="drag move events (default 8)")
+    sa.set_defaults(func=cmd_act)
     return p
 
 
@@ -102,7 +131,12 @@ def main() -> int:
     else:
         json.dump(result, sys.stdout, ensure_ascii=False, indent=2)
     sys.stdout.write("\n")
-    return 0 if result.get("ok") else 1
+    if not result.get("ok"):
+        return 1
+    # act 被拒（被遮、离屏等）是语义失败：ok=true 但 acted=false，退出码 2 与传输/参数错误区分
+    if args.cmd == "act" and not (result.get("result") or {}).get("acted"):
+        return 2
+    return 0
 
 
 if __name__ == "__main__":

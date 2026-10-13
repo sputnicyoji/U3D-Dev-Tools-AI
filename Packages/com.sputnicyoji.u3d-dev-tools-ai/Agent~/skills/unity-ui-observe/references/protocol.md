@@ -1,11 +1,12 @@
 # UI observe protocol
 
-Both endpoints live on the EditorDebug service and accept GET query parameters or a JSON POST body.
+The endpoints live on the EditorDebug service. `/ui/snapshot` and `/ui/hit` accept GET query parameters or a JSON POST body;
+`/ui/act` accepts only POST with `Content-Type: application/json`.
 Requests carrying an `Origin` header are rejected; the listener itself answers `400 Invalid host` for any `Host` other than `127.0.0.1`.
-Query parameters are honoured only on `/ui/` routes; other EditorDebug routes take a JSON body.
+Query parameters are honoured only on `/ui/snapshot` and `/ui/hit`; every other route takes a JSON body.
 Envelope: `{ "ok": bool, "elapsedMs": int, "result": {...} }`; errors use `ok: false` and `error`.
 
-Coordinates in responses and in `/ui/hit` are screen pixels with a top-left origin.
+Coordinates in requests and responses are screen pixels with a top-left origin.
 
 ## GET /ui/snapshot
 
@@ -50,3 +51,35 @@ It starts at the root canvas when that canvas is a scene root, otherwise at the 
 so same-named canvases under different parents (per-character click areas) stay distinct.
 It is stable for authored panels; list cells are stable only while the list content is unchanged.
 `iid` is the instance id and is valid for the current frame only. `path` is the full scene path without indices.
+
+## POST /ui/act
+
+Body: `{ "id": "<node id>", "action": "click" | "drag", "at": {x,y}?, "to": {x,y}?, "steps": int?, "iid": int? }`.
+`action` defaults to `click`; `drag` requires `to`; `steps` (1..120, default 8) is the number of drag events; `at` is a press point inside the control (default: its centre).
+`iid` (the node's `iid` from the same snapshot) picks one object when an id is shared by same-named roots in different scenes.
+JSON `null` means absent; any other non-numeric value is an error naming the key.
+
+Before injecting, the hit at the press point is recomputed with the same rules as `snapshot`.
+The request is refused with `ok: true`, `acted: false`, `reason`, `message` when a real touch could not reach the control:
+
+| reason | meaning |
+|---|---|
+| `not_playing` | Editor is not in Play mode (Edit-mode clicks would fire persistent listeners on scene assets) |
+| `no_event_system` | no active EventSystem, so real input would not reach UI either |
+| `not_found` / `ambiguous` | no active object has the id (and `iid`), or several do and no `iid` was given |
+| `not_ui` | the target has no RectTransform |
+| `not_interactable` | the Selectable that would receive the event (`receiver`) is not interactable, e.g. the label of a disabled button |
+| `offscreen` / `outside_target` | press point outside the screen, or `at` outside the control |
+| `no_hit` / `covered` | nothing hit, or another control is on top (`coveredBy` names it) |
+| `no_handler` / `no_drag_handler` | no pointer-down/click (or drag) handler on the hit object or its parents |
+
+On success: `acted: true`, `at`, `top`, `pressHandler`, `clickHandler` (null when the click was not delivered), and for drags `dragHandler`, `dragged` (false when the move stayed under the drag threshold), `to`, `release`.
+Visibility (CanvasGroup alpha) is not checked: raycasts ignore alpha, so a transparent control still takes a real touch.
+Malformed parameters are errors (`ok: false`).
+
+Event order follows `StandaloneInputModule`'s mouse path step by step: move (enter/exit up the parent chain, as `BaseInputModule.HandlePointerExitAndEnter`),
+press (deselects the current selection when the press lands elsewhere, down, initializePotentialDrag),
+per drag step move + beginDrag once past `pixelDragThreshold` + drag (a press handler that is not the drag handler gets up and loses the click),
+release (up, click if still eligible and released over the same click handler, drop, endDrag), then a final exit as when a finger lifts.
+Hits are recomputed after every drag step, so a drop zone shown by beginDrag can receive the drop.
+It bypasses the input module and device layer and runs in one frame: long-press, double-click (`clickCount` is always 1) and frame-timed handlers are not emulated.

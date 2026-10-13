@@ -17,7 +17,7 @@ Add the package from Git URL:
 ```json
 {
   "dependencies": {
-    "com.sputnicyoji.u3d-dev-tools-ai": "https://github.com/sputnicyoji/U3D-Dev-Tools-AI.git?path=/Packages/com.sputnicyoji.u3d-dev-tools-ai#u3d-dev-tools-ai-v0.2.13"
+    "com.sputnicyoji.u3d-dev-tools-ai": "https://github.com/sputnicyoji/U3D-Dev-Tools-AI.git?path=/Packages/com.sputnicyoji.u3d-dev-tools-ai#u3d-dev-tools-ai-v0.2.14"
   }
 }
 ```
@@ -77,16 +77,19 @@ python client.py console --count 30 --filter error
 
 ### UI Observe
 
-Read-only semantic uGUI state from the same Editor Debug service: layer stack, per-control `hitTop` / `coveredBy`, and guide-mask detection. See `docs/ui-observation-layer.md`.
+Semantic uGUI state from the same Editor Debug service: layer stack, per-control `hitTop` / `coveredBy`, and guide-mask detection.
+`act` clicks or drags a control by id in Play mode and refuses with a `reason` when a real touch could not reach it. See `docs/ui-observation-layer.md`.
 
 ```powershell
 cd Packages/com.sputnicyoji.u3d-dev-tools-ai/Agent~/skills/unity-ui-observe
 python client.py guide
 python client.py snapshot --max 100
 python client.py hit --x 120 --y 640
+python client.py act --id CityHud/SafeArea/BuildButton
+python client.py act --id <scroll-or-joystick-id> --to 443 1200
 ```
 
-Requests that carry an `Origin` header are rejected by the Editor Debug service.
+Requests that carry an `Origin` header are rejected by the Editor Debug service. `/ui/act` accepts only POST with `Content-Type: application/json`.
 
 ### Lua Device Debug
 

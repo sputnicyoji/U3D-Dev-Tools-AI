@@ -1,12 +1,12 @@
 ---
 name: unity-ui-observe
-description: Read the live uGUI state of a Unity Editor as structured facts - which panel is on top, whether a control can be clicked, whether a guide mask steals input. Use before screenshots when judging UI state.
+description: Read live uGUI state in a Unity Editor as facts - top panel, whether a control can be clicked, whether a guide mask steals input - and click or drag a control by id only when a real touch could reach it. Use before screenshots.
 ---
 
 # Unity UI Observe
 
 Use this skill to answer UI-state questions with facts, not pixels.
-It is read-only and talks to the EditorDebug service (`unity-editor-debug-mcp`).
+It talks to the EditorDebug service (`unity-editor-debug-mcp`); `act` is its only command that changes game state.
 A screenshot shows pixels; it cannot tell which canvas wins the click or where a guide hole is.
 
 ## Operational loop
@@ -19,7 +19,8 @@ A screenshot shows pixels; it cannot tell which canvas wins the click or where a
 2. Check for input stealing first.
    Read `guide.active`, `guide.targetId` and `topLayer` (the highest layer that receives input).
    `active=true` with a `targetId` other than the control you expect means a guide owns the input.
-   `active=true`, `holeRect` set and `targetId=null` means the guide points at a world-space target.
+   `active=true`, `holeRect` set and `targetId=null` means nothing uGUI sits under the hole (a pure world target).
+   A world target that carries a world-space canvas button reports that button as `targetId`; check its layer's `renderMode`.
    Completion: you can say whether a guide is active and what it lets through.
 
 3. Read the controls.
@@ -33,7 +34,15 @@ A screenshot shows pixels; it cannot tell which canvas wins the click or where a
    `clickHandler` is the object that would receive the click.
    Completion: the top hit and the click receiver are known.
 
-5. Report bounded evidence.
+5. Act only through the same hit test (Play mode).
+   Run `act --id <node id>` to click, or `act --id <id> --to <x> <y>` to drag.
+   It recomputes the hit first and refuses (`acted=false`, `reason`, exit code 2) when a real touch could not reach the control:
+   `covered` (with `coveredBy`), `offscreen`, `not_interactable`, `not_playing`, `no_event_system` and others.
+   `ambiguous` means the id exists in two scenes: pass `--iid` from the same snapshot.
+   Events land in one frame: long-press, double-click and frame-timed handlers are not emulated.
+   Completion: `acted=true` and a fresh `snapshot` shows the state you expected.
+
+6. Report bounded evidence.
    Quote the ids and flags you relied on, not the whole snapshot.
    Use a screenshot only for visual checks the snapshot cannot express (art, layout polish).
    Completion: the answer can be reproduced from the quoted fields.

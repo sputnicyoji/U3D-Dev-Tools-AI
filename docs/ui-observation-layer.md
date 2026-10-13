@@ -1,6 +1,6 @@
 # 语义 UI 观测层 (Semantic UI Observation Layer)
 
-Status: Phase 1 (observe) 已实现，随 v0.2.12 发布（2026-10-12）；Phase 2 (act) 后续 minor。
+Status: Phase 1 (observe) 随 v0.2.12 发布（2026-10-12，v0.2.13 修内城世界空间 TextMeshPro 异常）；Phase 2 (act) 随 v0.2.14 发布（2026-10-13）。
 
 ## 目的
 
@@ -165,7 +165,22 @@ Phase 2 的 act 是 EditorDebug 上第一个真正的写操作，mutation guard 
 - Cargo 侧两件（见 Cargo 票 `.scratch/ui-observation-layer/`）：UPM ref 升一行 + 装 `unity-ui-observe` skill +
   路由规则写进 `cargo-client/CLAUDE.md`（工作树只读它）与根仓 `CLAUDE.md` "Unity 工具路由" 两处。**没有这一步，工具重蹈 U3D 现状"造了没人用"。**
 
-## Phase 2 速写（act）
+## Phase 2：act（v0.2.14 实现）
+
+实现与速写的差别，以代码 `Editor/EditorDebug/Ui/UiActor.cs` 和 skill 的 `references/protocol.md` 为准：
+
+- **只收 POST + `application/json`**，GET 查询参数只并入 snapshot / hit。否则跨站 `<img src=".../ui/act?id=...">` 这类不带 Origin 的 GET 就能点。
+- **事件序列逐段照搬 StandaloneInputModule 的鼠标路径**，而不是只发 pointerClick：move（悬停沿父链，移植 `HandlePointerExitAndEnter`）、
+  press（`DeselectIfSelectionChanged`、down、initializePotentialDrag）、drag（`pixelDragThreshold`、按下对象不是拖拽对象时先抬起并取消点击）、
+  release（up、click、drop、endDrag），最后补一次指针离开（等同手指抬起，不留悬停高亮）。拖拽每步重建命中器，beginDrag 里新出现的放置区能接到 drop。
+- **拒绝按真人可达性判**：可交互性查在真正接事件的 Selectable（命中冒泡到的处理者）上，不查目标自身；不查 CanvasGroup alpha（射线不看 alpha）。
+- **跨场景同名根导致 id 重名**时回 `ambiguous`，用同一次 snapshot 的 `iid` 消歧。
+- 同一帧发完：长按、双击（`clickCount` 恒 1）、依赖帧间时间的处理不模拟。
+- Cargo 实机（6000.3.12f1）走通：壳选择页进基地、点掉对白推进 Cn1、摇杆拖拽（阈值内 `dragged=false`）、内城引导下 HUD/非目标行被拒 `covered`、
+  扳手 -> `Row_1017` -> 世界空间建筑菜单 `Key_1` 一路推进到 Ct2:6。
+
+原速写：
+
 
 `POST /ui/act {id, action: "click"|"drag", to?}`：路径解析回 GameObject → `ExecuteEvents.Execute` 注入
 pointerClick。注入前重算一次 `hitTop`，**被遮住就拒绝并回 `coveredBy`**——agent 不会"点"到真人也点不到的东西。

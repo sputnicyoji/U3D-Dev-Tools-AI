@@ -17,7 +17,7 @@ namespace Yoji.EditorDebug
     [InitializeOnLoad]
     internal static class EditorDebugMCP
     {
-        private const string k_Version = "0.1.3";
+        private const string k_Version = "0.1.4";
         private static readonly bool c_AllowEval = false; // 需要 /eval 时显式改成 true
         private const int k_MaxBodyBytes = 4 * 1024 * 1024;
         private static readonly ServicePortDefinition k_PortDefinition = ServicePortDefinition.Create(
@@ -140,11 +140,12 @@ namespace Yoji.EditorDebug
                 // DNS rebinding 由 HttpListener 前缀兜住：Host 不是 127.0.0.1 时监听器直接回 400 Invalid host（实测）。
                 if (!string.IsNullOrEmpty(ctx.Request.Headers["Origin"]))
                     throw new UnauthorizedAccessException("cross-origin request rejected");
+                var path = ctx.Request.Url.AbsolutePath;
+                GuardUiWrite(path, ctx.Request.HttpMethod, ctx.Request.ContentType);
                 var body = RequestBodyReader.ReadUtf8(ctx.Request.InputStream, ctx.Request.ContentLength64);
                 var req = string.IsNullOrWhiteSpace(body) ? new JObject() : JObject.Parse(body);
-                var path = ctx.Request.Url.AbsolutePath;
-                // 只给只读的 /ui/ 端点开 GET 查询参数：跨站 <img> GET 不带 Origin，对 /invoke 开放就能触发任意静态调用
-                if (path.StartsWith("/ui/", StringComparison.Ordinal))
+                // 只给只读的 /ui/ 端点开 GET 查询参数：跨站 <img> GET 不带 Origin，对 /invoke、/ui/act 开放就能触发调用或点击
+                if (path == "/ui/snapshot" || path == "/ui/hit")
                     MergeQuery(ctx.Request.QueryString, req);
                 envelope = Route(path, req);
             }
@@ -181,9 +182,23 @@ namespace Yoji.EditorDebug
                     return RunOnMain(() => UiObserver.Snapshot(req));
                 case "/ui/hit":
                     return RunOnMain(() => UiObserver.Hit(req));
+                case "/ui/act":
+                    return RunOnMain(() => UiActor.Act(req, live: true));
                 default:
                     return ErrorEnvelope(new ArgumentException("unknown endpoint: " + path));
             }
+        }
+
+        /// /ui/act 是本服务第一个 UI 写操作，只收 POST + application/json：跨站页面发 JSON 必先 CORS 预检，
+        /// 预检带 Origin 已被拒；form/text 这类免预检的简单请求在这里挡掉。
+        internal static void GuardUiWrite(string path, string method, string contentType)
+        {
+            if (path != "/ui/act")
+                return;
+            if (!string.Equals(method, "POST", StringComparison.OrdinalIgnoreCase))
+                throw new UnauthorizedAccessException("ui/act only accepts POST");
+            if (contentType == null || !contentType.StartsWith("application/json", StringComparison.OrdinalIgnoreCase))
+                throw new UnauthorizedAccessException("ui/act requires Content-Type: application/json");
         }
 
         /// GET 查询参数并入请求体（body 同名字段优先），让 /ui/hit?x=&y= 与 POST JSON 两种写法等价。
