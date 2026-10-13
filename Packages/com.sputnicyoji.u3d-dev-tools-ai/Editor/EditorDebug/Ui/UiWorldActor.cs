@@ -262,6 +262,8 @@ namespace Yoji.EditorDebug.Ui
                 result["coveredBy"] = ctx.IdOf(hits[0].gameObject.transform);
                 return Refuse(result, "covered", "a UI graphic receives the pointer here; the game would give this press to the UI");
             }
+            if (BlockedByGame(result, ctx, pointer))
+                return result;
 
             List<ScriptedPointerFrame> frames;
             switch (action)
@@ -361,6 +363,8 @@ namespace Yoji.EditorDebug.Ui
                 result["coveredBy"] = ctx.IdOf(hits[0].gameObject.transform);
                 return Refuse(result, "covered", "a UI graphic receives the pointer here; the game would give this press to the UI");
             }
+            if (BlockedByGame(result, ctx, pointer))
+                return result;
 
             session = new Session(result, pointer, ClickFrames(press), null, camera, press, true, clock ?? (() => Time.frameCount))
             {
@@ -866,6 +870,18 @@ namespace Yoji.EditorDebug.Ui
             else
                 json["fieldOfView"] = camera.fieldOfView;
             return json;
+        }
+
+        /// 输入阻塞（06）：游戏整块吞掉地图输入时（例如打开的面板让地图不收点击，哪怕没盖住按下点），按下去只会得到
+        /// unverified。指针若实现 IScriptedPointerInputBlocker，按下前问一次；有活着的阻塞者就拒绝为 blocked，
+        /// coveredBy 给出阻塞者，一帧都不喂。报了阻塞但阻塞者已销毁时不拒绝。
+        private static bool BlockedByGame(JObject result, UiContext ctx, IScriptedPointer pointer)
+        {
+            if (!(pointer is IScriptedPointerInputBlocker blocking) || !blocking.TryGetInputBlocker(out var blocker) || blocker == null)
+                return false;
+            result["coveredBy"] = ctx.IdOf(blocker.transform);
+            Refuse(result, "blocked", "the game is not taking map input now (see 'coveredBy'); nothing was fed");
+            return true;
         }
 
         private static JObject Refuse(JObject result, string reason, string message)
