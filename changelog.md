@@ -5,6 +5,11 @@ This log starts with the single-package release, 0.2.0. Release dates follow Git
 
 ## Unreleased
 
+## [0.2.17] - 2026-10-13
+
+### Added
+- Optional `IScriptedPointerInputBlocker`: when the game reports that it is swallowing world input as a whole (for example an open panel that makes the map ignore taps even where it does not cover the press point), `/ui/act` world and cell gestures (click, drag, scroll, pinch) are refused with `blocked` and the blocker in `coveredBy` before any frame is fed. A UI graphic on the press point still answers `covered` first; a null or destroyed blocker does not block.
+
 ### Fixed
 - Apply scripted world-pointer frames before the game's `Update` methods instead of from the Editor update loop; completion and cancellation remove only the gesture's PlayerLoop node.
 - Terminate world gestures with `pointer_error` when pointer callbacks fail, without turning a failed game hit report into a physics-verified success. Interrupted gestures can have partial effects and are not safe to retry automatically.
@@ -135,6 +140,7 @@ Interactions require Play mode and an active EventSystem. Events are injected in
 - Preserve independent internal assemblies while bundling Python clients, skills, and managed agent rule fragments under `Agent~`.
 - Migrate stable/dev registries, test hosts, installation examples, and agent sync to the single package.
 
+[0.2.17]: https://github.com/sputnicyoji/U3D-Dev-Tools-AI/compare/u3d-dev-tools-ai-v0.2.16...u3d-dev-tools-ai-v0.2.17
 [0.2.16]: https://github.com/sputnicyoji/U3D-Dev-Tools-AI/compare/u3d-dev-tools-ai-v0.2.15...u3d-dev-tools-ai-v0.2.16
 [0.2.15]: https://github.com/sputnicyoji/U3D-Dev-Tools-AI/compare/u3d-dev-tools-ai-v0.2.14...u3d-dev-tools-ai-v0.2.15
 [0.2.14]: https://github.com/sputnicyoji/U3D-Dev-Tools-AI/compare/u3d-dev-tools-ai-v0.2.13...u3d-dev-tools-ai-v0.2.14
