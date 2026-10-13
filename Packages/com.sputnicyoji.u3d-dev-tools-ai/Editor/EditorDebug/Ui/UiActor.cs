@@ -119,6 +119,8 @@ namespace Yoji.EditorDebug.Ui
             if (eventSystem != null && ExecuteEvents.GetEventHandler<ISelectHandler>(current) != eventSystem.currentSelectedGameObject)
                 eventSystem.SetSelectedGameObject(null, data);
             var pressed = ExecuteEvents.ExecuteHierarchy(current, data, ExecuteEvents.pointerDownHandler);
+            clickHandler = ExecuteEvents.GetEventHandler<IPointerClickHandler>(current);
+            dragHandler = ExecuteEvents.GetEventHandler<IDragHandler>(current);
             data.clickCount = 1;
             data.clickTime = Time.unscaledTime;
             data.pointerPress = pressed != null ? pressed : clickHandler;
@@ -137,6 +139,10 @@ namespace Yoji.EditorDebug.Ui
             }
 
             // ---- ReleaseMouse ----
+            Canvas.ForceUpdateCanvases();
+            var releaseHits = new UiRaycast().At(data.position);
+            data.pointerCurrentRaycast = releaseHits.Count > 0 ? releaseHits[0] : default;
+            current = data.pointerCurrentRaycast.gameObject;
             ExecuteEvents.Execute(data.pointerPress, data, ExecuteEvents.pointerUpHandler);
             var releaseClick = ExecuteEvents.GetEventHandler<IPointerClickHandler>(current);
             bool clicked = false;
@@ -165,7 +171,7 @@ namespace Yoji.EditorDebug.Ui
             result["clickHandler"] = clicked ? ctx.IdOf(releaseClick.transform) : null;
             if (action == "drag")
             {
-                result["dragHandler"] = ctx.IdOf(dragHandler.transform);
+                result["dragHandler"] = dragHandler != null ? ctx.IdOf(dragHandler.transform) : null;
                 result["dragged"] = dragged;
                 result["to"] = PointJson(ctx, data.position);
                 result["release"] = current != null ? ctx.IdOf(current.transform) : null;
@@ -174,7 +180,7 @@ namespace Yoji.EditorDebug.Ui
         }
 
         /// 每步一帧的 ProcessMove + ProcessDrag。每步重建命中器：beginDrag/drag 里新开的放置区、浮层 canvas
-        /// 要在下一步就能被命中，与真机下一帧的状态一致。返回松手点上的最顶命中（drop 的接收方）。
+        /// 要在下一步就能被命中，与真机下一帧的状态一致。返回最后一步最顶命中，松手前再次重算。
         private static GameObject Drag(PointerEventData data, Vector2 from, Vector2 to, int steps, int threshold)
         {
             GameObject current = data.pointerCurrentRaycast.gameObject;
@@ -192,6 +198,8 @@ namespace Yoji.EditorDebug.Ui
                 current = data.pointerCurrentRaycast.gameObject;
                 HandlePointerExitAndEnter(data, current);
 
+                if (data.pointerDrag == null)
+                    continue;
                 if (!data.dragging && ShouldStartDrag(data.pressPosition, p, threshold, data.useDragThreshold))
                 {
                     ExecuteEvents.Execute(data.pointerDrag, data, ExecuteEvents.beginDragHandler);

@@ -25,7 +25,7 @@ from typing import Any, Callable, Optional
 
 SKILL_DIR = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(SKILL_DIR))
-from port_resolver import resolve_endpoint  # noqa: E402
+from port_resolver import EndpointResolutionError, resolve_endpoint  # noqa: E402
 
 DEFAULT_HOST = "127.0.0.1"
 DEFAULT_PORT = 21891
@@ -248,6 +248,22 @@ def cases() -> list[TestCase]:
             ] * 65},
             expect_ok=False,
         ),
+        TestCase(
+            name="18 /ui/snapshot returns semantic state",
+            endpoint="/ui/snapshot",
+            payload={"max": 1},
+            extra_check=lambda r: None
+            if isinstance(r.get("result", {}).get("layers"), list) and isinstance(r["result"].get("nodes"), list)
+            else f"UI snapshot unexpected: {r.get('result')}",
+        ),
+        TestCase(
+            name="19 /ui/hit returns bounded hits",
+            endpoint="/ui/hit",
+            payload={"x": 0, "y": 0},
+            extra_check=lambda r: None
+            if isinstance(r.get("result", {}).get("hits"), list)
+            else f"UI hit unexpected: {r.get('result')}",
+        ),
     ]
 
 
@@ -277,16 +293,14 @@ def main(argv: list[str]) -> int:
                         help="Print response body on failure")
     args = parser.parse_args(argv[1:])
 
-    host, port, source = resolve_endpoint(
-        SERVICE_ID,
-        args.host,
-        args.port,
-        DEFAULT_PORT,
-        args.project,
-        args.pid,
-        args.resolve_timeout,
-        LEGACY_PORTS,
-    )
+    try:
+        host, port, source = resolve_endpoint(
+            SERVICE_ID, args.host, args.port, DEFAULT_PORT,
+            args.project, args.pid, args.resolve_timeout, LEGACY_PORTS,
+        )
+    except EndpointResolutionError as exc:
+        print(f"[FATAL] {exc.code}: {exc}")
+        return 2
     base = f"http://{host}:{port}"
 
     print(f"== EditorDebugMCP e2e ==")

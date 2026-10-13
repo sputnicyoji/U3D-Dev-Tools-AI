@@ -11,6 +11,9 @@ A screenshot shows pixels; it cannot tell which canvas wins the click or where a
 
 ## Operational loop
 
+When automatic discovery has a project/PID scope (explicit or inferred from cwd), ping identity must match. Missing or mismatched identity is an error, not permission to use another Editor. Without a scope, legacy discovery remains available; `--port` explicitly overrides discovery.
+Observation and interaction cover display 0 only; canvases targeting other displays are excluded.
+
 1. Resolve the endpoint.
    Run `python client.py --project <unity-project-root> guide`.
    Use `--pid <editor-pid>` when several Editors are open.

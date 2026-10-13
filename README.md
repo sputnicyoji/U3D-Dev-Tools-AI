@@ -49,6 +49,11 @@ The package keeps multiple asmdef assemblies internally. Users install one UPM p
 
 ## Tool summary
 
+Automatic endpoint discovery verifies the `/ping` project root and process ID against `--project`, the Unity project inferred from the working directory, and `--pid` when supplied.
+When a project or PID is scoped, discovery fails with `ENDPOINT_IDENTITY_MISMATCH` or `ENDPOINT_NOT_FOUND` instead of falling back to another Editor or an unverified port.
+Without either scope, legacy discovery remains available.
+`--port <port>` deliberately overrides discovery; use it only for a known endpoint.
+
 ### Test Runner MCP
 
 Default ports: legacy `21890`, `21896`, `21897`; project offset `+0`.
@@ -111,9 +116,12 @@ For Android Development Builds:
 
 ```powershell
 python client.py adb-forward
-python client.py ping
+python client.py --port 21894 ping
 python client.py adb-remove
 ```
+
+Use the local port reported by `adb-forward` with every Android HTTP command (`ping`, `commands`, `execute`).
+Android Players do not carry the Editor project identity used by automatic discovery.
 
 ### U3D Dev Tools AI settings
 

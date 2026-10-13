@@ -22,5 +22,6 @@ Without both gates, do not execute the mutation.
 ## Endpoint resolution
 
 Editor diagnostics should use `python client.py --project <unity-project-root> ping`.
-Android diagnostics should create the adb forward before calling `ping`.
+Android diagnostics should create the adb forward, then use `--port <local-forward-port>` for every HTTP command.
+Automatic discovery verifies the Editor project/PID; Android Players do not carry that Editor identity.
 Use `--port` only for a forced endpoint.

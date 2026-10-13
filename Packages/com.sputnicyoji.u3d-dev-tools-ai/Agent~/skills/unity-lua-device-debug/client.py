@@ -300,7 +300,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="client.py", description="Unity Lua Device Debug CLI")
     parser.add_argument("--host", default=DEFAULT_HOST)
     parser.add_argument("--port", type=int, default=None)
-    parser.add_argument("--project", help="Unity project root. Used to resolve project ports before falling back to legacy 21894.")
+    parser.add_argument("--project", help="Unity Editor project root; ping identity must match. Use --port for an Android forward.")
     parser.add_argument("--pid", type=int, help="Unity Editor process id when multiple instances are open.")
     parser.add_argument("--timeout", type=float, default=10.0)
     parser.add_argument("--serial", help="adb device serial; required when multiple devices are connected")

@@ -53,7 +53,7 @@ def resolve_endpoint(
     valid: list[dict[str, Any]] = []
     probe_results: list[dict[str, Any]] = []
     for record in records:
-        result = _probe_candidate(service_id, record["host"], record["port"], timeout)
+        result = _probe_candidate(service_id, record["host"], record["port"], timeout, project_root=project_root, pid=pid)
         probe_results.append(_result_context(record["host"], record["port"], record["source"], result))
         if result["status"] == "healthy":
             valid.append(record)
@@ -68,12 +68,19 @@ def resolve_endpoint(
 
     legacy_results: list[dict[str, Any]] = []
     for legacy_port in _legacy_port_candidates(default_port, legacy_ports):
-        result = _probe_candidate(service_id, host, legacy_port, timeout)
+        result = _probe_candidate(service_id, host, legacy_port, timeout, project_root=project_root, pid=pid)
         legacy_results.append(_result_context(host, legacy_port, "legacy", result))
         if result["status"] == "healthy":
             return host, legacy_port, "legacy-healthy"
 
     all_results = probe_results + legacy_results
+    if any(item["status"] == "identity_mismatch" for item in all_results):
+        raise EndpointResolutionError(
+            "ENDPOINT_IDENTITY_MISMATCH",
+            f"no {service_id} endpoint matched the requested project/process; pass --port only to override deliberately",
+            service_id=service_id,
+            context={"candidates": all_results},
+        )
     if any(item["source"] == "legacy" and item["status"] == "service_mismatch" for item in legacy_results):
         raise EndpointResolutionError(
             "SERVICE_MISMATCH",
@@ -90,6 +97,13 @@ def resolve_endpoint(
             context={"candidates": all_results},
         )
 
+    if project_root is not None or pid is not None:
+        raise EndpointResolutionError(
+            "ENDPOINT_NOT_FOUND",
+            f"no verified {service_id} endpoint for the requested project/process",
+            service_id=service_id,
+            context={"candidates": all_results},
+        )
     return host, default_port, "legacy-default-unverified"
 
 
@@ -226,11 +240,21 @@ def _validate_candidate(service_id: str, host: str, port: int, timeout: float | 
     return _probe_candidate(service_id, host, port, timeout)["status"] == "healthy"
 
 
-def _probe_candidate(service_id: str, host: str, port: int, timeout: float | None) -> dict[str, Any]:
+def _probe_candidate(service_id: str, host: str, port: int, timeout: float | None, *, project_root: Path | None = None, pid: int | None = None) -> dict[str, Any]:
     results = [_ping(host, port, method, _validation_timeout(timeout)) for method in ("GET", "POST")]
+    identity_mismatch = False
     for result in results:
-        if result["status"] == "response" and _response_service_id(result.get("payload")) == service_id:
-            return {"status": "healthy"}
+        metadata = _response_metadata(result.get("payload"))
+        if result["status"] != "response" or metadata.get("serviceId") != service_id:
+            continue
+        root = _as_text(metadata.get("projectRoot"))
+        if (project_root is not None and (not root or _normalized_root_text(root) != _normalized_root_text(project_root))) or (pid is not None and _as_int(metadata.get("processId")) != pid):
+            identity_mismatch = True
+            continue
+        return {"status": "healthy"}
+
+    if identity_mismatch:
+        return {"status": "identity_mismatch", "details": results}
 
     statuses = [result["status"] for result in results]
     if "timeout" in statuses:
@@ -292,23 +316,23 @@ def _json_from_bytes(raw: bytes) -> Any | None:
         return None
 
 
-def _response_service_id(payload: Any) -> str:
+def _response_metadata(payload: Any) -> dict[str, Any]:
     if not isinstance(payload, dict):
-        return ""
+        return {}
     value = payload.get("serviceId")
     if isinstance(value, str) and value:
-        return value
+        return payload
     result = payload.get("result")
     if isinstance(result, dict):
         value = result.get("serviceId")
         if isinstance(value, str) and value:
-            return value
+            return result
     body = payload.get("body")
     if isinstance(body, dict):
         value = body.get("serviceId")
         if isinstance(value, str) and value:
-            return value
-    return ""
+            return body
+    return {}
 
 
 def _validation_timeout(timeout: float | None) -> float:

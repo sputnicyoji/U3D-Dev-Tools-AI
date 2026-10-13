@@ -104,6 +104,112 @@ namespace Yoji.EditorDebug.Tests
             Assert.LessOrEqual(Mathf.Abs((int)hole["h"] - (int)open["h"]), step);
         }
 
+        [TestCase(false)]
+        [TestCase(true)]
+        public void Snapshot_SameLayerGuideMasks_SelectsTheLastSibling(bool originalLast)
+        {
+            var secondRect = Child(m_Mask.transform.parent, "SecondMask", 0f, 0f, 1f, 1f);
+            secondRect.gameObject.AddComponent<TestGuideMask>().Target = m_Covered;
+            if (originalLast)
+                m_Mask.transform.SetAsLastSibling();
+
+            var guide = UiObserver.Snapshot(new JObject())["guide"];
+
+            Assert.AreEqual(originalLast ? "Base/GuideLayer/GuideMask" : "Base/GuideLayer/SecondMask", (string)guide["maskId"]);
+        }
+
+        [TestCase(true, true, true)]
+        [TestCase(false, true, false)]
+        [TestCase(true, false, false)]
+        public void Snapshot_OverrideSortingBoundsParentRaycastGroups(bool overrideSorting, bool ownBlocksRaycasts, bool expectedBlocking)
+        {
+            m_Created[0].AddComponent<CanvasGroup>().blocksRaycasts = false;
+            var guideLayer = m_Mask.transform.parent;
+            guideLayer.GetComponent<Canvas>().overrideSorting = overrideSorting;
+            guideLayer.gameObject.AddComponent<CanvasGroup>().blocksRaycasts = ownBlocksRaycasts;
+
+            var snapshot = UiObserver.Snapshot(new JObject());
+
+            Assert.AreEqual(expectedBlocking, (bool)snapshot["guide"]["active"]);
+            Assert.AreEqual(expectedBlocking, (bool)snapshot["layers"][0]["blocksBelow"]);
+            var rect = Node(snapshot, "Base/BtnCovered")["rect"];
+            var hit = UiObserver.Hit(new JObject
+            {
+                ["x"] = (int)rect["x"] + (int)rect["w"] / 2,
+                ["y"] = (int)rect["y"] + (int)rect["h"] / 2,
+            });
+            Assert.AreEqual(expectedBlocking ? "Base/GuideLayer/GuideMask" : null, (string)hit["top"]);
+        }
+
+        [Test]
+        public void Snapshot_OverrideSortingStillInheritsParentVisibilityAndInteractability()
+        {
+            var group = m_Created[0].AddComponent<CanvasGroup>();
+            group.alpha = 0f;
+            group.interactable = false;
+            group.blocksRaycasts = false;
+
+            var snapshot = UiObserver.Snapshot(new JObject());
+            var mask = Node(snapshot, "Base/GuideLayer/GuideMask");
+
+            Assert.IsFalse((bool)mask["visible"]);
+            Assert.IsFalse((bool)mask["interactable"]);
+        }
+
+        [TestCase(RenderMode.ScreenSpaceOverlay)]
+        [TestCase(RenderMode.ScreenSpaceCamera)]
+        public void Snapshot_ExcludesNonPrimaryDisplayCanvases(RenderMode mode)
+        {
+            var secondary = new GameObject("Secondary", typeof(RectTransform), typeof(Canvas), typeof(GraphicRaycaster));
+            m_Created.Add(secondary);
+            var canvas = secondary.GetComponent<Canvas>();
+            canvas.renderMode = mode;
+            canvas.overrideSorting = true;
+            canvas.sortingOrder = 1000;
+            if (mode == RenderMode.ScreenSpaceOverlay)
+                canvas.targetDisplay = 1;
+            else
+            {
+                var cameraObject = new GameObject("SecondaryCamera", typeof(Camera));
+                cameraObject.transform.SetParent(secondary.transform, false);
+                canvas.worldCamera = cameraObject.GetComponent<Camera>();
+                canvas.worldCamera.targetDisplay = 1;
+            }
+            var button = Child(secondary.transform, "Button", 0.1f, 0.1f, 0.4f, 0.3f);
+            button.gameObject.AddComponent<Image>();
+            button.gameObject.AddComponent<Button>();
+
+            var snapshot = UiObserver.Snapshot(new JObject());
+            Assert.AreEqual(1, mode == RenderMode.ScreenSpaceOverlay ? canvas.targetDisplay : canvas.worldCamera.targetDisplay);
+
+            foreach (var layer in (JArray)snapshot["layers"])
+                Assert.AreNotEqual("Secondary", (string)layer["id"]);
+            foreach (var node in (JArray)snapshot["nodes"])
+                Assert.IsFalse(((string)node["id"]).StartsWith("Secondary/"));
+            Assert.AreEqual("not_found", (string)UiActor.Act(new JObject { ["id"] = "Secondary/Button" }, live: false)["reason"]);
+        }
+
+        [Test]
+        public void Snapshot_NestedCanvasUsesItsEffectivePrimaryDisplay()
+        {
+            m_Mask.transform.parent.gameObject.SetActive(false);
+            var layer = Child(m_Created[0].transform, "Secondary", 0f, 0f, 1f, 1f);
+            var canvas = layer.gameObject.AddComponent<Canvas>();
+            canvas.overrideSorting = true;
+            canvas.sortingOrder = 1000;
+            canvas.targetDisplay = 1;
+            layer.gameObject.AddComponent<GraphicRaycaster>();
+            var mask = Child(layer, "Mask", 0f, 0f, 1f, 1f).gameObject.AddComponent<TestGuideMask>();
+            mask.Target = m_Open;
+            var snapshot = UiObserver.Snapshot(new JObject());
+
+            Assert.AreEqual(0, canvas.targetDisplay, "nested canvas inherits the root display after layout");
+            Assert.IsTrue((bool)snapshot["guide"]["active"]);
+            Assert.AreEqual("Base/Secondary/Mask", (string)snapshot["guide"]["maskId"]);
+            Assert.IsFalse((bool)Node(snapshot, "Base/BtnCovered")["hitTop"]);
+            Assert.AreEqual("covered", (string)UiActor.Act(new JObject { ["id"] = "Base/BtnCovered" }, live: false)["reason"]);
+        }
+
         [Test]
         public void Snapshot_HoleOverNoControl_ReportsHoleWithoutTarget()
         {
@@ -322,8 +428,9 @@ namespace Yoji.EditorDebug.Tests
             Assert.AreEqual(1, recorder.Exits, "and leave when the finger lifts");
         }
 
-        [Test]
-        public void Act_Drag_DropsOnATargetRevealedByBeginDrag()
+        [TestCase(1)]
+        [TestCase(8)]
+        public void Act_Drag_DropsOnATargetRevealedByBeginDrag(int steps)
         {
             m_Mask.transform.parent.gameObject.SetActive(false);
             var source = Child(m_Created[0].transform, "Source", 0.1f, 0.1f, 0.3f, 0.2f);
@@ -342,6 +449,7 @@ namespace Yoji.EditorDebug.Tests
                 ["id"] = "Base/Source",
                 ["action"] = "drag",
                 ["to"] = new JObject { ["x"] = (int)zoneRect["x"] + (int)zoneRect["w"] / 2, ["y"] = (int)zoneRect["y"] + (int)zoneRect["h"] / 2 },
+                ["steps"] = steps,
             }, live: false);
 
             Assert.IsTrue((bool)result["acted"], result.ToString());
@@ -349,6 +457,50 @@ namespace Yoji.EditorDebug.Tests
             Assert.AreEqual(1, drop.Drops);
             Assert.AreEqual(1, drop.Enters, "the drop zone is hovered during the drag");
             Assert.AreEqual(1, receiver.End);
+        }
+
+        [Test]
+        public void Act_ClickHandlerEnabledByPointerDown_ReceivesClick()
+        {
+            m_Mask.transform.parent.gameObject.SetActive(false);
+            var area = Child(m_Created[0].transform, "DynamicHandler", 0.1f, 0.1f, 0.3f, 0.2f);
+            area.gameObject.AddComponent<Image>();
+            var down = area.gameObject.AddComponent<TestPointerRecorder>();
+            var receiver = area.gameObject.AddComponent<TestDragReceiver>();
+            receiver.enabled = false;
+            down.EnableOnDown = receiver;
+
+            var result = UiActor.Act(new JObject { ["id"] = "Base/DynamicHandler" }, live: false);
+
+            Assert.IsTrue((bool)result["acted"], result.ToString());
+            Assert.AreEqual(1, receiver.Clicks);
+            Assert.AreEqual(1, receiver.Init);
+        }
+
+        [Test]
+        public void Act_DragHandlerDisabledByPointerDown_DoesNotDragOrThrow()
+        {
+            m_Mask.transform.parent.gameObject.SetActive(false);
+            var area = Child(m_Created[0].transform, "DynamicHandler", 0.1f, 0.1f, 0.3f, 0.2f);
+            area.gameObject.AddComponent<Image>();
+            var down = area.gameObject.AddComponent<TestPointerRecorder>();
+            var receiver = area.gameObject.AddComponent<TestDragReceiver>();
+            down.DisableOnDown = receiver;
+
+            var result = UiActor.Act(new JObject
+            {
+                ["id"] = "Base/DynamicHandler", ["action"] = "drag",
+                ["to"] = new JObject { ["x"] = Screen.width * 0.8f, ["y"] = Screen.height * 0.2f },
+            }, live: false);
+
+            Assert.IsTrue((bool)result["acted"], result.ToString());
+            Assert.IsFalse((bool)result["dragged"]);
+            Assert.IsNull((string)result["dragHandler"]);
+            Assert.AreEqual(0, receiver.Init);
+            Assert.AreEqual(0, receiver.Begin);
+            Assert.AreEqual(0, receiver.Drags);
+            Assert.AreEqual(0, receiver.End);
+            Assert.AreEqual(0, receiver.Clicks);
         }
 
         [Test]

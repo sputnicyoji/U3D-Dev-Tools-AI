@@ -72,7 +72,8 @@ namespace Yoji.EditorDebug.Ui
                 if (layer < 0)
                     continue;
                 blocks[layer] = true;
-                if (UiGuideProbe.IsHostFilter(graphic) && layer < maskLayer)
+                if (UiGuideProbe.IsHostFilter(graphic)
+                    && (layer < maskLayer || (layer == maskLayer && UiContext.CompareHierarchy(graphic.transform, mask.transform) > 0)))
                 {
                     mask = graphic;
                     maskLayer = layer;
@@ -168,7 +169,7 @@ namespace Yoji.EditorDebug.Ui
             var layers = new List<Canvas>();
             foreach (var canvas in UnityEngine.Object.FindObjectsByType<Canvas>(FindObjectsInactive.Exclude, FindObjectsSortMode.None))
             {
-                if (canvas.isActiveAndEnabled && (canvas.isRootCanvas || canvas.overrideSorting))
+                if (canvas.isActiveAndEnabled && UiContext.OnPrimaryDisplay(canvas) && (canvas.isRootCanvas || canvas.overrideSorting))
                     layers.Add(canvas);
             }
             layers.Sort(CompareLayersTopFirst);
@@ -204,7 +205,7 @@ namespace Yoji.EditorDebug.Ui
 
         private static bool ReceivesInput(Canvas canvas)
         {
-            var raycaster = canvas != null ? canvas.GetComponent<GraphicRaycaster>() : null;
+            var raycaster = canvas != null && UiContext.OnPrimaryDisplay(canvas) ? canvas.GetComponent<GraphicRaycaster>() : null;
             return raycaster != null && raycaster.isActiveAndEnabled;
         }
 

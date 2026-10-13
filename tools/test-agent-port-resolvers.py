@@ -1,11 +1,13 @@
 import importlib.util
+import io
 import json
 import os
+import sys
 import tempfile
 import threading
 import time
 import unittest
-from contextlib import contextmanager
+from contextlib import contextmanager, redirect_stdout
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from typing import Any, Iterator
@@ -34,11 +36,15 @@ def load_resolver(path: Path, index: int = 0) -> Any:
 class _PingHandler(BaseHTTPRequestHandler):
     service_id = ""
     delay = 0.0
+    project_root = ""
+    process_id = 0
+    envelope = None
 
     def _send(self) -> None:
         if self.delay > 0:
             time.sleep(self.delay)
-        body = json.dumps({"serviceId": self.service_id, "ok": True}).encode("utf-8")
+        payload = {"serviceId": self.service_id, "projectRoot": self.project_root, "processId": self.process_id}
+        body = json.dumps({"ok": True, self.envelope: payload} if self.envelope else {"ok": True, **payload}).encode("utf-8")
         self.send_response(200)
         self.send_header("Content-Type", "application/json; charset=utf-8")
         self.send_header("Content-Length", str(len(body)))
@@ -72,8 +78,8 @@ class _Server(ThreadingHTTPServer):
 
 
 @contextmanager
-def ping_server(service_id: str, delay: float = 0.0) -> Iterator[int]:
-    handler = type("Handler", (_PingHandler,), {"service_id": service_id, "delay": delay})
+def ping_server(service_id: str, delay: float = 0.0, *, project_root: str = "", process_id: int = 0, envelope: str | None = None) -> Iterator[int]:
+    handler = type("Handler", (_PingHandler,), {"service_id": service_id, "delay": delay, "project_root": project_root, "process_id": process_id, "envelope": envelope})
     server = _Server(("127.0.0.1", 0), handler)
     thread = threading.Thread(target=server.serve_forever, daemon=True)
     thread.start()
@@ -148,7 +154,7 @@ class PortResolverTests(unittest.TestCase):
                 self.assertTrue(hasattr(module, "EndpointResolutionError"))
 
     def test_project_ports_json_resolves_single_instance(self) -> None:
-        with ping_server("test-runner-mcp") as port:
+        with ping_server("test-runner-mcp", project_root=str(self.project), process_id=101) as port:
             write_json(
                 self.project / ".u3d-ai-linker" / "ports.json",
                 {"instances": [{"serviceId": "test-runner-mcp", "host": "127.0.0.1", "port": port, "processId": 101, "projectRoot": str(self.project), "instanceId": "a"}]},
@@ -161,7 +167,7 @@ class PortResolverTests(unittest.TestCase):
             self.assertEqual(source, "project-registry")
 
     def test_multiple_matching_records_require_pid(self) -> None:
-        with ping_server("test-runner-mcp") as port1, ping_server("test-runner-mcp") as port2:
+        with ping_server("test-runner-mcp", project_root=str(self.project), process_id=101) as port1, ping_server("test-runner-mcp", project_root=str(self.project), process_id=202) as port2:
             write_json(
                 self.project / ".u3d-ai-linker" / "ports.json",
                 {"instances": [
@@ -179,7 +185,7 @@ class PortResolverTests(unittest.TestCase):
             self.assertIn("pid=202", text)
 
     def test_pid_disambiguates(self) -> None:
-        with ping_server("test-runner-mcp") as port1, ping_server("test-runner-mcp") as port2:
+        with ping_server("test-runner-mcp", project_root=str(self.project), process_id=101) as port1, ping_server("test-runner-mcp", project_root=str(self.project), process_id=202) as port2:
             write_json(
                 self.project / ".u3d-ai-linker" / "ports.json",
                 {"instances": [
@@ -196,7 +202,7 @@ class PortResolverTests(unittest.TestCase):
 
     def test_duplicate_instance_rows_same_pid_port_resolve_without_ambiguity(self) -> None:
         # domain reload / 崩溃残留会给同一 pid+port 留多个 instanceId 行; 它们指向同一监听器, 不应报 ambiguous.
-        with ping_server("test-runner-mcp") as port:
+        with ping_server("test-runner-mcp", project_root=str(self.project), process_id=101) as port:
             write_json(
                 self.project / ".u3d-ai-linker" / "ports.json",
                 {"instances": [
@@ -211,21 +217,19 @@ class PortResolverTests(unittest.TestCase):
             self.assertEqual(resolved_port, port)
             self.assertEqual(source, "project-registry")
 
-    def test_malformed_json_falls_back_to_legacy_default_unverified(self) -> None:
+    def test_scoped_malformed_registry_does_not_return_an_unverified_port(self) -> None:
         ports = self.project / ".u3d-ai-linker" / "ports.json"
         ports.parent.mkdir(parents=True, exist_ok=True)
         ports.write_text("{broken", encoding="utf-8")
         default_port = CLOSED_PORT
 
         with patch.object(self.resolver.urllib.request, "urlopen", side_effect=URLError(ConnectionRefusedError("refused"))):
-            host, resolved_port, source = self._resolve(project=str(self.project), default_port=default_port, legacy_ports=(default_port,))
-
-        self.assertEqual(host, "127.0.0.1")
-        self.assertEqual(resolved_port, default_port)
-        self.assertEqual(source, "legacy-default-unverified")
+            with self.assertRaises(self.resolver.EndpointResolutionError) as ctx:
+                self._resolve(project=str(self.project), default_port=default_port, legacy_ports=(default_port,))
+        self.assertEqual(ctx.exception.code, "ENDPOINT_NOT_FOUND")
 
     def test_stale_registry_candidate_is_skipped_then_legacy_healthy(self) -> None:
-        with ping_server("other-service") as stale_port, ping_server("test-runner-mcp") as legacy_port:
+        with ping_server("other-service") as stale_port, ping_server("test-runner-mcp", project_root=str(self.project), process_id=333) as legacy_port:
             write_json(
                 registry_path(self.local_appdata),
                 {"instances": [{"serviceId": "test-runner-mcp", "host": "127.0.0.1", "port": stale_port, "processId": 333, "projectRoot": str(self.project), "instanceId": "stale"}]},
@@ -235,17 +239,82 @@ class PortResolverTests(unittest.TestCase):
             self.assertEqual(resolved_port, legacy_port)
             self.assertEqual(source, "legacy-healthy")
 
-    def test_registry_connection_failure_falls_back_to_legacy_default(self) -> None:
+    def test_scoped_registry_connection_failure_does_not_return_an_unverified_port(self) -> None:
         default_port = CLOSED_PORT
         write_json(
             registry_path(self.local_appdata),
             {"instances": [{"serviceId": "test-runner-mcp", "host": "127.0.0.1", "port": 22001, "processId": 444, "projectRoot": str(self.project), "instanceId": "dead"}]},
         )
         with patch.object(self.resolver.urllib.request, "urlopen", side_effect=URLError("boom")):
-            host, resolved_port, source = self._resolve(project=str(self.project), default_port=default_port, legacy_ports=(default_port,))
-            self.assertEqual(host, "127.0.0.1")
-            self.assertEqual(resolved_port, default_port)
-            self.assertEqual(source, "legacy-default-unverified")
+            with self.assertRaises(self.resolver.EndpointResolutionError) as ctx:
+                self._resolve(project=str(self.project), default_port=default_port, legacy_ports=(default_port,))
+            self.assertEqual(ctx.exception.code, "ENDPOINT_NOT_FOUND")
+
+    def test_legacy_ping_identity_must_match_project_and_pid(self) -> None:
+        for project_root, process_id in [(str(self.root / "OtherProject"), 111), (str(self.project), 222), ("", 0)]:
+            with self.subTest(project_root=project_root, process_id=process_id):
+                with ping_server("test-runner-mcp", project_root=project_root, process_id=process_id) as port:
+                    with self.assertRaises(self.resolver.EndpointResolutionError) as ctx:
+                        self._resolve(project=str(self.project), pid=111, default_port=port, legacy_ports=(port,))
+                self.assertEqual(ctx.exception.code, "ENDPOINT_IDENTITY_MISMATCH")
+
+    def test_legacy_accepts_matching_identity_in_each_ping_envelope(self) -> None:
+        for envelope in (None, "result", "body"):
+            with self.subTest(envelope=envelope):
+                with ping_server("test-runner-mcp", project_root=str(self.project), process_id=111, envelope=envelope) as port:
+                    self.assertEqual(("127.0.0.1", port, "legacy-healthy"), self._resolve(project=str(self.project), pid=111, default_port=port, legacy_ports=(port,)))
+
+    def test_pid_only_legacy_resolution_rejects_a_different_process(self) -> None:
+        with ping_server("test-runner-mcp", process_id=222) as port:
+            with self.assertRaises(self.resolver.EndpointResolutionError) as ctx:
+                self._resolve(pid=111, default_port=port, legacy_ports=(port,))
+        self.assertEqual(ctx.exception.code, "ENDPOINT_IDENTITY_MISMATCH")
+
+    def test_implicit_project_scope_is_not_lost_during_legacy_fallback(self) -> None:
+        with ping_server("test-runner-mcp", project_root=str(self.root / "OtherProject")) as port:
+            with patch.object(self.resolver.Path, "cwd", return_value=self.project):
+                with self.assertRaises(self.resolver.EndpointResolutionError) as ctx:
+                    self._resolve(default_port=port, legacy_ports=(port,))
+        self.assertEqual(ctx.exception.code, "ENDPOINT_IDENTITY_MISMATCH")
+
+    def test_stale_registry_identity_cannot_override_the_ping_identity(self) -> None:
+        with ping_server("test-runner-mcp", project_root=str(self.root / "OtherProject"), process_id=222) as port:
+            write_json(self.project / ".u3d-ai-linker" / "ports.json", {"instances": [{"serviceId": "test-runner-mcp", "host": "127.0.0.1", "port": port, "processId": 111, "projectRoot": str(self.project), "instanceId": "stale"}]})
+            with self.assertRaises(self.resolver.EndpointResolutionError) as ctx:
+                self._resolve(project=str(self.project), pid=111, default_port=port, legacy_ports=(port,))
+        self.assertEqual(ctx.exception.code, "ENDPOINT_IDENTITY_MISMATCH")
+
+    def test_ui_act_refuses_wrong_identity_before_sending_the_action(self) -> None:
+        path = ROOT / "Packages/com.sputnicyoji.u3d-dev-tools-ai/Agent~/skills/unity-ui-observe/client.py"
+        spec = importlib.util.spec_from_file_location("review_ui_client", path)
+        client = importlib.util.module_from_spec(spec)
+        with patch.dict(sys.modules, {"port_resolver": self.resolver}):
+            spec.loader.exec_module(client)
+        with ping_server("unity-editor-debug-mcp", project_root=str(self.root / "OtherProject"), process_id=222) as port:
+            with patch.object(client, "LEGACY_PORTS", (port,)), patch.object(sys, "argv", ["client.py", "--project", str(self.project), "--pid", "111", "act", "--id", "Canvas/Submit"]):
+                output = io.StringIO()
+                with patch.object(client.urllib.request, "urlopen", wraps=client.urllib.request.urlopen) as requests, redirect_stdout(output):
+                    status = client.main()
+        self.assertEqual(1, status)
+        self.assertEqual("ENDPOINT_IDENTITY_MISMATCH", json.loads(output.getvalue())["error"]["type"])
+        self.assertFalse(any(call.args[0].full_url.endswith("/ui/act") for call in requests.call_args_list))
+
+    def test_e2e_scripts_report_identity_errors_without_running_cases(self) -> None:
+        for skill in ("test-runner-mcp", "unity-editor-debug-mcp"):
+            with self.subTest(skill=skill):
+                path = ROOT / "Packages/com.sputnicyoji.u3d-dev-tools-ai/Agent~/skills" / skill / "references/run-e2e.py"
+                spec = importlib.util.spec_from_file_location("review_e2e", path)
+                e2e = importlib.util.module_from_spec(spec)
+                with patch.dict(sys.modules, {"port_resolver": self.resolver, spec.name: e2e}), patch.object(sys, "path", sys.path.copy()):
+                    spec.loader.exec_module(e2e)
+                    with ping_server(e2e.SERVICE_ID, project_root=str(self.root / "OtherProject"), process_id=222) as port:
+                        with patch.object(e2e, "LEGACY_PORTS", (port,)), redirect_stdout(io.StringIO()) as output:
+                            try:
+                                status = e2e.main(["run-e2e.py", "--project", str(self.project), "--pid", "111"])
+                            except self.resolver.EndpointResolutionError as exc:
+                                self.fail("endpoint error escaped the e2e entry point: " + exc.code)
+                self.assertEqual(2, status)
+                self.assertIn("ENDPOINT_IDENTITY_MISMATCH", output.getvalue())
 
     def test_explicit_port_wins_without_ping(self) -> None:
         write_json(
@@ -315,7 +384,7 @@ class PortResolverTests(unittest.TestCase):
     def test_legacy_scan_respects_provided_ports_without_default_insertion(self) -> None:
         seen = []
 
-        def fake_probe(service_id: str, host: str, port: int, timeout: float | None) -> dict[str, Any]:
+        def fake_probe(service_id: str, host: str, port: int, timeout: float | None, **scope: Any) -> dict[str, Any]:
             seen.append(port)
             if port == 45678:
                 return {"status": "healthy"}

@@ -11,6 +11,8 @@ It does not provide arbitrary Lua eval.
 
 ## Operational loop
 
+When automatic discovery has a project/PID scope (explicit or inferred from cwd), ping identity must match. Missing or mismatched identity is an error, not permission to use another Editor. Without a scope, legacy discovery remains available; `--port` explicitly overrides discovery.
+
 1. Select the target.
    Use Editor mode for an open Unity Editor.
    Use Android mode for a Development Build device.
@@ -18,7 +20,8 @@ It does not provide arbitrary Lua eval.
 
 2. Resolve or forward.
    Editor: run `python client.py --project <unity-project-root> ping`.
-   Android: run `python client.py adb-forward`, then `python client.py ping`.
+   Android: run `python client.py adb-forward`, then `python client.py --port <local-forward-port> ping`.
+   Pass the reported local forward port to every Android HTTP command; a Player has no Editor project identity.
    Use `--port <port>` only for a forced endpoint.
    Completion: ping proves the Lua debug service is reachable.
 

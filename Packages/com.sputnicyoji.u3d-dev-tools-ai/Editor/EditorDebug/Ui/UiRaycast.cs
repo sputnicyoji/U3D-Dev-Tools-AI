@@ -25,10 +25,12 @@ namespace Yoji.EditorDebug.Ui
             {
                 if (!raycaster.IsActive())
                     continue;
-                m_Raycasters.Add(raycaster);
                 var canvas = raycaster.GetComponent<Canvas>();
+                if (canvas == null || !UiContext.OnPrimaryDisplay(canvas))
+                    continue;
+                m_Raycasters.Add(raycaster);
                 // 根 canvas 自己没有 raycaster 时，嵌套弹窗的 raycaster 也要给整棵根树编号
-                var root = canvas != null ? canvas.rootCanvas : null;
+                var root = canvas.rootCanvas;
                 if (root == null || !numbered.Add(root))
                     continue;
                 // GetComponentsInChildren 返回先序遍历，即 uGUI 的绘制顺序

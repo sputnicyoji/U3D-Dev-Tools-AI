@@ -166,12 +166,20 @@ namespace Yoji.EditorDebug.Ui
             return root.worldCamera != null ? root.worldCamera : Camera.main;
         }
 
-        /// CanvasGroup 链合成后的 alpha / interactable / blocksRaycasts，遇 ignoreParentGroups 截断。
+        /// single-screen API 只观测主显示器，显示器选择与 GraphicRaycaster 一致。
+        public static bool OnPrimaryDisplay(Canvas canvas)
+        {
+            var camera = EventCamera(canvas);
+            return (camera != null ? camera.targetDisplay : canvas.targetDisplay) == 0;
+        }
+
+        /// CanvasGroup 链遇 ignoreParentGroups 截断；overrideSorting 只截断父级 blocksRaycasts。
         public static void GroupState(Transform t, out float alpha, out bool interactable, out bool blocksRaycasts)
         {
             alpha = 1f;
             interactable = true;
             blocksRaycasts = true;
+            bool collectRaycasts = true;
             for (var x = t; x != null; x = x.parent)
             {
                 x.GetComponents(s_Groups);
@@ -183,11 +191,15 @@ namespace Yoji.EditorDebug.Ui
                         continue;
                     alpha *= group.alpha;
                     interactable &= group.interactable;
-                    blocksRaycasts &= group.blocksRaycasts;
+                    if (collectRaycasts)
+                        blocksRaycasts &= group.blocksRaycasts;
                     stop |= group.ignoreParentGroups;
                 }
                 if (stop)
                     break;
+                var canvas = x.GetComponent<Canvas>();
+                if (canvas != null && canvas.overrideSorting)
+                    collectRaycasts = false;
             }
         }
 

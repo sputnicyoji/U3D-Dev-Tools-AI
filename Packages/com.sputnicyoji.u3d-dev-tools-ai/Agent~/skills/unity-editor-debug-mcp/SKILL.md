@@ -11,6 +11,8 @@ Do not enable `/eval`; it is disabled by default.
 
 ## Operational loop
 
+When automatic discovery has a project/PID scope (explicit or inferred from cwd), ping identity must match. Missing or mismatched identity is an error, not permission to use another Editor. Without a scope, legacy discovery remains available; `--port` explicitly overrides discovery.
+
 1. Resolve the endpoint.
    Run `python client.py --project <unity-project-root> ping` when the project root is known.
    Use `--pid <editor-pid>` for duplicate Editors.

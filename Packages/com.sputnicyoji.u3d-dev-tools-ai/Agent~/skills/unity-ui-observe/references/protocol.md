@@ -7,6 +7,8 @@ Query parameters are honoured only on `/ui/snapshot` and `/ui/hit`; every other 
 Envelope: `{ "ok": bool, "elapsedMs": int, "result": {...} }`; errors use `ok: false` and `error`.
 
 Coordinates in requests and responses are screen pixels with a top-left origin.
+Only display 0 is supported; layers, nodes, guide detection, hit testing, and act exclude other target displays.
+When a project/PID scope is requested or inferred from cwd, automatic discovery requires matching ping identity; `--port` is an explicit override.
 
 ## GET /ui/snapshot
 
@@ -81,7 +83,8 @@ Event order follows `StandaloneInputModule`'s mouse path step by step: move (ent
 press (deselects the current selection when the press lands elsewhere, down, initializePotentialDrag),
 per drag step move + beginDrag once past `pixelDragThreshold` + drag (a press handler that is not the drag handler gets up and loses the click),
 release (up, click if still eligible and released over the same click handler, drop, endDrag), then a final exit as when a finger lifts.
-Hits are recomputed after every drag step, so a drop zone shown by beginDrag can receive the drop.
+Click/drag handlers are resolved again after pointer-down callbacks, and the hit is recomputed before release,
+so a drop zone shown by the last drag callback can receive the drop even with `steps=1`.
 It bypasses the input module and device layer and runs in one frame: long-press, double-click (`clickCount` is always 1) and frame-timed handlers are not emulated.
 
 ## POST /ui/act with a world target (Phase 3)

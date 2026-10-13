@@ -16,7 +16,7 @@ from pathlib import Path
 
 SKILL_DIR = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(SKILL_DIR))
-from port_resolver import resolve_endpoint  # noqa: E402
+from port_resolver import EndpointResolutionError, resolve_endpoint  # noqa: E402
 
 PASS_FIX = "Yoji.TestRunner.Tests.FixtureTests.AlwaysPasses"
 FAIL_FIX = "Yoji.TestRunner.Tests.FixtureTests.AlwaysFails"
@@ -79,16 +79,14 @@ def main(argv):
     ap.add_argument("--include-recompile", action="store_true")
     ap.add_argument("-v", "--verbose", action="store_true")
     args = ap.parse_args(argv[1:])
-    host, port, source = resolve_endpoint(
-        SERVICE_ID,
-        args.host,
-        args.port,
-        DEFAULT_PORT,
-        args.project,
-        args.pid,
-        args.resolve_timeout,
-        LEGACY_PORTS,
-    )
+    try:
+        host, port, source = resolve_endpoint(
+            SERVICE_ID, args.host, args.port, DEFAULT_PORT,
+            args.project, args.pid, args.resolve_timeout, LEGACY_PORTS,
+        )
+    except EndpointResolutionError as exc:
+        print(f"[FATAL] {exc.code}: {exc}")
+        return 2
     base = f"http://{host}:{port}"
     print(f"target: {base} source={source}")
 

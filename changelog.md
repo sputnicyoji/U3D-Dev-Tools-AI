@@ -3,6 +3,16 @@
 Notable changes to `com.sputnicyoji.u3d-dev-tools-ai`.
 This log starts with the single-package release, 0.2.0. Release dates follow Git tag timestamps (UTC+8).
 
+## Unreleased
+
+### Fixed
+- Verify project/PID identity during automatic endpoint discovery instead of falling back to a different Editor or an unverified port; explicit `--port` remains an override.
+- Refresh UI hits before release so targets revealed by the final drag step receive drop events.
+- Resolve click/drag handlers after pointer-down callbacks, including handlers enabled or disabled by those callbacks.
+- Select the topmost guide mask within the same Canvas layer.
+- Respect `overrideSorting` boundaries for inherited raycast blocking without changing alpha/interactable inheritance.
+- Exclude non-primary display canvases consistently from UI observation and interaction.
+
 ## [0.2.14] - 2026-10-13
 
 ### Added
