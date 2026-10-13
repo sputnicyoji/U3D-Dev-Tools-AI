@@ -74,16 +74,26 @@ namespace Yoji.EditorDebug.Ui
             var targetToken = req["target"];
             string path = null;
             int? iid = null;
+            Vector2Int? cell = null;
             if (!IsAbsent(targetToken))
             {
                 if (!(targetToken is JObject targetObj))
-                    throw new ArgumentException("ui/act 'target' must be {path, iid}");
-                path = targetObj.Value<string>("path");
-                iid = IntArg(targetObj, "iid", "target.iid");
-                if (string.IsNullOrEmpty(path) && !iid.HasValue)
-                    throw new ArgumentException("ui/act 'target' needs 'path' (scene path from the hierarchy) and/or 'iid'");
+                    throw new ArgumentException("ui/act 'target' must be {path, iid} or {cell: {x, y}}");
+                if (!IsAbsent(targetObj["cell"]))
+                {
+                    if (!IsAbsent(targetObj["path"]) || !IsAbsent(targetObj["iid"]))
+                        throw new ArgumentException("ui/act 'target' takes either 'cell' or 'path'/'iid', not both");
+                    cell = CellArg(targetObj["cell"]);
+                }
+                else
+                {
+                    path = targetObj.Value<string>("path");
+                    iid = IntArg(targetObj, "iid", "target.iid");
+                    if (string.IsNullOrEmpty(path) && !iid.HasValue)
+                        throw new ArgumentException("ui/act 'target' needs 'path' (scene path from the hierarchy) and/or 'iid'");
+                }
             }
-            bool hasTarget = path != null || iid.HasValue;
+            bool hasTarget = path != null || iid.HasValue || cell.HasValue;
             Vector2? at = PointArg(req, "at");
             if (hasTarget && at.HasValue)
                 throw new ArgumentException("ui/act takes either 'target' or 'at', not both");
@@ -91,6 +101,8 @@ namespace Yoji.EditorDebug.Ui
                 throw new ArgumentException("ui/act world gesture needs 'target' or 'at'");
             if (action == "click" && !hasTarget)
                 throw new ArgumentException("ui/act click on the world needs 'target': the hit is checked against it");
+            if (cell.HasValue && action != "click")
+                throw new ArgumentException("ui/act cell targets only click; drag, scroll and pinch take 'at'");
 
             Vector2? to = PointArg(req, "to");
             Vector2? by = PointArg(req, "by");
@@ -112,7 +124,9 @@ namespace Yoji.EditorDebug.Ui
             string cameraPath = req.Value<string>("camera");
 
             var result = new JObject { ["action"] = action, ["acted"] = false };
-            if (hasTarget)
+            if (cell.HasValue)
+                result["target"] = new JObject { ["cell"] = CellJson(cell.Value) };
+            else if (hasTarget)
                 result["target"] = new JObject { ["path"] = path, ["iid"] = iid };
             if (live && !EditorApplication.isPlaying)
                 return Refuse(result, "not_playing", "act only runs in Play mode");
@@ -123,6 +137,8 @@ namespace Yoji.EditorDebug.Ui
 
             Canvas.ForceUpdateCanvases();
             var ctx = new UiContext();
+            if (cell.HasValue)
+                return StartCell(result, ctx, pointer, cell.Value, cameraPath, clock, out session);
 
             Transform target = null;
             if (hasTarget)
@@ -227,6 +243,69 @@ namespace Yoji.EditorDebug.Ui
             return null;
         }
 
+        /// 格子目标（04）：格子 -> 世界点由游戏给（IScriptedPointerCells），相机投影成屏幕点；按下前先把屏幕点
+        /// 交还游戏判格子，回不到同一格就拒绝（ambiguous_cell），一帧都不喂。点击结束后以游戏上报的格子为准。
+        private static JObject StartCell(JObject result, UiContext ctx, IScriptedPointer pointer, Vector2Int cell, string cameraPath, Func<int> clock, out Session session)
+        {
+            session = null;
+            var cells = pointer as IScriptedPointerCells;
+            if (cells == null)
+                return Refuse(result, "no_cell_target", "the game's scripted pointer does not implement IScriptedPointerCells; cell targets cannot be resolved");
+
+            Camera camera;
+            if (!string.IsNullOrEmpty(cameraPath))
+            {
+                var found = FindByPath(ctx, cameraPath);
+                camera = found.Count == 1 ? found[0].GetComponent<Camera>() : null;
+                if (camera == null || !camera.isActiveAndEnabled)
+                    return Refuse(result, "no_camera", "'camera' does not name exactly one active Camera");
+            }
+            else
+            {
+                camera = cells.CellCamera;
+                if (camera == null || !camera.isActiveAndEnabled)
+                    return Refuse(result, "no_camera", "the game reports no active camera for its cells (is the map shown?)");
+            }
+            result["camera"] = ctx.IdOf(camera.transform);
+
+            if (!cells.TryCellToWorld(cell, out var world))
+                return Refuse(result, "out_of_map", "the cell is outside the map");
+            result["world"] = new JObject { ["x"] = world.x, ["y"] = world.y, ["z"] = world.z };
+            var screen = camera.WorldToScreenPoint(world);
+            if (screen.z <= 0f)
+                return Refuse(result, "behind_camera", "the cell is behind the camera");
+            var press = new Vector2(screen.x, screen.y);
+            result["at"] = PointJson(ctx, press);
+            if (screen.z < camera.nearClipPlane || screen.z > camera.farClipPlane)
+                return Refuse(result, "offscreen", "the cell is outside the camera's clip range");
+            if (!OnScreen(ctx, camera, press))
+                return Refuse(result, "offscreen", "the cell is outside the screen or the camera's viewport");
+
+            // 往返自检：游戏把这个屏幕点判回哪一格。格子太小、贴边或被斜视压扁时可能判到邻格，此时不按
+            bool back = cells.TryScreenToCell(camera, press, out var judged);
+            if (!back || judged != cell)
+            {
+                result["roundTrip"] = back ? CellJson(judged) : null;
+                return Refuse(result, "ambiguous_cell", "the cell's screen point maps back to another cell (see 'roundTrip'); nothing was fed");
+            }
+
+            var hits = ctx.Raycast.At(press);
+            if (hits.Count > 0)
+            {
+                result["coveredBy"] = ctx.IdOf(hits[0].gameObject.transform);
+                return Refuse(result, "covered", "a UI graphic receives the pointer here; the game would give this press to the UI");
+            }
+
+            session = new Session(result, pointer, ClickFrames(press), null, camera, press, true, clock ?? (() => Time.frameCount))
+            {
+                Cells = cells,
+                TargetCell = cell,
+            };
+            s_Active = session;
+            session.Begin();
+            return null;
+        }
+
         // —— 计划 ——
 
         internal static List<ScriptedPointerFrame> ClickFrames(Vector2 p) => new List<ScriptedPointerFrame>
@@ -326,6 +405,12 @@ namespace Yoji.EditorDebug.Ui
             /// scroll / pinch：结束时把相机读回 cameraAfter。
             internal bool ReadsBackCamera;
 
+            /// 格子目标：非 null 时核对游戏上报的格子，而不是物体。
+            internal IScriptedPointerCells Cells;
+            internal Vector2Int TargetCell;
+            private bool m_CellReported;
+            private Vector2Int? m_ReportedCell;
+
             internal Session(JObject result, IScriptedPointer pointer, List<ScriptedPointerFrame> frames, Transform target, Camera camera, Vector2 press, bool verify, Func<int> clock)
             {
                 m_Result = result;
@@ -373,6 +458,8 @@ namespace Yoji.EditorDebug.Ui
             {
                 m_Captured = true;
                 m_Reported = m_Pointer.TryGetReportedHit(out m_ReportedHit);
+                if (Cells != null)
+                    m_CellReported = Cells.TryGetReportedCell(out m_ReportedCell);
             }
 
             internal void Cancel(string reason, string message)
@@ -391,7 +478,12 @@ namespace Yoji.EditorDebug.Ui
                 m_Result["framesApplied"] = m_Index;
                 ReadBackCamera();
                 if (m_Verify)
-                    Verify();
+                {
+                    if (Cells != null)
+                        VerifyCell();
+                    else
+                        Verify();
+                }
                 End();
             }
 
@@ -409,6 +501,29 @@ namespace Yoji.EditorDebug.Ui
                     s_Active = null;
                 try { m_Pointer.End(); }
                 finally { Done.Set(); }
+            }
+
+            /// 格子目标：以游戏 ReportCell 上报的格子为准；格子上有单位时一并给出（来自 TryGetReportedHit）。
+            private void VerifyCell()
+            {
+                var ctx = new UiContext();
+                m_Result["hitSource"] = "game";
+                if (m_Reported && m_ReportedHit != null)
+                    m_Result["unit"] = TransformJson(ctx, m_ReportedHit.transform);
+                if (!m_CellReported)
+                {
+                    m_Result["cell"] = null;
+                    m_Result["verified"] = false;
+                    Refuse(m_Result, "unverified", "the game reported no cell for this tap; the click was sent but its effect is unknown");
+                    return;
+                }
+                m_Result["cell"] = m_ReportedCell.HasValue ? CellJson(m_ReportedCell.Value) : null;
+                bool match = m_ReportedCell.HasValue && m_ReportedCell.Value == TargetCell;
+                m_Result["verified"] = match;
+                if (!match)
+                    Refuse(m_Result, "cell_mismatch", m_ReportedCell.HasValue
+                        ? "the game's tap resolved to another cell (see 'cell')"
+                        : "the game's tap resolved to no cell");
             }
 
             private void Verify()
@@ -647,6 +762,19 @@ namespace Yoji.EditorDebug.Ui
             result["reason"] = reason;
             result["message"] = message;
             return result;
+        }
+
+        private static JObject CellJson(Vector2Int cell) => new JObject { ["x"] = cell.x, ["y"] = cell.y };
+
+        private static Vector2Int CellArg(JToken token)
+        {
+            if (!(token is JObject o))
+                throw new ArgumentException("ui/act 'target.cell' must be {x, y} (integer map cell)");
+            int? x = IntArg(o, "x", "target.cell.x");
+            int? y = IntArg(o, "y", "target.cell.y");
+            if (!x.HasValue || !y.HasValue)
+                throw new ArgumentException("ui/act 'target.cell' needs integer 'x' and 'y'");
+            return new Vector2Int(x.Value, y.Value);
         }
 
         private static JObject PointJson(UiContext ctx, Vector2 unityScreen) => new JObject

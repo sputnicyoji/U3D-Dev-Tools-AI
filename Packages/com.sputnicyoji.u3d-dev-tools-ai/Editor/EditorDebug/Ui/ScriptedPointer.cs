@@ -51,6 +51,32 @@ namespace Yoji.EditorDebug.Ui
         bool TryGetReportedHit(out GameObject hit);
     }
 
+    /// <summary>
+    /// Optional capability of a registered <see cref="IScriptedPointer"/>: the game's map cells, so /ui/act can click
+    /// <c>target: {cell: {x, y}}</c>. The package does not know the game's grid; the same object that implements
+    /// <see cref="IScriptedPointer"/> implements this too, and the act finds it with a type check.
+    /// </summary>
+    public interface IScriptedPointerCells
+    {
+        /// <summary>The camera the cells are drawn and hit-tested with now; null when no map is shown.</summary>
+        Camera CellCamera { get; }
+
+        /// <summary>The world point the game aims at for a cell (its centre). False when the cell is outside the map.</summary>
+        bool TryCellToWorld(Vector2Int cell, out Vector3 world);
+
+        /// <summary>
+        /// The cell the game's own tap logic would resolve this screen point (Unity pixels, bottom-left origin) to.
+        /// The act maps the cell's screen point back through this before pressing and refuses when it lands elsewhere.
+        /// </summary>
+        bool TryScreenToCell(Camera camera, Vector2 screen, out Vector2Int cell);
+
+        /// <summary>
+        /// True when the game reported the cell its tap resolved to since <see cref="IScriptedPointer.Begin"/>;
+        /// <paramref name="cell"/> may then be null (the tap resolved to no cell). False when the game reported nothing.
+        /// </summary>
+        bool TryGetReportedCell(out Vector2Int? cell);
+    }
+
     /// <summary>The one scripted pointer /ui/act drives. Main thread only.</summary>
     public static class ScriptedPointerRegistry
     {

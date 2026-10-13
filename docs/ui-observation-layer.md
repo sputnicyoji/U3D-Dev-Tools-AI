@@ -210,3 +210,13 @@ observe 阶段把 `hitTop` 建对，act 阶段零额外判定直接复用。世�
   z 在 0 与近裁面之间算 `offscreen`。
 - `scroll` / `pinch` 的结果带 `cameraBefore` / `cameraAfter`：正交给 `orthographicSize`，透视给 `fieldOfView`，外加 `position`。
   `cameraAfter` 在最后一个计划帧被游戏读过、帧号再前进一次后读取，验收看数值，不再靠截图。
+
+### 04：大地图格子目标
+
+- `target: {cell: {x, y}}`，只支持 click。U3D 不认识游戏的格子：注册的脚本指针可选实现 `IScriptedPointerCells`
+  （`CellCamera` / `TryCellToWorld` / `TryScreenToCell` / `TryGetReportedCell`），Cargo 用 `WorldMapSpatial.CellCenter` 与大地图相机实现。
+- 按下前往返自检：格子中心 -> 屏幕点 -> 游戏判格，回不到同一格回 `ambiguous_cell`，不喂指针。
+- 拒绝：`no_cell_target`、`no_camera`、`out_of_map`、`behind_camera`、`offscreen`、`ambiguous_cell`、`covered` + `coveredBy`。
+- 核对：以游戏上报的格子为准（Cargo `CargoPointer.ReportCell`，与 `ReportTap` 分开）。不一致或判出无格回 `cell_mismatch`，
+  没上报回 `unverified`；格子上有单位时 `ReportTap` 也上报，结果合并成 `cell` + `unit {path, iid}`。
+- 点击照旧逐帧喂 Down、Held、Up、None，Down / Up 各一帧。
