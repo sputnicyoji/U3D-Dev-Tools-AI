@@ -68,7 +68,7 @@ namespace Yoji.EditorDebug.Ui
             for (int i = 0; i < graphics.Count; i++)
             {
                 var graphic = graphics[i];
-                if (!graphic.raycastTarget || graphic.canvasRenderer.cull)
+                if (!graphic.raycastTarget || UiContext.Culled(graphic))
                     continue;
                 if (!RectTransformUtility.RectangleContainsScreenPoint(graphic.rectTransform, position, camera, graphic.raycastPadding))
                     continue;

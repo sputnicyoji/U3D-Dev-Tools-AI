@@ -96,6 +96,8 @@ MCP 管交互式操作与截图，都不碰"游戏 UI 语义真相"。
 `depth==-1`（canvas 尚未渲染）的图元——编辑模式与 batchmode 下结果为空。`UiRaycast` 照搬 GraphicRaycaster 的逐图元过滤
 （`Graphic.Raycast` 仍走 `ICanvasRaycastFilter` 与 CanvasGroup），depth 换成根 canvas 下的先序遍历序，比较器镜像
 `EventSystem.RaycastComparer`。不覆盖 PhysicsRaycaster 与 `blockingObjects` 物理遮挡。
+v0.2.13：`Graphic` 不 RequireComponent `CanvasRenderer`，世界空间 `TMPro.TextMeshPro`（走 MeshRenderer）也是 Graphic；
+没有 CanvasRenderer 的图元按不绘制处理（`UiContext.Culled`），否则 Cargo 内城的建筑名牌会让 snapshot 抛 `MissingComponentException`。
 
 ### guide —— 引导抢占一次判清
 

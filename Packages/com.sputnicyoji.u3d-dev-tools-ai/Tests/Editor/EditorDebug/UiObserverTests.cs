@@ -200,6 +200,25 @@ namespace Yoji.EditorDebug.Tests
         }
 
         [Test]
+        public void GraphicsWithoutCanvasRenderer_AreSkipped()
+        {
+            // Cargo 内城：世界空间 TextMeshPro 散在 canvas 外；canvas 内也可能挂着没有 CanvasRenderer 的 Graphic
+            var world = new GameObject("WorldLabel", typeof(RectTransform), typeof(TestBareGraphic));
+            m_Created.Add(world);
+            var inCanvas = Child(m_Created[0].transform, "BareInCanvas", 0.6f, 0.6f, 0.9f, 0.8f);
+            inCanvas.gameObject.AddComponent<TestBareGraphic>();
+            Assert.IsNull(world.GetComponent<CanvasRenderer>());
+
+            var snapshot = UiObserver.Snapshot(new JObject());
+            var rect = Node(snapshot, "Base/BtnCovered")["rect"];
+            float x = (int)rect["x"] + (int)rect["w"] * 0.5f;
+            float y = (int)rect["y"] + (int)rect["h"] * 0.5f;
+            var hit = UiObserver.Hit(new JObject { ["x"] = x.ToString(System.Globalization.CultureInfo.InvariantCulture), ["y"] = y.ToString(System.Globalization.CultureInfo.InvariantCulture) });
+
+            Assert.AreEqual("Base/GuideLayer/GuideMask", (string)hit["top"]);
+        }
+
+        [Test]
         public void Snapshot_InvalidPagingArgument_Throws()
         {
             Assert.Throws<System.ArgumentException>(() => UiObserver.Snapshot(new JObject { ["max"] = "10O" }));

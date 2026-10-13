@@ -63,7 +63,7 @@ namespace Yoji.EditorDebug.Ui
             foreach (var graphic in UnityEngine.Object.FindObjectsByType<Graphic>(FindObjectsInactive.Exclude, FindObjectsSortMode.None))
             {
                 // 真实命中只经图元最近 canvas 上的 GraphicRaycaster；没有它的纯展示 canvas 不挡点击
-                if (!graphic.isActiveAndEnabled || !graphic.raycastTarget || graphic.canvasRenderer.cull || !ReceivesInput(graphic.canvas))
+                if (!graphic.isActiveAndEnabled || !graphic.raycastTarget || UiContext.Culled(graphic) || !ReceivesInput(graphic.canvas))
                     continue;
                 UiContext.GroupState(graphic.transform, out _, out _, out bool blocksRaycasts);
                 if (!blocksRaycasts || ctx.Coverage(ctx.ScreenRect(graphic.rectTransform)) < BlockingCoverage)

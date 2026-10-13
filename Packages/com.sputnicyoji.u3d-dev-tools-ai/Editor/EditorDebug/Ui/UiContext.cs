@@ -151,6 +151,11 @@ namespace Yoji.EditorDebug.Ui
             root.renderMode == RenderMode.ScreenSpaceOverlay
             || (root.renderMode == RenderMode.ScreenSpaceCamera && root.worldCamera == null);
 
+        /// 不参与 uGUI 绘制与命中。Graphic 本身不 RequireComponent CanvasRenderer：世界空间 TMPro.TextMeshPro
+        /// 走 MeshRenderer、没有 CanvasRenderer，直接读 canvasRenderer.cull 会抛 MissingComponentException。
+        public static bool Culled(Graphic graphic) =>
+            !graphic.TryGetComponent(out CanvasRenderer renderer) || renderer.cull;
+
         /// 与 GraphicRaycaster.eventCamera 同规则；嵌套 canvas 继承根 canvas 的渲染模式与相机。
         public static Camera EventCamera(Canvas canvas)
         {
