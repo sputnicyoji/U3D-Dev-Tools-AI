@@ -5,6 +5,15 @@ This log starts with the single-package release, 0.2.0. Release dates follow Git
 
 ## Unreleased
 
+## [0.2.16] - 2026-10-13
+
+### Added
+- `/ui/act` cell targets: `target: {cell: {x, y}}` clicks a map cell through a registered pointer that also implements `IScriptedPointerCells`; the cell is round-tripped through the game before pressing (`ambiguous_cell`), refusals include `no_cell_target`, `no_camera`, `out_of_map`, `behind_camera`, `offscreen` and `covered` with `coveredBy`, and the click is verified against the cell the game reports (`cell_mismatch`, `unverified`) with the reported unit merged in as `unit {path, iid}`. The UI client `world` command gains `--cell`.
+- World `scroll` and `pinch` results carry `cameraBefore` and `cameraAfter` (`orthographic`, `orthographicSize` or `fieldOfView`, `position`).
+
+### Changed
+- World targets with a screen-space depth of zero or less are refused as `behind_camera` for perspective and orthographic cameras; targets nearer than the near clip plane are `offscreen`.
+
 ### Fixed
 - Verify project/PID identity during automatic endpoint discovery instead of falling back to a different Editor or an unverified port; explicit `--port` remains an override.
 - Refresh UI hits before release so targets revealed by the final drag step receive drop events.
@@ -113,6 +122,7 @@ Interactions require Play mode and an active EventSystem. Events are injected in
 - Preserve independent internal assemblies while bundling Python clients, skills, and managed agent rule fragments under `Agent~`.
 - Migrate stable/dev registries, test hosts, installation examples, and agent sync to the single package.
 
+[0.2.16]: https://github.com/sputnicyoji/U3D-Dev-Tools-AI/compare/u3d-dev-tools-ai-v0.2.15...u3d-dev-tools-ai-v0.2.16
 [0.2.14]: https://github.com/sputnicyoji/U3D-Dev-Tools-AI/compare/u3d-dev-tools-ai-v0.2.13...u3d-dev-tools-ai-v0.2.14
 [0.2.13]: https://github.com/sputnicyoji/U3D-Dev-Tools-AI/compare/u3d-dev-tools-ai-v0.2.12...u3d-dev-tools-ai-v0.2.13
 [0.2.12]: https://github.com/sputnicyoji/U3D-Dev-Tools-AI/compare/u3d-dev-tools-ai-v0.2.11...u3d-dev-tools-ai-v0.2.12
