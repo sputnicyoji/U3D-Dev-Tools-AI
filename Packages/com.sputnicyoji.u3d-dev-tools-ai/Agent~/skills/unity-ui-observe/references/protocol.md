@@ -115,7 +115,8 @@ Refusals (`acted: false`, nothing was fed):
 | `not_found` / `ambiguous` / `stale` | no active object, several objects with the path (pass `iid`), or the iid now has another path |
 | `not_world` | the target is a canvas control; use `id` |
 | `no_camera` | no active camera renders the target's layer, or `camera` names none |
-| `behind_camera` / `offscreen` | the point is behind the camera, past its far plane, or outside the screen or camera viewport (a pinch finger included) |
+| `behind_camera` | `WorldToScreenPoint(...).z <= 0`: the aim point is behind the camera (perspective or orthographic); nothing is fed even when x/y land on screen |
+| `offscreen` | the point is nearer than the near plane, past the far plane, or outside the screen or camera viewport (a pinch finger included) |
 | `covered` | a UI graphic (GraphicRaycaster) is on top; `coveredBy` names it, as `hitTop` would |
 
 After a `click`, the result reports what the game hit: `hit {path, iid}` and `hitSource`.
@@ -124,3 +125,8 @@ when it reported nothing the package falls back to a 3D then 2D physics ray (`ph
 `verified` is true only when the hit is the target or its child. Otherwise `acted: true` with
 `hit_mismatch` (the game hit something else or nothing) or `unverified` (no report and no collider: the click was sent but its effect is unknown).
 Results also carry `camera`, `at`, `world` (aim point), `framesApplied`, and for drags `to`, for pinches `span {from,to}`.
+
+`scroll` and `pinch` results read the camera back: `cameraBefore` (just before the first frame) and `cameraAfter`
+(after the game has run the last frame), each `{orthographic, orthographicSize | fieldOfView, position {x,y,z}}`
+(`orthographicSize` for an orthographic camera, `fieldOfView` for a perspective one). Zoom in shows as a smaller value.
+A cancelled gesture still reports `cameraAfter` as of the cancel.

@@ -18,9 +18,11 @@ namespace Yoji.EditorDebug.Tests
             public bool Reports;
             public GameObject ReportedHit;
             public bool Active;
+            /// 模拟游戏读到这一帧后的反应（如按滚轮缩放相机）。
+            public System.Action<ScriptedPointerFrame> OnApply;
 
             public void Begin() { Begins++; Active = true; }
-            public void Apply(ScriptedPointerFrame frame) { Assert.IsTrue(Active, "Apply outside Begin/End"); Applied.Add(frame); }
+            public void Apply(ScriptedPointerFrame frame) { Assert.IsTrue(Active, "Apply outside Begin/End"); Applied.Add(frame); OnApply?.Invoke(frame); }
             public void End() { Ends++; Active = false; }
 
             public bool TryGetReportedHit(out GameObject hit)
@@ -200,6 +202,110 @@ namespace Yoji.EditorDebug.Tests
             Assert.AreEqual("behind_camera", (string)result["reason"]);
             Assert.IsFalse((bool)result["acted"]);
             Assert.AreEqual(0, m_Pointer.Begins, "a refused gesture never takes the pointer");
+        }
+
+        [Test]
+        public void BehindCamera_Orthographic_Refused()
+        {
+            m_Camera.orthographic = true;
+            m_Camera.orthographicSize = 20f;
+            // 正交相机的视口按 xy 截取，目标仍在画面范围内，只是在相机背后
+            m_Target.transform.position = new Vector3(0f, 0f, -10f);
+            var result = Run(Request());
+            Assert.AreEqual("behind_camera", (string)result["reason"], result.ToString());
+            Assert.IsFalse((bool)result["acted"]);
+            Assert.AreEqual(0, m_Pointer.Begins);
+        }
+
+        [Test]
+        public void BehindCamera_Perspective_TargetBesideAndBehind_Refused()
+        {
+            // 斜后方：WorldToScreenPoint 的 xy 可能落在屏幕内，只有 z 能判出背后
+            m_Target.transform.position = new Vector3(0.5f, 0.2f, -3f);
+            var result = Run(Request());
+            Assert.AreEqual("behind_camera", (string)result["reason"], result.ToString());
+            Assert.AreEqual(0, m_Pointer.Applied.Count, "a target behind the camera is never fed");
+        }
+
+        [Test]
+        public void BehindCamera_AutoPickedCamera_Refused()
+        {
+            m_Target.transform.position = new Vector3(0f, 0f, -10f);
+            var req = Request();
+            req.Remove("camera");
+            var result = Run(req);
+            Assert.AreEqual("behind_camera", (string)result["reason"], result.ToString());
+        }
+
+        [Test]
+        public void NearerThanNearClip_IsOffscreenNotBehind()
+        {
+            m_Camera.nearClipPlane = 1f;
+            m_Target.transform.position = new Vector3(0f, 0f, 0.5f);
+            // 只留 transform.position 当瞄准点（编辑器里未同步的 collider bounds 可能停在原点）
+            Object.DestroyImmediate(m_Target.GetComponent<Renderer>());
+#if U3D_HAS_PHYSICS
+            Object.DestroyImmediate(m_Target.GetComponent<Collider>());
+#endif
+            Assert.AreEqual("offscreen", (string)Run(Request())["reason"]);
+        }
+
+        [Test]
+        public void Scroll_ReadsBackOrthographicSizeBeforeAndAfter()
+        {
+            m_Camera.orthographic = true;
+            m_Camera.orthographicSize = 10f;
+            m_Pointer.OnApply = f => m_Camera.orthographicSize -= f.Scroll.y; // 游戏：一格滚轮缩 1
+            var req = Request("scroll");
+            req["scroll"] = 3;
+            req["steps"] = 3;
+            var result = Run(req);
+            Assert.AreEqual(10f, (float)result["cameraBefore"]["orthographicSize"], 1e-4f, result.ToString());
+            Assert.AreEqual(7f, (float)result["cameraAfter"]["orthographicSize"], 1e-4f);
+            Assert.IsTrue((bool)result["cameraAfter"]["orthographic"]);
+            Assert.IsNull(result["cameraAfter"]["fieldOfView"]);
+        }
+
+        [Test]
+        public void Pinch_ReadsBackFieldOfViewAndPosition()
+        {
+            m_Camera.orthographic = false;
+            m_Camera.fieldOfView = 60f;
+            m_Pointer.OnApply = f =>
+            {
+                if (f.Touches.Length == 2 && f.Touches[0].phase == TouchPhase.Moved)
+                    m_Camera.fieldOfView -= 5f;
+            };
+            var req = Request("pinch");
+            req["scale"] = 1.5f;
+            req["steps"] = 2;
+            var result = Run(req);
+            Assert.AreEqual(60f, (float)result["cameraBefore"]["fieldOfView"], 1e-4f, result.ToString());
+            Assert.AreEqual(50f, (float)result["cameraAfter"]["fieldOfView"], 1e-4f);
+            Assert.IsNotNull(result["cameraAfter"]["position"]["z"]);
+        }
+
+        [Test]
+        public void Readback_IsTakenAfterTheLastFrame()
+        {
+            m_Camera.orthographic = true;
+            m_Camera.orthographicSize = 10f;
+            // 游戏在最后一个计划帧（无滚轮的收尾帧）才动相机：cameraAfter 必须已经看到它
+            m_Pointer.OnApply = f => { if (f.Scroll.y == 0f) m_Camera.orthographicSize = 4f; };
+            var req = Request("scroll");
+            req["scroll"] = 1;
+            var result = Run(req);
+            Assert.AreEqual(4f, (float)result["cameraAfter"]["orthographicSize"], 1e-4f, result.ToString());
+        }
+
+        [Test]
+        public void ClickAndDrag_HaveNoCameraReadback()
+        {
+            m_Pointer.Reports = true;
+            m_Pointer.ReportedHit = m_Target;
+            var result = Run(Request());
+            Assert.IsNull(result["cameraBefore"]);
+            Assert.IsNull(result["cameraAfter"]);
         }
 
         [Test]

@@ -203,3 +203,10 @@ observe 阶段把 `hitTop` 建对，act 阶段零额外判定直接复用。世�
 - **拖动与缩放**：脚本指针补上滚轮（`mouseScrollDelta` 与 `GetAxis("Mouse ScrollWheel")` 都答）与双指（`Touch` 数组，Began / Moved / Ended），
   act 新增 `drag` / `scroll` / `pinch`，可以只给屏幕点 `at`。
 - HTTP 请求阻塞到手势结束（最多 20 s）；Play 退出或 domain reload 时取消手势并交还指针。
+
+### 05：相机背后拒绝 + 缩放回读
+
+- `WorldToScreenPoint` 的 z <= 0 即 `behind_camera`（透视、正交同一口径，z 是沿相机前向的距离），不喂指针；
+  z 在 0 与近裁面之间算 `offscreen`。
+- `scroll` / `pinch` 的结果带 `cameraBefore` / `cameraAfter`：正交给 `orthographicSize`，透视给 `fieldOfView`，外加 `position`。
+  `cameraAfter` 在最后一个计划帧被游戏读过、帧号再前进一次后读取，验收看数值，不再靠截图。
