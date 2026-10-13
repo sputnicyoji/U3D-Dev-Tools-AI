@@ -1,12 +1,12 @@
 ---
 name: unity-ui-observe
-description: Read live uGUI state in a Unity Editor as facts - top panel, whether a control can be clicked, whether a guide mask steals input - and click or drag a control by id only when a real touch could reach it. Use before screenshots.
+description: Read live uGUI state in a Unity Editor as facts - top panel, whether a control can be clicked, whether a guide mask steals input - and act on reachable controls, world objects or map cells. Use before screenshots or scripted world interaction.
 ---
 
 # Unity UI Observe
 
 Use this skill to answer UI-state questions with facts, not pixels.
-It talks to the EditorDebug service (`unity-editor-debug-mcp`); `act` is its only command that changes game state.
+It talks to the EditorDebug service (`unity-editor-debug-mcp`); `act` and `world` change game state. Observation commands are read-only.
 A screenshot shows pixels; it cannot tell which canvas wins the click or where a guide hole is.
 
 ## Operational loop
@@ -50,6 +50,10 @@ Observation and interaction cover display 0 only; canvases targeting other displ
    and checks the object the game reports it hit: `hit_mismatch` or `unverified` (exit 2) means the click did not land on the target.
    `world --at <x> <y> --action drag --by <dx> <dy>`, `--action scroll --scroll 1` and `--action pinch --scale 1.5` pan and zoom.
    It needs the game to register a scripted pointer (`no_scripted_pointer` otherwise).
+   `world --cell <x> <y>` clicks a map cell when that pointer also implements `IScriptedPointerCells` (`no_cell_target` otherwise).
+   The cell is projected and round-tripped through the game before pressing; `ambiguous_cell` refuses a different cell,
+   and `cell_mismatch` or `unverified` means the game's reported tap did not verify the requested cell.
+   `pointer_error`, cancellation or timeout can follow partial input. Read the resulting game state; do not retry automatically.
 
 6. Report bounded evidence.
    Quote the ids and flags you relied on, not the whole snapshot.

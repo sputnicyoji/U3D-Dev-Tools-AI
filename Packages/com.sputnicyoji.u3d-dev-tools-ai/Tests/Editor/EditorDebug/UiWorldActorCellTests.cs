@@ -23,6 +23,7 @@ namespace Yoji.EditorDebug.Tests
             public Vector2Int? CellOverride;
             public bool OverrideSet;
             public bool RoundTripLies;
+            public bool ThrowOnCellReport;
             public GameObject Unit;
 
             private bool m_CellReported;
@@ -63,7 +64,13 @@ namespace Yoji.EditorDebug.Tests
                 return on;
             }
 
-            public bool TryGetReportedCell(out Vector2Int? cell) { cell = m_Cell; return m_CellReported; }
+            public bool TryGetReportedCell(out Vector2Int? cell)
+            {
+                cell = m_Cell;
+                if (ThrowOnCellReport)
+                    throw new System.InvalidOperationException("cell report failed");
+                return m_CellReported;
+            }
 
             private static bool Judge(Camera camera, Vector2 screen, out Vector2Int cell)
             {
@@ -210,6 +217,53 @@ namespace Yoji.EditorDebug.Tests
             Assert.AreEqual("unverified", (string)result["reason"], result.ToString());
             Assert.IsFalse((bool)result["verified"]);
             Assert.IsTrue((bool)result["acted"]);
+        }
+
+        [Test]
+        public void Cell_ReportFailure_TerminatesWithoutRetryOrSuccessfulVerification()
+        {
+            m_Pointer.ThrowOnCellReport = true;
+            UiWorldActor.Start(Request(0, 0), live: false, m_Pointer, () => m_Frame, out var session);
+            Assert.NotNull(session);
+            for (int i = 0; i < 10 && !session.Done.IsSet; i++)
+            {
+                m_Frame++;
+                Assert.DoesNotThrow(session.Step);
+            }
+            Assert.IsTrue(session.Done.IsSet);
+            Assert.IsNull(UiWorldActor.Active);
+            Assert.AreEqual("pointer_error", (string)session.Result["reason"], session.Result.ToString());
+            Assert.AreNotEqual(true, (bool?)session.Result["verified"]);
+            int applied = m_Pointer.Applied.Count;
+            m_Frame++;
+            Assert.DoesNotThrow(session.Step);
+            Assert.AreEqual(applied, m_Pointer.Applied.Count);
+            Assert.AreEqual(1, m_Pointer.Ends);
+        }
+
+        [TestCase(false, false)]
+        [TestCase(false, true)]
+        [TestCase(true, false)]
+        [TestCase(true, true)]
+        public void CellCamera_NotRenderingPrimaryScreen_IsRefused(bool explicitCamera, bool texture)
+        {
+            var rt = texture ? new RenderTexture(64, 64, 0) : null;
+            try
+            {
+                m_Camera.targetTexture = rt;
+                m_Camera.targetDisplay = texture ? 0 : 1;
+                var req = Request(0, 0);
+                if (explicitCamera) req["camera"] = "CellActCam";
+                var result = Run(req);
+                Assert.AreEqual("no_camera", (string)result["reason"], result.ToString());
+                Assert.IsFalse((bool)result["acted"]);
+                Assert.AreEqual(0, m_Pointer.Begins);
+            }
+            finally
+            {
+                m_Camera.targetTexture = null;
+                if (rt != null) Object.DestroyImmediate(rt);
+            }
         }
 
         [Test]

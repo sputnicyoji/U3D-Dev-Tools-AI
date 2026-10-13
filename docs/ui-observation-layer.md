@@ -194,12 +194,19 @@ observe 阶段把 `hitTop` 建对，act 阶段零额外判定直接复用。世�
 - **U3D 不认识游戏的输入层。** 包里只有通用注册口 `ScriptedPointerRegistry` + `IScriptedPointer`（Begin / Apply / End / TryGetReportedHit），
   游戏在 Editor 代码里注册自己的脚本指针（Cargo 是 `CargoScriptedPointerBridge` 包住 `CargoPointer` 的 `ScriptedPointerSource`）。
 - **按场景路径 + instanceId 指定物体**，不收屏幕坐标；用目标相机 `WorldToScreenPoint` 现算屏幕点（渲染包围盒中心）。
-- **逐帧喂**：一次 act 是一串 `ScriptedPointerFrame`，每当 `Time.frameCount` 前进才 Apply 下一帧，游戏自己的 tap 判定、拖动阈值、UI 遮挡判定原样跑。
+- **逐帧喂**：每个手势在 PlayerLoop 的 `Update.ScriptRunBehaviourUpdate` 前安装回调，先 Apply 再由游戏的 `MonoBehaviour.Update` 消费。
+  一次 act 是一串 `ScriptedPointerFrame`，每当 `Time.frameCount` 前进才 Apply 下一帧，游戏自己的 tap 判定、拖动阈值、UI 遮挡判定原样跑。
   Down 与 Up 各只喂一帧（点击 = Down、Held、Up、None）；编辑器暂停时计划停住，不会把 Down / Up 喂两帧变成双击。
+  完成或取消时只移除本手势的回调，不重置其他 PlayerLoop 节点。
   Cargo 侧再加一道：Down / Up / 滚轮归第一个读到它的帧，之后的帧读到的是 Held / None / 0。
 - **拒绝**：相机背后 `behind_camera`、屏幕外 `offscreen`、被 UI 挡住 `covered` + `coveredBy`（与 `hitTop` 同一套 GraphicRaycaster 命中）。
 - **以游戏实际命中为准**：游戏的 tap 处理上报它判中的物体（Cargo `CargoPointer.ReportTap`），与目标不一致回 `hit_mismatch`；
-  游戏没上报才退回物理射线，什么都没有回 `unverified`。不默认成功。
+  游戏正常返回但没上报才退回物理射线，什么都没有回 `unverified`。上报异常不走物理兜底，不默认成功。
+- **相机约束**：自动选取、显式 `camera` 与格子 `CellCamera` 均须激活、输出到 display 0、没有 `targetTexture`；
+  物体目标还要求 `cullingMask` 包含目标层。不符合回 `no_camera`，不喂指针。
+- **指针异常**：Begin / Apply / 命中或格子上报 / End 抛错都终止手势，回 `acted=false`；首次指针错误记作 `reason=pointer_error` 与错误消息。
+  已有失败或取消原因时，End 再抛错保留原 `reason`，将清理错误追加到 `message`。
+  `framesApplied` 只计正常返回的 Apply；抛错前仍可已注入输入或改变状态，不能把 0 当成零副作用。中断、取消、超时后先核对游戏状态，不自动重试。
 - **拖动与缩放**：脚本指针补上滚轮（`mouseScrollDelta` 与 `GetAxis("Mouse ScrollWheel")` 都答）与双指（`Touch` 数组，Began / Moved / Ended），
   act 新增 `drag` / `scroll` / `pinch`，可以只给屏幕点 `at`。
 - HTTP 请求阻塞到手势结束（最多 20 s）；Play 退出或 domain reload 时取消手势并交还指针。

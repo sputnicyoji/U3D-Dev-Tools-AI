@@ -264,6 +264,27 @@ def cases() -> list[TestCase]:
             if isinstance(r.get("result", {}).get("hits"), list)
             else f"UI hit unexpected: {r.get('result')}",
         ),
+        # Invalid requests stop before pointer acquisition in both Edit and Play mode.
+        TestCase(
+            name="20 /ui/act world rejects invalid action without input",
+            endpoint="/ui/act",
+            payload={"target": {"path": "__ui_e2e_no_target__"}, "action": "invalid"},
+            expect_ok=False,
+            expect_error_type="System.ArgumentException",
+            extra_check=lambda r: None
+            if "ui/act world 'action'" in r.get("error", {}).get("message", "")
+            else f"world validation unexpected: {r.get('error')}",
+        ),
+        TestCase(
+            name="21 /ui/act cell rejects missing coordinate without input",
+            endpoint="/ui/act",
+            payload={"target": {"cell": {"x": 0}}},
+            expect_ok=False,
+            expect_error_type="System.ArgumentException",
+            extra_check=lambda r: None
+            if "ui/act 'target.cell' needs integer 'x' and 'y'" in r.get("error", {}).get("message", "")
+            else f"cell validation unexpected: {r.get('error')}",
+        ),
     ]
 
 

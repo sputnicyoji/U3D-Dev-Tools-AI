@@ -9,6 +9,9 @@ namespace Yoji.EditorDebug.Tests
         public int Enters, Exits, Drops;
         public Behaviour EnableOnDown;
         public Behaviour DisableOnDown;
+        public System.Action GameUpdate;
+
+        private void Update() => GameUpdate?.Invoke();
 
         public void OnPointerDown(PointerEventData eventData)
         {

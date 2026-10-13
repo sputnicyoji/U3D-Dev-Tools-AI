@@ -38,7 +38,7 @@ namespace Yoji.EditorDebug.Ui
         /// <summary>Take over the game's pointer reads. Clears any hit reported by a previous gesture.</summary>
         void Begin();
 
-        /// <summary>Called once per player frame, between frames, with the state the next frame reads.</summary>
+        /// <summary>Called once per player frame, before that frame's MonoBehaviour.Update reads the state.</summary>
         void Apply(ScriptedPointerFrame frame);
 
         /// <summary>Hand the pointer back to the real input.</summary>

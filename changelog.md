@@ -5,6 +5,12 @@ This log starts with the single-package release, 0.2.0. Release dates follow Git
 
 ## Unreleased
 
+### Fixed
+- Apply scripted world-pointer frames before the game's `Update` methods instead of from the Editor update loop; completion and cancellation remove only the gesture's PlayerLoop node.
+- Terminate world gestures with `pointer_error` when pointer callbacks fail, without turning a failed game hit report into a physics-verified success. Interrupted gestures can have partial effects and are not safe to retry automatically.
+- Require primary-display, non-RenderTexture cameras on every world/cell camera-selection path, and require an object camera to render the target's layer.
+- Point the README installation URL at the current 0.2.16 release and document the `world --cell` command.
+
 ## [0.2.16] - 2026-10-13
 
 ### Added
@@ -21,6 +27,13 @@ This log starts with the single-package release, 0.2.0. Release dates follow Git
 - Select the topmost guide mask within the same Canvas layer.
 - Respect `overrideSorting` boundaries for inherited raycast blocking without changing alpha/interactable inheritance.
 - Exclude non-primary display canvases consistently from UI observation and interaction.
+
+## [0.2.15] - 2026-10-13
+
+### Added
+- World-object `/ui/act` through a game-registered `IScriptedPointer`, with click verification against the game's reported hit and the UI client's `world` command.
+- Frame-based world drag, scroll and two-finger pinch gestures, with pre-input refusal for behind-camera, offscreen and UI-covered targets.
+- Optional 3D/2D physics fallback for unreported object clicks; physics modules are used only when installed by the project.
 
 ## [0.2.14] - 2026-10-13
 
@@ -123,6 +136,7 @@ Interactions require Play mode and an active EventSystem. Events are injected in
 - Migrate stable/dev registries, test hosts, installation examples, and agent sync to the single package.
 
 [0.2.16]: https://github.com/sputnicyoji/U3D-Dev-Tools-AI/compare/u3d-dev-tools-ai-v0.2.15...u3d-dev-tools-ai-v0.2.16
+[0.2.15]: https://github.com/sputnicyoji/U3D-Dev-Tools-AI/compare/u3d-dev-tools-ai-v0.2.14...u3d-dev-tools-ai-v0.2.15
 [0.2.14]: https://github.com/sputnicyoji/U3D-Dev-Tools-AI/compare/u3d-dev-tools-ai-v0.2.13...u3d-dev-tools-ai-v0.2.14
 [0.2.13]: https://github.com/sputnicyoji/U3D-Dev-Tools-AI/compare/u3d-dev-tools-ai-v0.2.12...u3d-dev-tools-ai-v0.2.13
 [0.2.12]: https://github.com/sputnicyoji/U3D-Dev-Tools-AI/compare/u3d-dev-tools-ai-v0.2.11...u3d-dev-tools-ai-v0.2.12

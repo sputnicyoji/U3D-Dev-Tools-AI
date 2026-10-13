@@ -1,7 +1,12 @@
+using System.Collections;
 using System.Collections.Generic;
+using System.Reflection;
 using Newtonsoft.Json.Linq;
 using NUnit.Framework;
+using UnityEditor;
 using UnityEngine;
+using UnityEngine.LowLevel;
+using UnityEngine.TestTools;
 using UnityEngine.UI;
 using Yoji.EditorDebug.Ui;
 
@@ -18,17 +23,34 @@ namespace Yoji.EditorDebug.Tests
             public bool Reports;
             public GameObject ReportedHit;
             public bool Active;
+            public string ThrowAt;
+            public bool EndAlsoThrows;
+            public ScriptedPointerFrame Current;
             /// 模拟游戏读到这一帧后的反应（如按滚轮缩放相机）。
             public System.Action<ScriptedPointerFrame> OnApply;
 
-            public void Begin() { Begins++; Active = true; }
-            public void Apply(ScriptedPointerFrame frame) { Assert.IsTrue(Active, "Apply outside Begin/End"); Applied.Add(frame); OnApply?.Invoke(frame); }
-            public void End() { Ends++; Active = false; }
+            public void Begin() { Begins++; Active = true; ThrowIf("begin"); }
+            public void Apply(ScriptedPointerFrame frame)
+            {
+                Assert.IsTrue(Active, "Apply outside Begin/End");
+                Applied.Add(frame);
+                ThrowIf("apply");
+                Current = frame;
+                OnApply?.Invoke(frame);
+            }
+            public void End() { Ends++; Active = false; ThrowIf("end"); }
 
             public bool TryGetReportedHit(out GameObject hit)
             {
                 hit = ReportedHit;
+                ThrowIf("report");
                 return Reports;
+            }
+
+            private void ThrowIf(string stage)
+            {
+                if (ThrowAt == stage || (EndAlsoThrows && stage == "end"))
+                    throw new System.InvalidOperationException("pointer " + stage + " failed");
             }
         }
 
@@ -127,6 +149,326 @@ namespace Yoji.EditorDebug.Tests
             Assert.AreEqual(ScriptedPointerPhase.Down, m_Pointer.Applied[0].Phase);
             session.Cancel("test", "done");
             Assert.AreEqual(1, m_Pointer.Ends, "cancel hands the pointer back");
+        }
+
+        [TestCase("begin")]
+        [TestCase("apply")]
+        [TestCase("report")]
+        [TestCase("end")]
+        public void PointerFailure_TerminatesAndCannotBecomePhysicsVerified(string stage)
+        {
+            m_Pointer.ThrowAt = stage;
+            if (stage == "end")
+            {
+                m_Pointer.Reports = true;
+                m_Pointer.ReportedHit = m_Target;
+            }
+#if U3D_HAS_PHYSICS
+            Physics.SyncTransforms();
+#endif
+            UiWorldActor.Session session = null;
+            Assert.DoesNotThrow(() => UiWorldActor.Start(Request(), live: false, m_Pointer, () => m_Frame, out session));
+            Assert.NotNull(session);
+            for (int i = 0; i < 10 && !session.Done.IsSet; i++)
+            {
+                m_Frame++;
+                Assert.DoesNotThrow(session.Step);
+            }
+            Assert.IsTrue(session.Done.IsSet, "pointer failures must release waiting HTTP requests");
+            Assert.IsNull(UiWorldActor.Active, "a failed gesture must not keep later requests busy");
+            Assert.AreEqual("pointer_error", (string)session.Result["reason"], session.Result.ToString());
+            Assert.AreNotEqual(true, (bool?)session.Result["verified"], "a failed hit report is not absence of a report");
+            Assert.AreEqual(1, m_Pointer.Ends, "even a partially failing Begin must return pointer ownership once");
+            int applied = m_Pointer.Applied.Count;
+            m_Frame++;
+            Assert.DoesNotThrow(session.Step);
+            Assert.DoesNotThrow(() => session.Cancel("test", "already ended"));
+            Assert.AreEqual(applied, m_Pointer.Applied.Count);
+            Assert.AreEqual(1, m_Pointer.Ends);
+        }
+
+        [Test]
+        public void Cancel_EndFailureStillTerminatesWithOriginalCancellation()
+        {
+            UiWorldActor.Start(Request(), live: false, m_Pointer, () => m_Frame, out var session);
+            m_Pointer.ThrowAt = "end";
+            Assert.DoesNotThrow(() => session.Cancel("test", "cancelled"));
+            Assert.IsTrue(session.Done.IsSet);
+            Assert.IsNull(UiWorldActor.Active);
+            Assert.AreEqual("test", (string)session.Result["reason"]);
+            StringAssert.Contains("cancelled", (string)session.Result["message"]);
+            StringAssert.Contains("pointer end failed", (string)session.Result["message"]);
+            Assert.DoesNotThrow(() => session.Cancel("test", "again"));
+            Assert.AreEqual(1, m_Pointer.Ends);
+        }
+
+        [Test]
+        public void BeginAndEndFailure_PreservesBothErrorsAndTerminatesOnce()
+        {
+            m_Pointer.ThrowAt = "begin";
+            m_Pointer.EndAlsoThrows = true;
+            UiWorldActor.Session session = null;
+            Assert.DoesNotThrow(() => UiWorldActor.Start(Request(), live: false, m_Pointer, () => m_Frame, out session));
+            Assert.NotNull(session);
+            Assert.IsTrue(session.Done.IsSet);
+            Assert.IsNull(UiWorldActor.Active);
+            Assert.AreEqual("pointer_error", (string)session.Result["reason"]);
+            StringAssert.Contains("pointer begin failed", (string)session.Result["message"]);
+            StringAssert.Contains("pointer end failed", (string)session.Result["message"]);
+            m_Frame++;
+            Assert.DoesNotThrow(session.Step);
+            Assert.DoesNotThrow(() => session.Cancel("test", "already ended"));
+            Assert.AreEqual(0, m_Pointer.Applied.Count);
+            Assert.AreEqual(1, m_Pointer.Ends);
+        }
+
+        [TestCase(false, false)]
+        [TestCase(false, true)]
+        [TestCase(true, false)]
+        [TestCase(true, true)]
+        public void Camera_NotRenderingPrimaryScreen_IsRefused(bool auto, bool texture)
+        {
+            var rt = texture ? new RenderTexture(64, 64, 0) : null;
+            var disabled = new List<Camera>();
+            try
+            {
+                if (auto) DisableOtherCameras(disabled);
+                m_Camera.targetTexture = rt;
+                m_Camera.targetDisplay = texture ? 0 : 1;
+                var req = Request();
+                if (auto) req.Remove("camera");
+                var result = Run(req);
+                Assert.AreEqual("no_camera", (string)result["reason"], result.ToString());
+                Assert.IsFalse((bool)result["acted"]);
+                Assert.AreEqual(0, m_Pointer.Begins, "unsupported camera coordinates must not reach game input");
+            }
+            finally
+            {
+                m_Camera.targetTexture = null;
+                if (rt != null) Object.DestroyImmediate(rt);
+                foreach (var camera in disabled) if (camera != null) camera.enabled = true;
+            }
+        }
+
+        [TestCase(false)]
+        [TestCase(true)]
+        public void AutoCamera_SkipsUnsupportedCameraAndUsesPrimaryScreenFallback(bool texture)
+        {
+            var disabled = new List<Camera>();
+            var rt = texture ? new RenderTexture(64, 64, 0) : null;
+            try
+            {
+                DisableOtherCameras(disabled);
+                var fallbackGo = new GameObject("PrimaryFallback", typeof(Camera));
+                m_Created.Add(fallbackGo);
+                var fallback = fallbackGo.GetComponent<Camera>();
+                fallback.transform.position = m_Camera.transform.position;
+                fallback.transform.rotation = m_Camera.transform.rotation;
+                fallback.depth = 40;
+                m_Camera.targetTexture = rt;
+                m_Camera.targetDisplay = texture ? 0 : 1;
+                m_Pointer.Reports = true;
+                m_Pointer.ReportedHit = m_Target;
+                var req = Request();
+                req.Remove("camera");
+                var result = Run(req);
+                Assert.IsTrue((bool)result["verified"], result.ToString());
+                Assert.AreEqual("PrimaryFallback", (string)result["camera"]);
+                Assert.AreEqual(1, m_Pointer.Begins);
+            }
+            finally
+            {
+                m_Camera.targetTexture = null;
+                if (rt != null) Object.DestroyImmediate(rt);
+                foreach (var camera in disabled) if (camera != null) camera.enabled = true;
+            }
+        }
+
+        private void DisableOtherCameras(List<Camera> disabled)
+        {
+            foreach (var camera in Camera.allCameras)
+            {
+                if (camera == m_Camera) continue;
+                disabled.Add(camera);
+                camera.enabled = false;
+            }
+        }
+
+        [Test]
+        public void ExplicitCamera_ExcludingTargetLayer_IsRefused()
+        {
+            m_Camera.cullingMask = 0;
+            var result = Run(Request());
+            Assert.AreEqual("no_camera", (string)result["reason"], result.ToString());
+            Assert.AreEqual(0, m_Pointer.Begins);
+        }
+
+        [Test]
+        public void NonLiveGesture_DoesNotRegisterANativeLoopDriver()
+        {
+            int before = CountLoopNodes(PlayerLoop.GetCurrentPlayerLoop(), typeof(UiWorldActor));
+            UiWorldActor.Start(Request(), live: false, m_Pointer, () => m_Frame, out var session);
+            Assert.NotNull(session);
+            Assert.AreEqual(before, CountLoopNodes(PlayerLoop.GetCurrentPlayerLoop(), typeof(UiWorldActor)));
+            session.Cancel("test", "done");
+            Assert.AreEqual(before, CountLoopNodes(PlayerLoop.GetCurrentPlayerLoop(), typeof(UiWorldActor)));
+        }
+
+        [UnityTest]
+        public IEnumerator Live_ClickIsConsumedBeforeGameUpdate_AndRemovesOnlyItsOwnLoopNode() => LiveInGameLoop("complete");
+
+        [UnityTest]
+        public IEnumerator Live_PointerFailureRemovesOnlyItsOwnLoopNode() => LiveInGameLoop("apply_error");
+
+        [UnityTest]
+        public IEnumerator Live_CancelRemovesOnlyItsOwnLoopNode() => LiveInGameLoop("cancel");
+
+        [UnityTest]
+        public IEnumerator Live_CancelPreservesForeignChildAttachedToActorDriver() => LiveInGameLoop("cancel_nested");
+
+        [UnityTearDown]
+        public IEnumerator LeavePlayMode()
+        {
+            if (Application.isPlaying)
+                yield return new ExitPlayMode();
+        }
+
+        private IEnumerator LiveInGameLoop(string terminal)
+        {
+            foreach (var go in m_Created) Object.DestroyImmediate(go);
+            m_Created.Clear();
+            yield return new EnterPlayMode();
+            TearDown();
+            SetUp();
+            // EnterPlayMode reloads the domain; callback closures must be created afterwards.
+            yield return ConsumeLiveInGameLoop(terminal);
+        }
+
+        private IEnumerator ConsumeLiveInGameLoop(string terminal)
+        {
+            var consumer = m_Target.AddComponent<TestPointerRecorder>();
+            var consumed = new List<ScriptedPointerPhase>();
+            var consumedFrames = new List<int>();
+            var appliedFrames = new List<int>();
+            m_Pointer.OnApply = _ => appliedFrames.Add(Time.frameCount);
+            consumer.GameUpdate = () =>
+            {
+                if (!m_Pointer.Active || m_Pointer.Applied.Count == 0)
+                    return;
+                consumed.Add(m_Pointer.Current.Phase);
+                consumedFrames.Add(Time.frameCount);
+                if (m_Pointer.Current.Phase == ScriptedPointerPhase.Up)
+                {
+                    m_Pointer.Reports = true;
+                    m_Pointer.ReportedHit = m_Target;
+                }
+            };
+            var originalLoop = PlayerLoop.GetCurrentPlayerLoop();
+            int foreignTicks = 0;
+
+            // The live driver must work without the old editor tick racing the game frame.
+            var tickMethod = typeof(UiWorldActor).GetMethod("Tick", BindingFlags.Static | BindingFlags.NonPublic);
+            var editorTick = tickMethod == null ? null : (EditorApplication.CallbackFunction)System.Delegate.CreateDelegate(typeof(EditorApplication.CallbackFunction), tickMethod);
+            var subscribed = typeof(EditorApplication).GetField("update", BindingFlags.Static | BindingFlags.Public)?.GetValue(null) as System.Delegate;
+            bool hadEditorTick = editorTick != null && subscribed != null && System.Array.Exists(subscribed.GetInvocationList(), d => d.Equals(editorTick));
+            if (editorTick != null) EditorApplication.update -= editorTick;
+            UiWorldActor.Session session = null;
+            try
+            {
+                if (terminal == "apply_error") m_Pointer.ThrowAt = "apply";
+                var refused = UiWorldActor.Start(Request(), live: true, m_Pointer, null, out session);
+                Assert.IsNull(refused, refused?.ToString());
+                Assert.NotNull(session);
+                var runningLoop = PlayerLoop.GetCurrentPlayerLoop();
+                AddForeignNode(ref runningLoop, () => foreignTicks++, terminal == "cancel_nested");
+                PlayerLoop.SetPlayerLoop(runningLoop);
+                Assert.AreEqual(1, CountLoopNodes(runningLoop, typeof(UiWorldActor)));
+                AssertActorRunsBeforeGameUpdate(runningLoop);
+                if (terminal == "cancel" || terminal == "cancel_nested") session.Cancel("test_cancel", "cancelled before the next frame");
+                for (int i = 0; i < 20 && !session.Done.IsSet; i++)
+                    yield return null;
+                Assert.IsTrue(session.Done.IsSet, "native game frames must finish the live gesture without an editor tick");
+                yield return null;
+                Assert.IsNull(UiWorldActor.Active);
+                var endedLoop = PlayerLoop.GetCurrentPlayerLoop();
+                Assert.AreEqual(0, CountLoopNodes(endedLoop, typeof(UiWorldActor)));
+                Assert.AreEqual(1, CountLoopNodes(endedLoop, typeof(UiWorldActorTests)), "cleanup must preserve other PlayerLoop registrations");
+                Assert.Greater(foreignTicks, 0);
+                Assert.AreEqual(1, m_Pointer.Ends);
+                if (terminal == "complete")
+                {
+                    Assert.IsTrue((bool)session.Result["verified"], session.Result.ToString());
+                    Assert.AreEqual("game", (string)session.Result["hitSource"], "the MonoBehaviour must report its consumed Up before verification");
+                    CollectionAssert.AreEqual(new[] { ScriptedPointerPhase.Down, ScriptedPointerPhase.Held, ScriptedPointerPhase.Up, ScriptedPointerPhase.None }, consumed);
+                    CollectionAssert.AreEqual(appliedFrames, consumedFrames, "Apply must occur before MonoBehaviour.Update in the same real frame");
+                    for (int i = 1; i < consumedFrames.Count; i++)
+                        Assert.AreEqual(consumedFrames[i - 1] + 1, consumedFrames[i]);
+                }
+                else
+                {
+                    Assert.AreEqual(terminal == "apply_error" ? "pointer_error" : "test_cancel", (string)session.Result["reason"]);
+                    Assert.AreNotEqual(true, (bool?)session.Result["verified"]);
+                }
+            }
+            finally
+            {
+                consumer.GameUpdate = null;
+                session?.Cancel("test_teardown", "test ended");
+                PlayerLoop.SetPlayerLoop(originalLoop);
+                if (hadEditorTick) EditorApplication.update += editorTick;
+                foreach (var go in m_Created) Object.DestroyImmediate(go);
+                m_Created.Clear();
+            }
+        }
+
+        private static void AddForeignNode(ref PlayerLoopSystem loop, PlayerLoopSystem.UpdateFunction tick, bool underActor = false)
+        {
+            for (int i = 0; i < loop.subSystemList.Length; i++)
+            {
+                if (loop.subSystemList[i].type != typeof(UnityEngine.PlayerLoop.Update))
+                    continue;
+                var update = loop.subSystemList[i];
+                int actorIndex = underActor ? System.Array.FindIndex(update.subSystemList, n => n.type == typeof(UiWorldActor)) : -1;
+                if (underActor) Assert.GreaterOrEqual(actorIndex, 0);
+                var owner = underActor ? update.subSystemList[actorIndex] : update;
+                var previous = owner.subSystemList ?? System.Array.Empty<PlayerLoopSystem>();
+                var nodes = new PlayerLoopSystem[previous.Length + 1];
+                System.Array.Copy(previous, nodes, previous.Length);
+                nodes[nodes.Length - 1] = new PlayerLoopSystem { type = typeof(UiWorldActorTests), updateDelegate = tick };
+                owner.subSystemList = nodes;
+                if (underActor)
+                {
+                    update.subSystemList = (PlayerLoopSystem[])update.subSystemList.Clone();
+                    update.subSystemList[actorIndex] = owner;
+                }
+                else update = owner;
+                loop.subSystemList = (PlayerLoopSystem[])loop.subSystemList.Clone();
+                loop.subSystemList[i] = update;
+                return;
+            }
+            Assert.Fail("the native loop has no Update phase");
+        }
+
+        private static int CountLoopNodes(PlayerLoopSystem loop, System.Type type)
+        {
+            int count = loop.type == type ? 1 : 0;
+            if (loop.subSystemList != null)
+                foreach (var child in loop.subSystemList) count += CountLoopNodes(child, type);
+            return count;
+        }
+
+        private static void AssertActorRunsBeforeGameUpdate(PlayerLoopSystem loop)
+        {
+            foreach (var phase in loop.subSystemList)
+            {
+                if (phase.type != typeof(UnityEngine.PlayerLoop.Update)) continue;
+                int actor = System.Array.FindIndex(phase.subSystemList, n => n.type == typeof(UiWorldActor));
+                int scripts = System.Array.FindIndex(phase.subSystemList, n => n.type == typeof(UnityEngine.PlayerLoop.Update.ScriptRunBehaviourUpdate));
+                Assert.GreaterOrEqual(actor, 0);
+                Assert.Greater(scripts, actor);
+                return;
+            }
+            Assert.Fail("the native loop has no Update phase");
         }
 
         [Test]
@@ -244,9 +586,7 @@ namespace Yoji.EditorDebug.Tests
             m_Target.transform.position = new Vector3(0f, 0f, 0.5f);
             // 只留 transform.position 当瞄准点（编辑器里未同步的 collider bounds 可能停在原点）
             Object.DestroyImmediate(m_Target.GetComponent<Renderer>());
-#if U3D_HAS_PHYSICS
             Object.DestroyImmediate(m_Target.GetComponent<Collider>());
-#endif
             Assert.AreEqual("offscreen", (string)Run(Request())["reason"]);
         }
 

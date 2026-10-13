@@ -5,6 +5,7 @@ using System.Threading;
 using Newtonsoft.Json.Linq;
 using UnityEditor;
 using UnityEngine;
+using UnityEngine.LowLevel;
 using UnityEngine.SceneManagement;
 
 namespace Yoji.EditorDebug.Ui
@@ -38,7 +39,6 @@ namespace Yoji.EditorDebug.Ui
         private static void Install()
         {
             EditorApplication.update -= Tick;
-            EditorApplication.update += Tick;
             EditorApplication.playModeStateChanged -= OnPlayModeChanged;
             EditorApplication.playModeStateChanged += OnPlayModeChanged;
             AssemblyReloadEvents.beforeAssemblyReload -= OnBeforeReload;
@@ -50,15 +50,81 @@ namespace Yoji.EditorDebug.Ui
             s_Active?.Step();
         }
 
+        private static void InstallDriver()
+        {
+            var loop = PlayerLoop.GetCurrentPlayerLoop();
+            RemoveDriver(ref loop);
+            if (!InsertDriver(ref loop))
+                throw new InvalidOperationException("the current PlayerLoop has no ScriptRunBehaviourUpdate");
+            PlayerLoop.SetPlayerLoop(loop);
+        }
+
+        private static bool InsertDriver(ref PlayerLoopSystem loop)
+        {
+            var children = loop.subSystemList;
+            if (children == null)
+                return false;
+            for (int i = 0; i < children.Length; i++)
+            {
+                if (children[i].type == typeof(UnityEngine.PlayerLoop.Update.ScriptRunBehaviourUpdate))
+                {
+                    var updated = new PlayerLoopSystem[children.Length + 1];
+                    Array.Copy(children, 0, updated, 0, i);
+                    updated[i] = new PlayerLoopSystem { type = typeof(UiWorldActor), updateDelegate = Tick };
+                    Array.Copy(children, i, updated, i + 1, children.Length - i);
+                    loop.subSystemList = updated;
+                    return true;
+                }
+                if (InsertDriver(ref children[i]))
+                    return true;
+            }
+            return false;
+        }
+
+        private static void RemoveDriver()
+        {
+            var loop = PlayerLoop.GetCurrentPlayerLoop();
+            if (RemoveDriver(ref loop))
+                PlayerLoop.SetPlayerLoop(loop);
+        }
+
+        private static bool RemoveDriver(ref PlayerLoopSystem loop)
+        {
+            if (loop.subSystemList == null)
+                return false;
+            bool changed = false;
+            var remaining = new List<PlayerLoopSystem>(loop.subSystemList.Length);
+            foreach (var child in loop.subSystemList)
+            {
+                var node = child;
+                changed |= RemoveDriver(ref node);
+                if (node.type == typeof(UiWorldActor))
+                {
+                    changed = true;
+                    if (node.subSystemList != null)
+                        remaining.AddRange(node.subSystemList);
+                    continue;
+                }
+                remaining.Add(node);
+            }
+            if (changed)
+                loop.subSystemList = remaining.ToArray();
+            return changed;
+        }
+
         private static void OnPlayModeChanged(PlayModeStateChange change)
         {
             if (change == PlayModeStateChange.ExitingPlayMode)
+            {
                 s_Active?.Cancel("play_mode_exited", "Play mode ended before the gesture finished");
+                RemoveDriver();
+            }
         }
 
         private static void OnBeforeReload()
         {
             s_Active?.Cancel("domain_reload", "a domain reload started before the gesture finished");
+            RemoveDriver();
         }
 
         /// 主线程：校验、解析目标、排好逐帧计划并接管指针。返回值非 null 表示已拒绝（或参数错由异常抛出），
@@ -138,7 +204,7 @@ namespace Yoji.EditorDebug.Ui
             Canvas.ForceUpdateCanvases();
             var ctx = new UiContext();
             if (cell.HasValue)
-                return StartCell(result, ctx, pointer, cell.Value, cameraPath, clock, out session);
+                return StartCell(result, ctx, pointer, cell.Value, cameraPath, live, clock, out session);
 
             Transform target = null;
             if (hasTarget)
@@ -154,8 +220,8 @@ namespace Yoji.EditorDebug.Ui
             {
                 var found = FindByPath(ctx, cameraPath);
                 camera = found.Count == 1 ? found[0].GetComponent<Camera>() : null;
-                if (camera == null || !camera.isActiveAndEnabled)
-                    return Refuse(result, "no_camera", "'camera' does not name exactly one active Camera");
+                if (!CanDriveCamera(camera, target))
+                    return Refuse(result, "no_camera", "'camera' must name one active display-0 Camera without a RenderTexture that renders the target's layer");
             }
             else
             {
@@ -239,13 +305,13 @@ namespace Yoji.EditorDebug.Ui
                 session.ReadsBackCamera = true;
             }
             s_Active = session;
-            session.Begin();
+            session.Begin(live);
             return null;
         }
 
         /// 格子目标（04）：格子 -> 世界点由游戏给（IScriptedPointerCells），相机投影成屏幕点；按下前先把屏幕点
         /// 交还游戏判格子，回不到同一格就拒绝（ambiguous_cell），一帧都不喂。点击结束后以游戏上报的格子为准。
-        private static JObject StartCell(JObject result, UiContext ctx, IScriptedPointer pointer, Vector2Int cell, string cameraPath, Func<int> clock, out Session session)
+        private static JObject StartCell(JObject result, UiContext ctx, IScriptedPointer pointer, Vector2Int cell, string cameraPath, bool live, Func<int> clock, out Session session)
         {
             session = null;
             var cells = pointer as IScriptedPointerCells;
@@ -257,14 +323,14 @@ namespace Yoji.EditorDebug.Ui
             {
                 var found = FindByPath(ctx, cameraPath);
                 camera = found.Count == 1 ? found[0].GetComponent<Camera>() : null;
-                if (camera == null || !camera.isActiveAndEnabled)
-                    return Refuse(result, "no_camera", "'camera' does not name exactly one active Camera");
+                if (!CanDriveCamera(camera, null))
+                    return Refuse(result, "no_camera", "'camera' must name one active display-0 Camera without a RenderTexture");
             }
             else
             {
                 camera = cells.CellCamera;
-                if (camera == null || !camera.isActiveAndEnabled)
-                    return Refuse(result, "no_camera", "the game reports no active camera for its cells (is the map shown?)");
+                if (!CanDriveCamera(camera, null))
+                    return Refuse(result, "no_camera", "the game's cell camera must be active on display 0 without a RenderTexture");
             }
             result["camera"] = ctx.IdOf(camera.transform);
 
@@ -302,7 +368,7 @@ namespace Yoji.EditorDebug.Ui
                 TargetCell = cell,
             };
             s_Active = session;
-            session.Begin();
+            session.Begin(live);
             return null;
         }
 
@@ -399,6 +465,7 @@ namespace Yoji.EditorDebug.Ui
             private bool m_Reported;
             private GameObject m_ReportedHit;
             private bool m_Finished;
+            private bool m_Live;
 
             public int FrameCount => m_Frames.Count;
 
@@ -423,43 +490,66 @@ namespace Yoji.EditorDebug.Ui
                 m_Clock = clock;
             }
 
-            internal void Begin()
+            internal void Begin(bool live)
             {
-                m_Pointer.Begin();
-                // 开始这一帧不喂：本帧的游戏 Update 可能已跑完一半，下一个帧号才是第一帧
-                m_LastFrame = m_Clock();
+                m_Live = live;
+                try
+                {
+                    m_Pointer.Begin();
+                    // 开始这一帧不喂：本帧的游戏 Update 可能已跑完一半，下一个帧号才是第一帧
+                    m_LastFrame = m_Clock();
+                    if (live && !m_Finished)
+                        InstallDriver();
+                }
+                catch (Exception error)
+                {
+                    Fail(error);
+                }
             }
 
-            /// 每次 editor tick 调用；帧号没前进就什么都不做，所以每个计划帧恰好被游戏读一帧。
+            /// 在每帧游戏 Update 前调用；同一帧号不重复喂。非 live 测试手动推进。
             internal void Step()
             {
                 if (m_Finished)
                     return;
-                int frame = m_Clock();
-                if (frame == m_LastFrame)
-                    return;
-                m_LastFrame = frame;
-
-                if (m_Index > 0 && m_Frames[m_Index - 1].Phase == ScriptedPointerPhase.Up && !m_Captured)
-                    Capture();
-                if (m_Index < m_Frames.Count)
+                try
                 {
-                    m_Pointer.Apply(m_Frames[m_Index]);
-                    m_Index++;
-                    return;
+                    int frame = m_Clock();
+                    if (frame == m_LastFrame)
+                        return;
+                    m_LastFrame = frame;
+
+                    if (m_Index > 0 && m_Frames[m_Index - 1].Phase == ScriptedPointerPhase.Up && !m_Captured)
+                        Capture();
+                    if (m_Index < m_Frames.Count)
+                    {
+                        m_Pointer.Apply(m_Frames[m_Index]);
+                        m_Index++;
+                        return;
+                    }
+                    if (!m_Captured)
+                        Capture();
+                    Finish();
                 }
-                if (!m_Captured)
-                    Capture();
-                Finish();
+                catch (Exception error)
+                {
+                    Fail(error);
+                }
             }
 
             // Up 那一帧的游戏 Update 已跑完：游戏的 tap 处理是同步的，命中此时已上报
             private void Capture()
             {
-                m_Captured = true;
-                m_Reported = m_Pointer.TryGetReportedHit(out m_ReportedHit);
+                bool reported = m_Pointer.TryGetReportedHit(out var hit);
+                bool cellReported = false;
+                Vector2Int? cell = null;
                 if (Cells != null)
-                    m_CellReported = Cells.TryGetReportedCell(out m_ReportedCell);
+                    cellReported = Cells.TryGetReportedCell(out cell);
+                m_Reported = reported;
+                m_ReportedHit = hit;
+                m_CellReported = cellReported;
+                m_ReportedCell = cell;
+                m_Captured = true;
             }
 
             internal void Cancel(string reason, string message)
@@ -467,9 +557,9 @@ namespace Yoji.EditorDebug.Ui
                 if (m_Finished)
                     return;
                 m_Result["framesApplied"] = m_Index;
+                Refuse(m_Result, reason, message);
                 ReadBackCamera();
                 End();
-                Refuse(m_Result, reason, message);
             }
 
             private void Finish()
@@ -496,11 +586,30 @@ namespace Yoji.EditorDebug.Ui
 
             private void End()
             {
+                if (m_Finished)
+                    return;
                 m_Finished = true;
                 if (ReferenceEquals(s_Active, this))
                     s_Active = null;
+                try { if (m_Live) RemoveDriver(); }
+                catch (Exception error) { Fail(error); }
                 try { m_Pointer.End(); }
+                catch (Exception error) { Fail(error); }
                 finally { Done.Set(); }
+            }
+
+            private void Fail(Exception error)
+            {
+                m_Result["acted"] = false;
+                m_Result["framesApplied"] = m_Index;
+                if (m_Verify)
+                    m_Result["verified"] = false;
+                string message = error.GetType().Name + ": " + error.Message;
+                if (string.IsNullOrEmpty(m_Result.Value<string>("reason")))
+                    Refuse(m_Result, "pointer_error", message);
+                else
+                    m_Result["message"] = m_Result.Value<string>("message") + "; " + message;
+                End();
             }
 
             /// 格子目标：以游戏 ReportCell 上报的格子为准；格子上有单位时一并给出（来自 TryGetReportedHit）。
@@ -673,9 +782,7 @@ namespace Yoji.EditorDebug.Ui
             var candidates = new List<Camera>();
             foreach (var cam in Camera.allCameras)
             {
-                if (cam == null || !cam.isActiveAndEnabled || cam.targetTexture != null)
-                    continue;
-                if (target != null && (cam.cullingMask & (1 << target.gameObject.layer)) == 0)
+                if (!CanDriveCamera(cam, target))
                     continue;
                 candidates.Add(cam);
             }
@@ -707,6 +814,10 @@ namespace Yoji.EditorDebug.Ui
             }
             return candidates[0];
         }
+
+        private static bool CanDriveCamera(Camera camera, Transform target) =>
+            camera != null && camera.isActiveAndEnabled && camera.targetDisplay == 0 && camera.targetTexture == null
+            && (target == null || (camera.cullingMask & (1 << target.gameObject.layer)) != 0);
 
         private static bool OnScreen(UiContext ctx, Camera camera, Vector2 p) =>
             ctx.OnScreen(p) && camera.pixelRect.Contains(p);
