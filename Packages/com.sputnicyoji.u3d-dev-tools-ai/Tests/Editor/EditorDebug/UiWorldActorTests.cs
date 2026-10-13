@@ -170,6 +170,7 @@ namespace Yoji.EditorDebug.Tests
             Assert.AreEqual("hit_mismatch", (string)Run(Request())["reason"]);
         }
 
+#if U3D_HAS_PHYSICS
         [Test]
         public void Click_NoReport_FallsBackToPhysics()
         {
@@ -178,11 +179,14 @@ namespace Yoji.EditorDebug.Tests
             Assert.AreEqual("physics", (string)result["hitSource"], result.ToString());
             Assert.IsTrue((bool)result["verified"]);
         }
+#endif
 
         [Test]
         public void Click_NoReportNoCollider_Unverified()
         {
+#if U3D_HAS_PHYSICS
             Object.DestroyImmediate(m_Target.GetComponent<Collider>());
+#endif
             var result = Run(Request());
             Assert.AreEqual("unverified", (string)result["reason"]);
             Assert.IsTrue((bool)result["acted"], "the click was sent; only its effect is unknown");

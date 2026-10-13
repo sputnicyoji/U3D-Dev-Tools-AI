@@ -576,15 +576,25 @@ namespace Yoji.EditorDebug.Ui
             ctx.OnScreen(p) && camera.pixelRect.Contains(p);
 
         /// 游戏没上报时的兜底：3D 物理优先，其次 2D（只是猜测游戏会命中什么，结果标 hitSource=physics）。
+        /// 物理模块是可选的：工程没装 com.unity.modules.physics / physics2d 时对应分支编译掉，
+        /// 两个都没有时恒返回 null，点击结果就是 unverified。
         internal static GameObject PhysicsHit(Camera camera, Vector2 screen)
         {
             if (camera == null)
                 return null;
+#if U3D_HAS_PHYSICS || U3D_HAS_PHYSICS2D
             var ray = camera.ScreenPointToRay(screen);
+#endif
+#if U3D_HAS_PHYSICS
             if (Physics.Raycast(ray, out var hit, camera.farClipPlane))
                 return hit.collider.gameObject;
+#endif
+#if U3D_HAS_PHYSICS2D
             var hit2 = Physics2D.GetRayIntersection(ray, camera.farClipPlane);
-            return hit2.collider != null ? hit2.collider.gameObject : null;
+            if (hit2.collider != null)
+                return hit2.collider.gameObject;
+#endif
+            return null;
         }
 
         // —— 工具 ——

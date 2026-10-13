@@ -9,6 +9,9 @@
   "precompiledReferences": [],
   "autoReferenced": true,
   "defineConstraints": [],
-  "versionDefines": [],
+  "versionDefines": [
+    { "name": "com.unity.modules.physics", "expression": "1.0.0", "define": "U3D_HAS_PHYSICS" },
+    { "name": "com.unity.modules.physics2d", "expression": "1.0.0", "define": "U3D_HAS_PHYSICS2D" }
+  ],
   "noEngineReferences": false
 }

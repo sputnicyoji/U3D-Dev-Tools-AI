@@ -117,7 +117,7 @@ Refusals (`acted: false`, nothing was fed):
 
 After a `click`, the result reports what the game hit: `hit {path, iid}` and `hitSource`.
 `game` means the game reported the object its tap resolved to (`IScriptedPointer.TryGetReportedHit`);
-when it reported nothing the package falls back to a 3D then 2D physics ray (`physics`), and `none` when that finds nothing.
+when it reported nothing the package falls back to a 3D then 2D physics ray (`physics`), and `none` when that finds nothing. The fallback uses `com.unity.modules.physics` / `physics2d` only when the project has them (asmdef `versionDefines`); without either module it is compiled out and an unreported click is `unverified`.
 `verified` is true only when the hit is the target or its child. Otherwise `acted: true` with
 `hit_mismatch` (the game hit something else or nothing) or `unverified` (no report and no collider: the click was sent but its effect is unknown).
 Results also carry `camera`, `at`, `world` (aim point), `framesApplied`, and for drags `to`, for pinches `span {from,to}`.
