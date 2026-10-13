@@ -84,6 +84,15 @@ def cmd_act(args: argparse.Namespace) -> dict[str, Any]:
                                   "to": point(args.to), "steps": args.steps})
 
 
+def cmd_world(args: argparse.Namespace) -> dict[str, Any]:
+    """世界目标（Phase 3）：按场景路径 / iid 点世界物体，或在屏幕点上拖动、滚轮、双指缩放。"""
+    target = {"path": args.path, "iid": args.iid} if (args.path or args.iid is not None) else None
+    return post(args, "/ui/act", {"target": target, "at": point(args.at), "action": args.action,
+                                  "to": point(args.to), "by": point(args.by), "steps": args.steps,
+                                  "scroll": args.scroll, "scale": args.scale, "span": args.span,
+                                  "camera": args.camera})
+
+
 def build_parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(prog="client.py", description="Semantic uGUI observation (read-only)")
     p.add_argument("--host", default=DEFAULT_HOST)
@@ -116,6 +125,21 @@ def build_parser() -> argparse.ArgumentParser:
     sa.add_argument("--to", type=float, nargs=2, metavar=("X", "Y"), help="drag to this screen point instead of clicking")
     sa.add_argument("--steps", type=int, help="drag move events (default 8)")
     sa.set_defaults(func=cmd_act)
+
+    sw = sub.add_parser("world", help="drive the game's scripted pointer at a world object (path/iid) or screen point; "
+                                      "click checks the game's actual hit against the target")
+    sw.add_argument("--path", help="scene path of the world object (hierarchy path, [i] for same-name siblings)")
+    sw.add_argument("--iid", type=int, help="instance id of the world object")
+    sw.add_argument("--at", type=float, nargs=2, metavar=("X", "Y"), help="screen point instead of a target (drag/scroll/pinch only)")
+    sw.add_argument("--action", choices=["click", "drag", "scroll", "pinch"], default="click")
+    sw.add_argument("--to", type=float, nargs=2, metavar=("X", "Y"), help="drag end point")
+    sw.add_argument("--by", type=float, nargs=2, metavar=("DX", "DY"), help="drag offset in pixels (top-left origin)")
+    sw.add_argument("--scroll", type=float, help="wheel notches, positive = away from the user (zoom in)")
+    sw.add_argument("--scale", type=float, help="pinch finger span end/start; > 1 spreads the fingers")
+    sw.add_argument("--span", type=float, help="pinch start span in pixels (default 200)")
+    sw.add_argument("--steps", type=int, help="frames for the move/scroll/pinch")
+    sw.add_argument("--camera", help="scene path of the camera to project with (default: Camera.main, then by depth)")
+    sw.set_defaults(func=cmd_world)
     return p
 
 
@@ -135,6 +159,9 @@ def main() -> int:
         return 1
     # act 被拒（被遮、离屏等）是语义失败：ok=true 但 acted=false，退出码 2 与传输/参数错误区分
     if args.cmd == "act" and not (result.get("result") or {}).get("acted"):
+        return 2
+    # world：被拒或点中的不是目标（hit_mismatch / unverified）都带 reason
+    if args.cmd == "world" and (result.get("result") or {}).get("reason"):
         return 2
     return 0
 

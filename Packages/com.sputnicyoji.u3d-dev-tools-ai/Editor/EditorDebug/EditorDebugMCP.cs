@@ -183,6 +183,8 @@ namespace Yoji.EditorDebug
                 case "/ui/hit":
                     return RunOnMain(() => UiObserver.Hit(req));
                 case "/ui/act":
+                    if (UiWorldActor.IsWorldRequest(req))
+                        return RunWorldAct(req);
                     return RunOnMain(() => UiActor.Act(req, live: true));
                 default:
                     return ErrorEnvelope(new ArgumentException("unknown endpoint: " + path));
@@ -255,6 +257,27 @@ namespace Yoji.EditorDebug
             }
         }
 
+        private const int k_WorldActTimeoutMs = 20000;
+
+        /// 世界目标的 act 跨多帧：主线程上排好计划并接管指针，HTTP 线程等会话跑完（编辑器 update 逐帧推进），
+        /// 再回主线程取结果。超时（如 Play 被暂停）就取消会话、交还指针并回 reason=timeout。
+        private static JObject RunWorldAct(JObject req)
+        {
+            UiWorldActor.Session session = null;
+            var started = RunOnMain(() =>
+                (object)UiWorldActor.Start(req, live: true, ScriptedPointerRegistry.Current, null, out session) ?? new JObject());
+            if (session == null)
+                return started;
+            if (!session.Done.Wait(k_WorldActTimeoutMs))
+            {
+                return RunOnMain(() =>
+                {
+                    session.Cancel("timeout", "the gesture did not finish within " + k_WorldActTimeoutMs + "ms (is Play paused?)");
+                    return session.Result;
+                });
+            }
+            return RunOnMain(() => session.Result);
+        }
         /// defer=true：主线程跳内只把执行排进 delayCall（下一 editor tick），响应先写回、动作后执行。
         /// 用于会触发 domain reload / play transition 的调用（EnterPlaymode / ExitPlaymode / 刷新导入等），
         /// 避免"响应写回"与 reload 撕裂互等。结果不回传；失败 LogError 落 Console，客户端用 /console 或 /ping 追认。
