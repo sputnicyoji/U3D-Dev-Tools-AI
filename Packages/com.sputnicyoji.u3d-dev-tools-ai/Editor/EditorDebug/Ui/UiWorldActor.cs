@@ -155,10 +155,13 @@ namespace Yoji.EditorDebug.Ui
                 var world = AimPoint(target);
                 var screen = camera.WorldToScreenPoint(world);
                 result["world"] = new JObject { ["x"] = world.x, ["y"] = world.y, ["z"] = world.z };
-                if (screen.z <= camera.nearClipPlane * 0.5f || screen.z <= 0f)
+                // z 是沿相机前向的距离，透视与正交相机同义：<= 0 就在相机背后（或与相机平面重合），一帧都不喂
+                if (screen.z <= 0f)
                     return Refuse(result, "behind_camera", "the target is behind the camera");
                 press = new Vector2(screen.x, screen.y);
                 result["at"] = PointJson(ctx, press);
+                if (screen.z < camera.nearClipPlane)
+                    return Refuse(result, "offscreen", "the target is in front of the camera but nearer than its near clip plane");
                 if (screen.z > camera.farClipPlane)
                     return Refuse(result, "offscreen", "the target is beyond the camera's far clip plane");
             }
@@ -213,6 +216,12 @@ namespace Yoji.EditorDebug.Ui
             }
 
             session = new Session(result, pointer, frames, target, camera, press, action == "click", clock ?? (() => Time.frameCount));
+            // 缩放回读：开始前记一次相机，最后一帧被游戏读过之后再记一次（Finish），验收看数值而不是截图
+            if (action == "scroll" || action == "pinch")
+            {
+                result["cameraBefore"] = CameraJson(camera);
+                session.ReadsBackCamera = true;
+            }
             s_Active = session;
             session.Begin();
             return null;
@@ -314,6 +323,9 @@ namespace Yoji.EditorDebug.Ui
 
             public int FrameCount => m_Frames.Count;
 
+            /// scroll / pinch：结束时把相机读回 cameraAfter。
+            internal bool ReadsBackCamera;
+
             internal Session(JObject result, IScriptedPointer pointer, List<ScriptedPointerFrame> frames, Transform target, Camera camera, Vector2 press, bool verify, Func<int> clock)
             {
                 m_Result = result;
@@ -368,6 +380,7 @@ namespace Yoji.EditorDebug.Ui
                 if (m_Finished)
                     return;
                 m_Result["framesApplied"] = m_Index;
+                ReadBackCamera();
                 End();
                 Refuse(m_Result, reason, message);
             }
@@ -376,9 +389,17 @@ namespace Yoji.EditorDebug.Ui
             {
                 m_Result["acted"] = true;
                 m_Result["framesApplied"] = m_Index;
+                ReadBackCamera();
                 if (m_Verify)
                     Verify();
                 End();
+            }
+
+            // Finish 在最后一个计划帧之后、帧号再前进一次时才跑，游戏已按最后一帧更新完相机
+            private void ReadBackCamera()
+            {
+                if (ReadsBackCamera && m_Camera != null)
+                    m_Result["cameraAfter"] = CameraJson(m_Camera);
             }
 
             private void End()
@@ -604,6 +625,22 @@ namespace Yoji.EditorDebug.Ui
             ["path"] = ctx.IdOf(t),
             ["iid"] = t.gameObject.GetInstanceID(),
         };
+
+        /// 相机读回：正交给 orthographicSize，透视给 fieldOfView，外加世界坐标 position。
+        internal static JObject CameraJson(Camera camera)
+        {
+            var p = camera.transform.position;
+            var json = new JObject
+            {
+                ["orthographic"] = camera.orthographic,
+                ["position"] = new JObject { ["x"] = p.x, ["y"] = p.y, ["z"] = p.z },
+            };
+            if (camera.orthographic)
+                json["orthographicSize"] = camera.orthographicSize;
+            else
+                json["fieldOfView"] = camera.fieldOfView;
+            return json;
+        }
 
         private static JObject Refuse(JObject result, string reason, string message)
         {
