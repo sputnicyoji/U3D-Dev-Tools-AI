@@ -5,6 +5,8 @@ This log starts with the single-package release, 0.2.0. Release dates follow Git
 
 ## Unreleased
 
+## [0.2.19] - 2026-10-14
+
 ### Added
 - `unity-ui-observe` evidence helper: `evidence.py act|shot` (`act.ps1` / `shot.ps1` wrappers) saves the act result, a Game view screenshot and a `.frame.json` sidecar (`Time.frameCount` before the capture request and after the file appeared) under one auto-incremented number. Existing evidence is never overwritten unless `--force` / `-Force`.
 - `/ui/act` world `drag` reads the camera back like `scroll` and `pinch`: `cameraBefore` before the first frame and `cameraAfter` after the game ran the last frame, so a map pan is verified from `position` instead of a separate camera read.
@@ -157,6 +159,7 @@ Interactions require Play mode and an active EventSystem. Events are injected in
 - Preserve independent internal assemblies while bundling Python clients, skills, and managed agent rule fragments under `Agent~`.
 - Migrate stable/dev registries, test hosts, installation examples, and agent sync to the single package.
 
+[0.2.19]: https://github.com/sputnicyoji/U3D-Dev-Tools-AI/compare/u3d-dev-tools-ai-v0.2.18...u3d-dev-tools-ai-v0.2.19
 [0.2.18]: https://github.com/sputnicyoji/U3D-Dev-Tools-AI/compare/u3d-dev-tools-ai-v0.2.17...u3d-dev-tools-ai-v0.2.18
 [0.2.17]: https://github.com/sputnicyoji/U3D-Dev-Tools-AI/compare/u3d-dev-tools-ai-v0.2.16...u3d-dev-tools-ai-v0.2.17
 [0.2.16]: https://github.com/sputnicyoji/U3D-Dev-Tools-AI/compare/u3d-dev-tools-ai-v0.2.15...u3d-dev-tools-ai-v0.2.16
