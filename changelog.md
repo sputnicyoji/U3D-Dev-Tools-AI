@@ -7,6 +7,7 @@ This log starts with the single-package release, 0.2.0. Release dates follow Git
 
 ### Added
 - `unity-ui-observe` evidence helper: `evidence.py act|shot` (`act.ps1` / `shot.ps1` wrappers) saves the act result, a Game view screenshot and a `.frame.json` sidecar (`Time.frameCount` before the capture request and after the file appeared) under one auto-incremented number. Existing evidence is never overwritten unless `--force` / `-Force`.
+- `/ui/act` world `drag` reads the camera back like `scroll` and `pinch`: `cameraBefore` before the first frame and `cameraAfter` after the game ran the last frame, so a map pan is verified from `position` instead of a separate camera read.
 
 ### Changed
 - `tools/run-editmode.ps1` takes `-EditorVersion` (writes it into ProjectVersion.txt for the run), restores every ProjectSettings file afterwards, and reports exit code 199 / licensing-client errors as a license failure (exit 5) instead of a compile failure.
