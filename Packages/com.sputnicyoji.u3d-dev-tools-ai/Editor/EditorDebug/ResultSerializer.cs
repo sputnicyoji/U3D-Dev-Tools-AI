@@ -45,6 +45,18 @@ namespace Yoji.EditorDebug
             return p;
         }
 
+        /// 一切转字符串都走 InvariantCulture：浮点用 "R" 保证可往返，其余 IFormattable 不随本机区域（中文系统 NaN 曾是"非數值"）。
+        internal static string Invariant(object value)
+        {
+            switch (value)
+            {
+                case null: return "null";
+                case float f: return f.ToString("R", CultureInfo.InvariantCulture);
+                case double d: return d.ToString("R", CultureInfo.InvariantCulture);
+                case IFormattable formattable: return formattable.ToString(null, CultureInfo.InvariantCulture);
+                default: return value.ToString();
+            }
+        }
         private JToken Serialize(object value, int depth)
         {
             m_Nodes++;
@@ -56,13 +68,13 @@ namespace Yoji.EditorDebug
             var type = value.GetType();
             if (value is string s) return new JValue(s);
             if (value is float f)
-                return float.IsNaN(f) || float.IsInfinity(f) ? (JToken)f.ToString() : new JValue(f);
+                return float.IsNaN(f) || float.IsInfinity(f) ? (JToken)f.ToString("R", CultureInfo.InvariantCulture) : new JValue(f);
             if (value is double d)
-                return double.IsNaN(d) || double.IsInfinity(d) ? (JToken)d.ToString() : new JValue(d);
+                return double.IsNaN(d) || double.IsInfinity(d) ? (JToken)d.ToString("R", CultureInfo.InvariantCulture) : new JValue(d);
             if (value is IntPtr || value is UIntPtr || value is System.Runtime.InteropServices.SafeHandle)
                 return new JObject { ["__skipped"] = "IntPtr" };
             if (type.IsPrimitive || value is decimal) return JToken.FromObject(value);
-            if (type.IsEnum) return new JValue(value.ToString());
+            if (type.IsEnum) return new JValue(Invariant(value));
             if (value is Delegate del)
                 return new JObject
                 {
@@ -79,7 +91,7 @@ namespace Yoji.EditorDebug
                 foreach (DictionaryEntry e in dict)
                 {
                     if (m_Nodes > k_MaxNodes) break;
-                    o[e.Key?.ToString() ?? "null"] = Serialize(e.Value, depth + 1);
+                    o[e.Key == null ? "null" : Invariant(e.Key)] = Serialize(e.Value, depth + 1);
                 }
                 return o;
             }
@@ -194,7 +206,7 @@ namespace Yoji.EditorDebug
                     ["name"] = ve.name ?? "",
                     ["type"] = ve.GetType().Name,
                     ["classList"] = new JArray(ve.GetClasses().Cast<object>().ToArray()),
-                    ["pickingMode"] = ve.pickingMode.ToString(),
+                    ["pickingMode"] = Invariant(ve.pickingMode),
                     ["visible"] = ve.visible,
                     ["enabledSelf"] = ve.enabledSelf,
                 };

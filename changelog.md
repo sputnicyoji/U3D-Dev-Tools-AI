@@ -5,6 +5,10 @@ This log starts with the single-package release, 0.2.0. Release dates follow Git
 
 ## Unreleased
 
+### Fixed
+- `/invoke` results format NaN, Infinity, enums, numeric dictionary keys and UI Toolkit picking modes with the invariant culture (floats and doubles round-trip with `R`); on a Chinese (zh-TW) system NaN used to come back as `非數值`.
+- `EditorServiceEndpoint` tests no longer probe the real port 29980: `StartForTests` takes an optional `IPortProbe`, and the fixed-port conflict test is deterministic.
+
 ## [0.2.18] - 2026-10-14
 
 ### Added
