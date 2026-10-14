@@ -7,6 +7,10 @@ TestProjects/*/Temp/
 TestProjects/*/obj/
 TestProjects/*/Assets/
 TestProjects/*/.vs/
+
+# Generated per machine by the package when a test project opens
+.u3d-ai-linker/
+YojiDevToolPorts.json
 *.csproj
 *.sln
 
