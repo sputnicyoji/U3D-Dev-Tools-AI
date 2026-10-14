@@ -5,6 +5,10 @@ This log starts with the single-package release, 0.2.0. Release dates follow Git
 
 ## Unreleased
 
+### Changed
+- `tools/run-editmode.ps1` takes `-EditorVersion` (writes it into ProjectVersion.txt for the run), restores every ProjectSettings file afterwards, and reports exit code 199 / licensing-client errors as a license failure (exit 5) instead of a compile failure.
+- The editor-debug test project commits its `packages-lock.json`; `.u3d-ai-linker/` and `YojiDevToolPorts.json` are ignored.
+
 ## [0.2.18] - 2026-10-14
 
 ### Added
