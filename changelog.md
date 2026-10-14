@@ -5,6 +5,9 @@ This log starts with the single-package release, 0.2.0. Release dates follow Git
 
 ## Unreleased
 
+### Added
+- `unity-ui-observe` evidence helper: `evidence.py act|shot` (`act.ps1` / `shot.ps1` wrappers) saves the act result, a Game view screenshot and a `.frame.json` sidecar (`Time.frameCount` before the capture request and after the file appeared) under one auto-incremented number. Existing evidence is never overwritten unless `--force` / `-Force`.
+
 ### Changed
 - `tools/run-editmode.ps1` takes `-EditorVersion` (writes it into ProjectVersion.txt for the run), restores every ProjectSettings file afterwards, and reports exit code 199 / licensing-client errors as a license failure (exit 5) instead of a compile failure.
 - The editor-debug test project commits its `packages-lock.json`; `.u3d-ai-linker/` and `YojiDevToolPorts.json` are ignored.
