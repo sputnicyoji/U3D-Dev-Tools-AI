@@ -59,6 +59,9 @@ Observation and interaction cover display 0 only; canvases targeting other displ
    Quote the ids and flags you relied on, not the whole snapshot.
    Use a screenshot only for visual checks the snapshot cannot express (art, layout polish).
    Completion: the answer can be reproduced from the quoted fields.
+   For saved evidence use `python evidence.py act --dir <dir> --label <text> --project <root> -- <world args>` (`act.ps1` on Windows) or `evidence.py shot`.
+   Files are numbered `<NNN>-<label>.json/.png` in run order and never overwritten; `--seq N` on an existing number refuses (exit 3) unless `--force`.
+   `<NNN>-<label>.frame.json` holds `frameBefore`/`frameAfter`: compare them with the act's frames before calling a screenshot stale.
 
 ## Fallback
 

@@ -5,6 +5,9 @@ This log starts with the single-package release, 0.2.0. Release dates follow Git
 
 ## Unreleased
 
+### Added
+- `unity-ui-observe` evidence helper: `evidence.py act|shot` (`act.ps1` / `shot.ps1` wrappers) saves the act result, a Game view screenshot and a `.frame.json` sidecar (`Time.frameCount` before the capture request and after the file appeared) under one auto-incremented number. Existing evidence is never overwritten unless `--force` / `-Force`.
+
 ## [0.2.18] - 2026-10-14
 
 ### Added
