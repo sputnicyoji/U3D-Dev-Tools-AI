@@ -639,13 +639,46 @@ namespace Yoji.EditorDebug.Tests
         }
 
         [Test]
-        public void ClickAndDrag_HaveNoCameraReadback()
+        public void Click_HasNoCameraReadback()
         {
             m_Pointer.Reports = true;
             m_Pointer.ReportedHit = m_Target;
             var result = Run(Request());
             Assert.IsNull(result["cameraBefore"]);
             Assert.IsNull(result["cameraAfter"]);
+        }
+
+        // 拖动平移相机（大地图）：与 scroll / pinch 同样回读前后相机，验收看 position 而不是另行反射读相机。
+        [Test]
+        public void Drag_ReadsBackCameraPositionBeforeAndAfter()
+        {
+            var start = m_Camera.transform.position;
+            m_Pointer.OnApply = f =>
+            {
+                if (f.Phase == ScriptedPointerPhase.Held)
+                    m_Camera.transform.position += new Vector3(-0.25f, 0f, 0f); // 游戏：按住拖动时相机反向平移
+            };
+            var req = Request("drag");
+            req["by"] = new JObject { ["x"] = 120, ["y"] = 0 };
+            req["steps"] = 4;
+            var result = Run(req);
+            Assert.IsNotNull(result["cameraBefore"], result.ToString());
+            Assert.AreEqual(start.x, (float)result["cameraBefore"]["position"]["x"], 1e-4f, result.ToString());
+            Assert.AreEqual(m_Camera.transform.position.x, (float)result["cameraAfter"]["position"]["x"], 1e-4f);
+            Assert.Less((float)result["cameraAfter"]["position"]["x"], start.x);
+            Assert.AreEqual(m_Camera.orthographic, (bool)result["cameraAfter"]["orthographic"]);
+        }
+
+        [Test]
+        public void Drag_ReadbackIsTakenAfterTheLastFrame()
+        {
+            // 游戏在最后一个计划帧（松手后的收尾帧）才动相机：cameraAfter 必须已经看到它
+            m_Pointer.OnApply = f => m_Camera.transform.position = new Vector3(m_Pointer.Applied.Count, 0f, -10f);
+            var req = Request("drag");
+            req["by"] = new JObject { ["x"] = 60, ["y"] = 0 };
+            req["steps"] = 2;
+            var result = Run(req);
+            Assert.AreEqual((float)m_Pointer.Applied.Count, (float)result["cameraAfter"]["position"]["x"], 1e-4f, result.ToString());
         }
 
         [Test]

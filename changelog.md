@@ -5,6 +5,9 @@ This log starts with the single-package release, 0.2.0. Release dates follow Git
 
 ## Unreleased
 
+### Added
+- `/ui/act` world `drag` reads the camera back like `scroll` and `pinch`: `cameraBefore` before the first frame and `cameraAfter` after the game ran the last frame, so a map pan is verified from `position` instead of a separate camera read.
+
 ## [0.2.18] - 2026-10-14
 
 ### Added

@@ -300,8 +300,8 @@ namespace Yoji.EditorDebug.Ui
             }
 
             session = new Session(result, pointer, frames, target, camera, press, action == "click", clock ?? (() => Time.frameCount));
-            // 缩放回读：开始前记一次相机，最后一帧被游戏读过之后再记一次（Finish），验收看数值而不是截图
-            if (action == "scroll" || action == "pinch")
+            // 相机回读（drag 平移、scroll / pinch 缩放）：开始前记一次相机，最后一帧被游戏读过之后再记一次（Finish），验收看数值而不是截图
+            if (action == "drag" || action == "scroll" || action == "pinch")
             {
                 result["cameraBefore"] = CameraJson(camera);
                 session.ReadsBackCamera = true;
@@ -473,7 +473,7 @@ namespace Yoji.EditorDebug.Ui
 
             public int FrameCount => m_Frames.Count;
 
-            /// scroll / pinch：结束时把相机读回 cameraAfter。
+            /// drag / scroll / pinch：结束时把相机读回 cameraAfter。
             internal bool ReadsBackCamera;
 
             /// 格子目标：非 null 时核对游戏上报的格子，而不是物体。

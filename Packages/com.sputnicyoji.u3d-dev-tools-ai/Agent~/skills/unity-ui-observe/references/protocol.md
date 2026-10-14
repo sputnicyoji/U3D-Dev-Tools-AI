@@ -139,9 +139,9 @@ A reporting exception never falls back to physics verification.
 because a failing callback may already have changed the game. Cancellation and timeout can also leave partial effects.
 Read the current game state before deciding what to do; do not automatically retry an interrupted gesture.
 
-`scroll` and `pinch` results read the camera back: `cameraBefore` (just before the first frame) and `cameraAfter`
+`drag`, `scroll` and `pinch` results read the camera back: `cameraBefore` (just before the first frame) and `cameraAfter`
 (after the game has run the last frame), each `{orthographic, orthographicSize | fieldOfView, position {x,y,z}}`
-(`orthographicSize` for an orthographic camera, `fieldOfView` for a perspective one). Zoom in shows as a smaller value.
+(`orthographicSize` for an orthographic camera, `fieldOfView` for a perspective one). Zoom in shows as a smaller value; a map drag shows as a `position` change.
 A cancelled gesture still reports `cameraAfter` as of the cancel.
 
 ### Cell targets
