@@ -74,7 +74,8 @@ namespace Yoji.EditorCore.Ports
             Action<string, ServiceInstanceRecord> projectUpsert,
             Action<string, string> projectRemove,
             int maxStartAttempts = 8,
-            Func<int, bool> isProcessAlive = null)
+            Func<int, bool> isProcessAlive = null,
+            IPortProbe portProbe = null)
         {
             if (definition == null)
                 throw new ArgumentNullException(nameof(definition));
@@ -93,7 +94,7 @@ namespace Yoji.EditorCore.Ports
 
             var blockedPorts = new HashSet<int>();
             var attemptedPorts = new List<int>();
-            var probe = new ExcludingPortProbe(new TcpPortProbe(), blockedPorts);
+            var probe = new ExcludingPortProbe(portProbe ?? new TcpPortProbe(), blockedPorts);
             Exception lastException = null;
             string lastAllocationError = null;
 

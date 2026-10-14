@@ -163,13 +163,52 @@ namespace Yoji.EditorCore.Tests
                     },
                     (root, record) => projectRecords[record.InstanceId] = record,
                     (root, id) => projectRecords.Remove(id),
-                    3);
+                    3,
+                    portProbe: new FixedPortProbe(true));
             });
 
             Assert.AreEqual(1, attempts);
             StringAssert.Contains("configured endpoint port is occupied", ex.Message);
             Assert.AreEqual(0, registry.Load().Count);
             Assert.AreEqual(0, projectRecords.Count);
+        }
+
+        [Test]
+        public void Start_FixedPortReportedBusyByProbe_FailsWithoutCallingFactory()
+        {
+            var registry = NewRegistry();
+            var projectRecords = new Dictionary<string, ServiceInstanceRecord>();
+            var policy = Policy();
+            policy.Mode = ServicePortMode.FixedProject;
+            var attempts = 0;
+
+            Assert.Throws<InvalidOperationException>(() =>
+                EditorServiceEndpoint.StartForTests(
+                    Definition(),
+                    policy,
+                    Identity(),
+                    registry,
+                    assignment =>
+                    {
+                        attempts++;
+                        return new CallbackDisposable(() => { });
+                    },
+                    (root, record) => projectRecords[record.InstanceId] = record,
+                    (root, id) => projectRecords.Remove(id),
+                    3,
+                    portProbe: new FixedPortProbe(false)));
+
+            Assert.AreEqual(0, attempts);
+            Assert.AreEqual(0, registry.Load().Count);
+            Assert.AreEqual(0, projectRecords.Count);
+        }
+
+        // 测试不碰本机真实端口：29980 被别的进程占着时，固定端口用例曾因真实探测失败而走不到工厂。
+        private sealed class FixedPortProbe : IPortProbe
+        {
+            private readonly bool m_Available;
+            public FixedPortProbe(bool available) { m_Available = available; }
+            public bool IsAvailable(int port) => m_Available;
         }
 
         [Test]

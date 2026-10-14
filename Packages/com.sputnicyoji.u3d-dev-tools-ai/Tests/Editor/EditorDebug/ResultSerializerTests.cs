@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using Newtonsoft.Json.Linq;
 using NUnit.Framework;
 using UnityEngine;
@@ -43,6 +44,48 @@ namespace Yoji.EditorDebug.Tests
         [Test] public void FloatNaN_AsString()
             => Assert.AreEqual("NaN", (string)ResultSerializer.ToJson(float.NaN));
 
+        // 非有限数与数字键一律按 InvariantCulture 输出，不随本机区域（中文系统曾输出"非數值"）。
+        private static void InCulture(string name, Action body)
+        {
+            var thread = System.Threading.Thread.CurrentThread;
+            var saved = thread.CurrentCulture;
+            thread.CurrentCulture = new System.Globalization.CultureInfo(name);
+            try { body(); }
+            finally { thread.CurrentCulture = saved; }
+        }
+
+        // zh-CN 是约定的回归区域；zh-TW 是本机区域，Mono 下它的 NaN 符号才是"非數值"，真正复现旧 bug。
+        [TestCase("zh-CN")]
+        [TestCase("zh-TW")]
+        public void NonFinite_UnderChineseCulture_UseInvariantNames(string culture)
+            => InCulture(culture, () =>
+            {
+                Assert.AreEqual("NaN", (string)ResultSerializer.ToJson(float.NaN));
+                Assert.AreEqual("NaN", (string)ResultSerializer.ToJson(double.NaN));
+                Assert.AreEqual("Infinity", (string)ResultSerializer.ToJson(float.PositiveInfinity));
+                Assert.AreEqual("-Infinity", (string)ResultSerializer.ToJson(double.NegativeInfinity));
+            });
+
+        [TestCase("zh-CN")]
+        [TestCase("zh-TW")]
+        public void NumericDictionaryKeys_UnderChineseCulture_RoundTripInvariant(string culture)
+            => InCulture(culture, () =>
+            {
+                var d = new Dictionary<double, int> { [0.1] = 1, [1e-7] = 2 };
+                var f = new Dictionary<float, int> { [0.1f] = 3 };
+                var jd = (JObject)ResultSerializer.ToJson(d);
+                var jf = (JObject)ResultSerializer.ToJson(f);
+                CollectionAssert.AreEquivalent(new[] { 0.1, 1e-7 },
+                    jd.Properties().Select(p => double.Parse(p.Name, System.Globalization.CultureInfo.InvariantCulture)));
+                Assert.AreEqual(0.1f, float.Parse(jf.Properties().Single().Name, System.Globalization.CultureInfo.InvariantCulture));
+            });
+
+        [Test] public void Culture_IsRestoredAfterInCulture()
+        {
+            var before = System.Threading.Thread.CurrentThread.CurrentCulture.Name;
+            InCulture("zh-CN", () => { });
+            Assert.AreEqual(before, System.Threading.Thread.CurrentThread.CurrentCulture.Name);
+        }
         [Test] public void GameObject_BecomesRefSummary()
         {
             var parent = new GameObject("Root");
