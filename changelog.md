@@ -5,6 +5,11 @@ This log starts with the single-package release, 0.2.0. Release dates follow Git
 
 ## Unreleased
 
+## [0.2.18] - 2026-10-14
+
+### Added
+- `install.ps1` for the `unity-lua-device-debug` skill, matching the other three skills: copies `SKILL.md`, `client.py`, `port_resolver.py` and `references/*.md` to `~/.claude/skills/unity-lua-device-debug`.
+
 ## [0.2.17] - 2026-10-13
 
 ### Added
@@ -140,6 +145,7 @@ Interactions require Play mode and an active EventSystem. Events are injected in
 - Preserve independent internal assemblies while bundling Python clients, skills, and managed agent rule fragments under `Agent~`.
 - Migrate stable/dev registries, test hosts, installation examples, and agent sync to the single package.
 
+[0.2.18]: https://github.com/sputnicyoji/U3D-Dev-Tools-AI/compare/u3d-dev-tools-ai-v0.2.17...u3d-dev-tools-ai-v0.2.18
 [0.2.17]: https://github.com/sputnicyoji/U3D-Dev-Tools-AI/compare/u3d-dev-tools-ai-v0.2.16...u3d-dev-tools-ai-v0.2.17
 [0.2.16]: https://github.com/sputnicyoji/U3D-Dev-Tools-AI/compare/u3d-dev-tools-ai-v0.2.15...u3d-dev-tools-ai-v0.2.16
 [0.2.15]: https://github.com/sputnicyoji/U3D-Dev-Tools-AI/compare/u3d-dev-tools-ai-v0.2.14...u3d-dev-tools-ai-v0.2.15
