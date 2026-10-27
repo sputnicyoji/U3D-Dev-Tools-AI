@@ -17,8 +17,10 @@ namespace Yoji.EditorDebug
     [InitializeOnLoad]
     internal static class EditorDebugMCP
     {
-        private const string k_Version = "0.1.4";
-        private static readonly bool c_AllowEval = false; // 需要 /eval 时显式改成 true
+        private const string k_Version = "0.1.5";
+        // /eval 只是 /invoke 的单行表达式前端（EvalParser → ReflectionInvoker.ExecuteStep），
+        // 不编译任意代码，攻击面与默认开放的 /invoke 相同；保留开关仅作紧急关闭。
+        private static readonly bool c_AllowEval = true;
         private const int k_MaxBodyBytes = 4 * 1024 * 1024;
         private static readonly ServicePortDefinition k_PortDefinition = ServicePortDefinition.Create(
             "unity-editor-debug-mcp",

@@ -4,4 +4,4 @@ Loop: name the evidence target, describe uncertain types, invoke or batch, verif
 Prefer Console, Hierarchy, Selection, asset, profiler, and reflection evidence over GUI assumptions.
 Use `invoke --defer` for calls that trigger domain reload or play transition (EnterPlaymode, ExitPlaymode);
 a synchronous invoke races the reload and can stall the whole Editor. After a deferred call, poll `/ping`.
-Do not enable `/eval`; it is disabled by default.
+`/eval` reads one-line member chains through the same reflection path as `invoke`; prefer `invoke` when the overload is uncertain.

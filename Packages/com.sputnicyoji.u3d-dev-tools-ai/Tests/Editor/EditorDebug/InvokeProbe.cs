@@ -25,4 +25,15 @@ namespace Yoji.EditorDebug.Tests
         public static List<int> Numbers() => new List<int> { 1, 2, 3 };
         public static void DoNothing() { }
     }
+
+    /// 复现业务常见的泛型单例 Xxx.I：静态成员声明在泛型基类上，经派生类名访问。
+    public class SingletonProbeBase<T> where T : new()
+    {
+        public static T I { get; } = new T();
+    }
+
+    public sealed class SingletonProbe : SingletonProbeBase<SingletonProbe>
+    {
+        public bool IsReady => true;
+    }
 }

@@ -34,6 +34,9 @@ namespace Yoji.EditorDebug.Tests
         [Test] public void Eval_MethodWithEnumLiteralArg()
             => Assert.AreEqual("A", EvalParser.Evaluate("Yoji.EditorDebug.Tests.InvokeProbe.EnumName(UnityEngine.KeyCode.A)"));
 
+        [Test] public void Eval_InheritedStaticOnGenericBase()
+            => Assert.AreEqual(true, EvalParser.Evaluate("Yoji.EditorDebug.Tests.SingletonProbe.I.IsReady"));
+
         [Test] public void Eval_UnterminatedString_ThrowsFormatException()
             => Assert.Throws<FormatException>(() =>
                 EvalParser.Evaluate("UnityEditor.LogEntries.GetCount(\"unterminated"));

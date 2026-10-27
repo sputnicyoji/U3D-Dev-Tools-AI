@@ -9,11 +9,11 @@ namespace Yoji.EditorDebug.Tests
     public sealed class EditorDebugMCPTests
     {
         [Test]
-        public void Eval_IsDisabledByDefault()
+        public void Eval_IsEnabledByDefault()
         {
             var field = typeof(EditorDebugMCP).GetField("c_AllowEval", BindingFlags.NonPublic | BindingFlags.Static);
             Assert.IsNotNull(field);
-            Assert.IsFalse((bool)field.GetValue(null));
+            Assert.IsTrue((bool)field.GetValue(null));
         }
 
         [Test]

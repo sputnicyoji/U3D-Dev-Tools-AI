@@ -78,7 +78,7 @@ python client.py invoke --type UnityEngine.Application --member isPlaying --kind
 python client.py console --count 30 --filter error
 ```
 
-`/eval` is compiled into the service but disabled by default. Prefer `describe`, `invoke`, `console`, and `batch`.
+`/eval` reads one-line member chains such as `UnityEditor.EditorApplication.applicationPath.Length` through the same reflection path as `invoke`; it does not compile arbitrary code. Prefer `describe`, `invoke`, `console`, and `batch` when types or overloads are uncertain.
 
 ### UI Observe
 

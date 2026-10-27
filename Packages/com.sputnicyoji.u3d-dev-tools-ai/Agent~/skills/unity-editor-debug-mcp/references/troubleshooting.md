@@ -49,5 +49,5 @@ until python client.py ping; do sleep 1; done
 ## 安全
 
 - 服务**只绑 127.0.0.1**，不监听外网
-- 默认开放 `/invoke` / `/batch` 反射调用 —— 不要在共享 Editor / 远程桌面上让陌生进程访问 21891 端口
-- /eval 默认关闭，需要使用时在 `EditorDebugMCP.cs` 改 `c_AllowEval = true` 并重新编译
+- 默认开放 `/invoke` / `/batch` / `/eval` 反射调用 —— 不要在共享 Editor / 远程桌面上让陌生进程访问 21891 端口
+- `/eval` 只解析成员链再走 `/invoke` 同一反射路径，不编译任意代码；紧急关闭改 `EditorDebugMCP.cs` 的 `c_AllowEval = false` 并重新编译

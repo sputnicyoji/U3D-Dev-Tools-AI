@@ -7,7 +7,7 @@ description: Inspect a live Unity Editor through HTTP+JSON. Use for Console, Hie
 
 Use this skill to inspect the running Editor.
 Prefer evidence reads over GUI assumptions.
-Do not enable `/eval`; it is disabled by default.
+`/eval` reads one-line member chains (`Type.Member.Method("arg")`) through the same reflection path as `invoke`; use `describe` and `invoke` when the type or overload is uncertain.
 
 ## Operational loop
 
