@@ -5,6 +5,12 @@ This log starts with the single-package release, 0.2.0. Release dates follow Git
 
 ## Unreleased
 
+## [0.2.21] - 2026-10-27
+
+### Changed
+- lua-device-debug: the HTTP server, Player bootstrap, main-thread dispatcher and JSON guard move to a new assembly `Yoji.LuaDeviceDebug.Server` with define constraint `UNITY_EDITOR || DEVELOPMENT_BUILD`, so release builds no longer contain them. `ILuaDeviceDebugHost`, `LuaDeviceDebugRuntime`, `CommandDescriptor`, `LuaDeviceDebugPackage` and `LuaDeviceDebugRuntimeConfig` stay in `Yoji.LuaDeviceDebug.Runtime` (same name and GUID), so host code compiles in every build without `#if`. Code that used `LuaDeviceDebugServer` directly must reference `Yoji.LuaDeviceDebug.Server` and compile under the same define.
+- `Yoji.LuaDeviceDebug.Runtime` no longer references `Newtonsoft.Json.dll`.
+
 ## [0.2.20] - 2026-10-27
 
 ### Changed
@@ -167,6 +173,7 @@ Interactions require Play mode and an active EventSystem. Events are injected in
 - Preserve independent internal assemblies while bundling Python clients, skills, and managed agent rule fragments under `Agent~`.
 - Migrate stable/dev registries, test hosts, installation examples, and agent sync to the single package.
 
+[0.2.21]: https://github.com/sputnicyoji/U3D-Dev-Tools-AI/compare/u3d-dev-tools-ai-v0.2.20...u3d-dev-tools-ai-v0.2.21
 [0.2.20]: https://github.com/sputnicyoji/U3D-Dev-Tools-AI/compare/u3d-dev-tools-ai-v0.2.19...u3d-dev-tools-ai-v0.2.20
 [0.2.19]: https://github.com/sputnicyoji/U3D-Dev-Tools-AI/compare/u3d-dev-tools-ai-v0.2.18...u3d-dev-tools-ai-v0.2.19
 [0.2.18]: https://github.com/sputnicyoji/U3D-Dev-Tools-AI/compare/u3d-dev-tools-ai-v0.2.17...u3d-dev-tools-ai-v0.2.18
