@@ -5,6 +5,14 @@ This log starts with the single-package release, 0.2.0. Release dates follow Git
 
 ## Unreleased
 
+## [0.2.20] - 2026-10-27
+
+### Changed
+- editor-debug `/eval` is on by default (service 0.1.5). It parses one-line member chains and runs each step through the same reflection path as `/invoke`, so keeping it off removed no attack surface; `c_AllowEval = false` stays as an emergency switch. A syntax error returns `System.FormatException`.
+
+### Added
+- EditMode test for a static member declared on a generic base and read through the derived type (`Xxx.I` singletons) via `/eval`.
+
 ## [0.2.19] - 2026-10-14
 
 ### Added
@@ -159,6 +167,7 @@ Interactions require Play mode and an active EventSystem. Events are injected in
 - Preserve independent internal assemblies while bundling Python clients, skills, and managed agent rule fragments under `Agent~`.
 - Migrate stable/dev registries, test hosts, installation examples, and agent sync to the single package.
 
+[0.2.20]: https://github.com/sputnicyoji/U3D-Dev-Tools-AI/compare/u3d-dev-tools-ai-v0.2.19...u3d-dev-tools-ai-v0.2.20
 [0.2.19]: https://github.com/sputnicyoji/U3D-Dev-Tools-AI/compare/u3d-dev-tools-ai-v0.2.18...u3d-dev-tools-ai-v0.2.19
 [0.2.18]: https://github.com/sputnicyoji/U3D-Dev-Tools-AI/compare/u3d-dev-tools-ai-v0.2.17...u3d-dev-tools-ai-v0.2.18
 [0.2.17]: https://github.com/sputnicyoji/U3D-Dev-Tools-AI/compare/u3d-dev-tools-ai-v0.2.16...u3d-dev-tools-ai-v0.2.17
