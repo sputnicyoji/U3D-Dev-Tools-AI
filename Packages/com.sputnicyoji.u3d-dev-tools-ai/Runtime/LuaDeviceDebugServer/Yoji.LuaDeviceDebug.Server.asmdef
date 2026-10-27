@@ -1,0 +1,14 @@
+{
+  "name": "Yoji.LuaDeviceDebug.Server",
+  "rootNamespace": "Yoji.LuaDeviceDebug",
+  "references": ["Yoji.LuaDeviceDebug.Runtime"],
+  "includePlatforms": [],
+  "excludePlatforms": [],
+  "allowUnsafeCode": false,
+  "overrideReferences": true,
+  "precompiledReferences": ["Newtonsoft.Json.dll"],
+  "autoReferenced": false,
+  "defineConstraints": ["UNITY_EDITOR || DEVELOPMENT_BUILD"],
+  "versionDefines": [],
+  "noEngineReferences": false
+}

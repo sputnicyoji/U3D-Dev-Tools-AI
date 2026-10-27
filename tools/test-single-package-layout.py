@@ -11,6 +11,7 @@ EXPECTED_MODULES = [
     "Editor/TestRunner",
     "Editor/U3DAILinker",
     "Runtime/LuaDeviceDebug",
+    "Runtime/LuaDeviceDebugServer",
     "Agent~/skills/test-runner-mcp",
     "Agent~/skills/unity-editor-debug-mcp",
     "Agent~/skills/unity-lua-device-debug",

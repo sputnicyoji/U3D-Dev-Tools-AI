@@ -13,7 +13,7 @@ Internal modules:
 - `Editor/Core`: shared Editor-only infrastructure.
 - `Editor/EditorDebug`: local HTTP+JSON Editor inspection and reflection service.
 - `Editor/TestRunner`: local HTTP test runner and recompilation service.
-- `Runtime/LuaDeviceDebug` and `Editor/LuaDeviceDebug`: Lua diagnostics transport for project-provided hosts.
+- `Runtime/LuaDeviceDebug`, `Runtime/LuaDeviceDebugServer` and `Editor/LuaDeviceDebug`: Lua diagnostics transport for project-provided hosts. The host contract compiles in every build; the server assembly only under `UNITY_EDITOR || DEVELOPMENT_BUILD`.
 - `Editor/U3DAILinker`: Project Settings UI for registry inspection and agent asset sync.
 
 ## Development rules

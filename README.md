@@ -41,7 +41,7 @@ If the repository is private, configure Git authentication before opening Unity.
 | Core | `Editor/Core` | Shared Editor-only infrastructure: main-thread dispatch, bounded request body reading, service lifecycle, and project-aware port registry. |
 | Test Runner | `Editor/TestRunner` | HTTP service for recompilation, EditMode tests, PlayMode tests, and test discovery. |
 | Editor Debug | `Editor/EditorDebug` | HTTP+JSON reflection/debug service for Unity Editor inspection. |
-| Lua Device Debug | `Runtime/LuaDeviceDebug`, `Editor/LuaDeviceDebug` | Transport layer for project-provided Lua runtime diagnostics in Editor and Android Development Builds. |
+| Lua Device Debug | `Runtime/LuaDeviceDebug`, `Runtime/LuaDeviceDebugServer`, `Editor/LuaDeviceDebug` | Transport layer for project-provided Lua runtime diagnostics in Editor and Android Development Builds. The host contract is always compiled; the server compiles only in the Editor and Development Builds. |
 | U3D Dev Tools AI Settings | `Editor/U3DAILinker` | Project Settings UI for agent asset sync and package registry inspection. |
 | Agent assets | `Agent~` | Python clients, skills, and managed rule fragments for Claude Code / Codex. |
 
@@ -105,6 +105,8 @@ Requests that carry an `Origin` header are rejected by the Editor Debug service.
 Default port: legacy `21894`; project offset `+4`.
 
 The package provides transport only. The target project must implement and register `ILuaDeviceDebugHost`.
+`ILuaDeviceDebugHost` and `LuaDeviceDebugRuntime` live in `Yoji.LuaDeviceDebug.Runtime`, which every build compiles, so host code needs no `#if`.
+The HTTP server lives in `Yoji.LuaDeviceDebug.Server` (define constraint `UNITY_EDITOR || DEVELOPMENT_BUILD`) and is absent from release builds.
 
 ```powershell
 cd Packages/com.sputnicyoji.u3d-dev-tools-ai/Agent~/skills/unity-lua-device-debug
@@ -209,7 +211,7 @@ You can also set `UNITY_EXE` or `UNITY_EDITOR_PATH` instead of passing `-Unity`.
 
 - Editor services bind to `127.0.0.1` by default.
 - Debug services are intended for local development automation.
-- `lua-device-debug` starts in Player only for Android Development Builds.
+- `lua-device-debug` starts in Player only for Android Development Builds; release builds do not contain the server assembly.
 - Mutating Lua commands require both a mutating descriptor and an explicit CLI flag.
 - No telemetry service is included.
 
