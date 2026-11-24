@@ -5,6 +5,11 @@ This log starts with the single-package release, 0.2.0. Release dates follow Git
 
 ## Unreleased
 
+## [0.2.22] - 2026-11-24
+
+### Fixed
+- editor-debug: sample HTTP UI snapshots and hit tests from the active Play Mode game frame so viewport dimensions and raycasts agree.
+
 ## [0.2.21] - 2026-10-27
 
 ### Changed
@@ -173,6 +178,7 @@ Interactions require Play mode and an active EventSystem. Events are injected in
 - Preserve independent internal assemblies while bundling Python clients, skills, and managed agent rule fragments under `Agent~`.
 - Migrate stable/dev registries, test hosts, installation examples, and agent sync to the single package.
 
+[0.2.22]: https://github.com/sputnicyoji/U3D-Dev-Tools-AI/compare/u3d-dev-tools-ai-v0.2.21...u3d-dev-tools-ai-v0.2.22
 [0.2.21]: https://github.com/sputnicyoji/U3D-Dev-Tools-AI/compare/u3d-dev-tools-ai-v0.2.20...u3d-dev-tools-ai-v0.2.21
 [0.2.20]: https://github.com/sputnicyoji/U3D-Dev-Tools-AI/compare/u3d-dev-tools-ai-v0.2.19...u3d-dev-tools-ai-v0.2.20
 [0.2.19]: https://github.com/sputnicyoji/U3D-Dev-Tools-AI/compare/u3d-dev-tools-ai-v0.2.18...u3d-dev-tools-ai-v0.2.19
