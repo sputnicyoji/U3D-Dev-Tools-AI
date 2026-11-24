@@ -181,9 +181,9 @@ namespace Yoji.EditorDebug
                 case "/recompile":
                     return RecompileHandler.Run();
                 case "/ui/snapshot":
-                    return RunOnMain(() => UiObserver.Snapshot(req));
+                    return RunOnMain(() => UiObserver.Snapshot(req), gameFrame: true);
                 case "/ui/hit":
-                    return RunOnMain(() => UiObserver.Hit(req));
+                    return RunOnMain(() => UiObserver.Hit(req), gameFrame: true);
                 case "/ui/act":
                     if (UiWorldActor.IsWorldRequest(req))
                         return RunWorldAct(req);
@@ -244,11 +244,14 @@ namespace Yoji.EditorDebug
         }
 
         /// 反射执行与结果序列化都必须发生在主线程（结果可能触碰 Unity API）。
-        private static JObject RunOnMain(Func<object> work)
+        private static JObject RunOnMain(Func<object> work, bool gameFrame = false)
         {
             try
             {
-                var payload = (JObject)MainThreadDispatcher.Run(() => ResultSerializer.ToPayload(work()), out var elapsed);
+                long elapsed;
+                var payload = (JObject)(gameFrame
+                    ? UiFrameDispatcher.Run(() => ResultSerializer.ToPayload(work()), out elapsed)
+                    : MainThreadDispatcher.Run(() => ResultSerializer.ToPayload(work()), out elapsed));
                 payload["ok"] = true;
                 payload["elapsedMs"] = elapsed;
                 return payload;

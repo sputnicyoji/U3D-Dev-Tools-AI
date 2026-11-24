@@ -28,3 +28,7 @@ Read `reason` first; `covered` comes with `coveredBy`, the control on top.
 A guide mask makes everything outside its hole `covered`: act on `guide.targetId` instead.
 `not_found` after the UI changed means the id moved; take a fresh `snapshot`.
 A control whose handler needs a held press or several frames reacts differently to `act` than to a finger.
+
+## PlayMode observation waits or refuses
+
+HTTP snapshot and hit sample in an advancing player frame so Screen and native raycasts share the GameView viewport. Resume a paused Editor before observing. If no player frame arrives within ten seconds, the request fails instead of returning Editor-window coordinates. EditMode keeps the existing editor-thread behavior.
