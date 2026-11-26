@@ -5,6 +5,11 @@ This log starts with the single-package release, 0.2.0. Release dates follow Git
 
 ## Unreleased
 
+## [0.2.23] - 2026-11-27
+
+### Fixed
+- lua-device-debug: mark `Yoji.LuaDeviceDebug.Server` with `[assembly: AlwaysLinkAssembly]` so IL2CPP preserves `LuaDeviceDebugPlayerBootstrap` and the HTTP debug server in Development builds without requiring consuming projects to add a `link.xml`, while still excluding the assembly from Release builds via `defineConstraints`.
+
 ## [0.2.22] - 2026-11-24
 
 ### Fixed
@@ -178,6 +183,7 @@ Interactions require Play mode and an active EventSystem. Events are injected in
 - Preserve independent internal assemblies while bundling Python clients, skills, and managed agent rule fragments under `Agent~`.
 - Migrate stable/dev registries, test hosts, installation examples, and agent sync to the single package.
 
+[0.2.23]: https://github.com/sputnicyoji/U3D-Dev-Tools-AI/compare/u3d-dev-tools-ai-v0.2.22...u3d-dev-tools-ai-v0.2.23
 [0.2.22]: https://github.com/sputnicyoji/U3D-Dev-Tools-AI/compare/u3d-dev-tools-ai-v0.2.21...u3d-dev-tools-ai-v0.2.22
 [0.2.21]: https://github.com/sputnicyoji/U3D-Dev-Tools-AI/compare/u3d-dev-tools-ai-v0.2.20...u3d-dev-tools-ai-v0.2.21
 [0.2.20]: https://github.com/sputnicyoji/U3D-Dev-Tools-AI/compare/u3d-dev-tools-ai-v0.2.19...u3d-dev-tools-ai-v0.2.20
