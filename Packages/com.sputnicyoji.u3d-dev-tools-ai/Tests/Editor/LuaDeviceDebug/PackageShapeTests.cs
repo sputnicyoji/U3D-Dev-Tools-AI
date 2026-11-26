@@ -49,5 +49,16 @@ namespace Yoji.LuaDeviceDebug.Tests
                 Object.DestroyImmediate(config);
             }
         }
+
+        [Test]
+        public void ServerAssembly_IsMarkedAlwaysLinkAssembly()
+        {
+            var serverAssembly = typeof(LuaDeviceDebugServer).Assembly;
+            Assert.IsTrue(
+                serverAssembly.IsDefined(typeof(UnityEngine.Scripting.AlwaysLinkAssemblyAttribute), false),
+                "Yoji.LuaDeviceDebug.Server must declare [assembly: AlwaysLinkAssembly] so IL2CPP preserves LuaDeviceDebugPlayerBootstrap.");
+            var bootstrapType = serverAssembly.GetType("Yoji.LuaDeviceDebug.LuaDeviceDebugPlayerBootstrap", false);
+            Assert.IsNotNull(bootstrapType, "Expected LuaDeviceDebugPlayerBootstrap in Yoji.LuaDeviceDebug.Server.");
+        }
     }
 }

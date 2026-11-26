@@ -9,7 +9,10 @@ using System.Threading;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using UnityEngine;
+using UnityEngine.Scripting;
 using Debug = UnityEngine.Debug;
+
+[assembly: AlwaysLinkAssembly]
 
 namespace Yoji.LuaDeviceDebug
 {
