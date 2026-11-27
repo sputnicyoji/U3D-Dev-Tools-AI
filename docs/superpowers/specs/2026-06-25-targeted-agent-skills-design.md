@@ -1,7 +1,6 @@
 # Targeted Agent Skills Design
 
 Date: 2026-06-25
-Repo: G:\Side_Projects\U3D-Dev-Tools-AI
 Package: com.sputnicyoji.u3d-dev-tools-ai
 Status: approved for planning, not yet implemented
 

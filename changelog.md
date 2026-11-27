@@ -33,6 +33,7 @@ This log starts with the single-package release, 0.2.0. Release dates follow Git
   - `unity-ui-observe` evidence is saved with `python evidence.py act|shot` on every platform.
 - U3D AI Linker: the `Run Windows Junction Smoke` menu item uses the platform link manager, so off Windows it would exercise symlinks (not run there); on Windows it is unchanged.
 - README: list the validated Editors (2022.3.62f2c1, 6000.3.12f1, 2022.3.62f3c1, 6000.3.13f1) and state that 6000.4+ is unverified and 6000.5 is known incompatible until the `InstanceID` to `EntityId` migration.
+- Docs: removed local absolute repo paths and a downstream project name from `docs/`, the `unity-ui-observe` protocol reference and test comments. `docs/superpowers/` is no longer in `.gitignore`, since its files are tracked.
 
 ### Removed
 - PowerShell scripts: the four `Agent~/skills/*/install.ps1`, `unity-ui-observe` `act.ps1` and `shot.ps1`, `tools/run-editmode.ps1` and `tools/check-u3d-linker-stable.ps1`. Use the Python scripts listed under Changed.

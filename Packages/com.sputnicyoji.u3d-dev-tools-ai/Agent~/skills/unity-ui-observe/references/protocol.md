@@ -162,7 +162,7 @@ Before pressing, the point is mapped back through `TryScreenToCell`; landing on 
 | `covered` | a UI graphic is on top; `coveredBy` names it |
 | `blocked` | the game is swallowing map input as a whole (`IScriptedPointerInputBlocker`); `coveredBy` names the blocker; nothing was fed |
 
-After the click the result is checked against the cell the game reported (`TryGetReportedCell`, Cargo `CargoPointer.ReportCell`):
+After the click the result is checked against the cell the game reported (`TryGetReportedCell`, filled by the game's own pointer code):
 `cell {x,y}` (null when the tap resolved to no cell), `hitSource: game`, `verified`; and `unit {path, iid}` when the game
 also reported an object for the tap (a unit on the cell). `cell_mismatch` when the reported cell differs or is null;
 `unverified` when the game reported no cell at all.

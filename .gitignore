@@ -21,7 +21,6 @@ __pycache__/
 # Local planning and agent workspace state
 _planning/
 progress.md
-docs/superpowers/
 .agents/
 .claude/
 .codex/

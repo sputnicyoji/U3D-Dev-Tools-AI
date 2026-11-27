@@ -271,7 +271,7 @@ namespace Yoji.EditorDebug.Tests
         [Test]
         public void Snapshot_DecorativeCanvasAboveTheMask_IsNotTopmost()
         {
-            // 仿 Cargo 引导手指：sortingOrder 更高、没有 GraphicRaycaster 的展示层
+            // A tutorial finger overlay: higher sortingOrder, display only, no GraphicRaycaster
             var finger = Child(m_Created[0].transform, "Finger", 0.1f, 0.1f, 0.2f, 0.2f);
             var fingerCanvas = finger.gameObject.AddComponent<Canvas>();
             fingerCanvas.overrideSorting = true;
@@ -308,7 +308,7 @@ namespace Yoji.EditorDebug.Tests
         [Test]
         public void GraphicsWithoutCanvasRenderer_AreSkipped()
         {
-            // Cargo 内城：世界空间 TextMeshPro 散在 canvas 外；canvas 内也可能挂着没有 CanvasRenderer 的 Graphic
+            // A base-building scene: world-space TextMeshPro outside the canvas; a Graphic inside it may lack a CanvasRenderer
             var world = new GameObject("WorldLabel", typeof(RectTransform), typeof(TestBareGraphic));
             m_Created.Add(world);
             var inCanvas = Child(m_Created[0].transform, "BareInCanvas", 0.6f, 0.6f, 0.9f, 0.8f);
