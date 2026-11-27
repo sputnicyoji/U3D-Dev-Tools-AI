@@ -57,8 +57,7 @@ namespace Yoji.LuaDeviceDebug.Tests
             Assert.IsTrue(
                 serverAssembly.IsDefined(typeof(UnityEngine.Scripting.AlwaysLinkAssemblyAttribute), false),
                 "Yoji.LuaDeviceDebug.Server must declare [assembly: AlwaysLinkAssembly] so IL2CPP preserves LuaDeviceDebugPlayerBootstrap.");
-            var bootstrapType = serverAssembly.GetType("Yoji.LuaDeviceDebug.LuaDeviceDebugPlayerBootstrap", false);
-            Assert.IsNotNull(bootstrapType, "Expected LuaDeviceDebugPlayerBootstrap in Yoji.LuaDeviceDebug.Server.");
+            // The bootstrap type itself is compiled only under DEVELOPMENT_BUILD && !UNITY_EDITOR, so it cannot be asserted here.
         }
     }
 }
