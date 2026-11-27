@@ -40,6 +40,15 @@ def main() -> None:
         "ResolveRefSha must support missing optional refs"
     )
 
+    run = _method_body(source, "private string RunLsRemote(string gitRef)")
+    assert 'EnvironmentVariables["GIT_TERMINAL_PROMPT"] = "0"' in run, (
+        "git must never block on a credential prompt"
+    )
+    assert "WaitForExit(_timeoutMs)" in run and "WaitForExit()" not in run, (
+        "waiting for git must be bounded"
+    )
+    assert "Kill()" in run, "a timed-out git process must be killed"
+
 
 if __name__ == "__main__":
     main()
