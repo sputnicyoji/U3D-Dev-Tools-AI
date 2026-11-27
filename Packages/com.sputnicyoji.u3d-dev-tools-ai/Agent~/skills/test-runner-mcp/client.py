@@ -105,7 +105,7 @@ def cmd_ping(a: argparse.Namespace) -> tuple[int, dict[str, Any]]:
 
 def cmd_recompile(a: argparse.Namespace) -> tuple[int, dict[str, Any]]:
     base, port, source = request_base(a)
-    return http_get(f"{base}/recompile", a.timeout, port=port, source=source)
+    return http_post(f"{base}/recompile", {}, a.timeout, port=port, source=source)
 
 
 def cmd_run(a: argparse.Namespace) -> tuple[int, dict[str, Any]]:

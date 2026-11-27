@@ -157,7 +157,7 @@ def main(argv):
           f"code={code9p} body={body9p}")
 
     if args.include_recompile:
-        code, body = get(base, "/recompile", timeout=200)
+        code, body = post(base, "/recompile", {}, timeout=200)
         check("R1 /recompile -> success", code == 200 and body.get("success") is True, f"code={code} body={body}")
 
     passed = sum(1 for ok in results if ok)
