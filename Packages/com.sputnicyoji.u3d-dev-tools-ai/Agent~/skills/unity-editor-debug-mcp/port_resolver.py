@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import os
 import socket
+import sys
 import urllib.error
 import urllib.request
 from pathlib import Path
@@ -219,10 +220,16 @@ def _coerce_path(path: str | Path) -> Path | None:
 
 
 def _local_appdata() -> Path:
-    root = os.environ.get("LOCALAPPDATA")
+    # Same folder as Mono's Environment.SpecialFolder.LocalApplicationData, where the Editor writes instances.json.
+    if sys.platform == "win32":
+        root = os.environ.get("LOCALAPPDATA")
+        if root:
+            return Path(root)
+        return Path.home() / "AppData" / "Local"
+    root = os.environ.get("XDG_DATA_HOME")
     if root:
         return Path(root)
-    return Path.home() / "AppData" / "Local"
+    return Path.home() / ".local" / "share"
 
 
 def _load_json(path: Path) -> Any | None:

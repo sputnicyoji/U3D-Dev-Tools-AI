@@ -45,9 +45,9 @@ namespace Yoji.U3DAILinker.Settings
             if (!PreflightManagedBlock(claudePath, out var claudeError)) return AgentSyncOrchestratorResult.Fail("CLAUDE.md: " + claudeError);
             if (!PreflightManagedBlock(agentsPath, out var agentsError)) return AgentSyncOrchestratorResult.Fail("AGENTS.md: " + agentsError);
             if (!PreflightGitignore(gitignorePath, out var gitignoreError)) return AgentSyncOrchestratorResult.Fail(".gitignore: " + gitignoreError);
-
-            if (!ManagedFileSync.Sync(claudePath, agentsPath, targets, out var managedError))
-                return AgentSyncOrchestratorResult.Fail(managedError);
+            // Fragment order/name checks are kind-independent; run them now so they still fail before any skill is touched.
+            var fragmentPreflight = FragmentMerger.Merge(targets, ManagedBlockKind.Claude);
+            if (!fragmentPreflight.Succeeded) return AgentSyncOrchestratorResult.Fail(fragmentPreflight.Error);
 
             var sync = new AgentSyncService(m_Junctions);
             foreach (var target in targets)
@@ -68,6 +68,10 @@ namespace Yoji.U3DAILinker.Settings
                 if (!result.Success)
                     return AgentSyncOrchestratorResult.Fail(target.ToolId + ": " + result.FailureStage + ": " + result.Message);
             }
+
+            // Text blocks only after every skill and link is in place, so they never point at a skill that failed to install.
+            if (!ManagedFileSync.Sync(claudePath, agentsPath, targets, out var managedError))
+                return AgentSyncOrchestratorResult.Fail(managedError);
 
             var gitignoreResult = GitignoreBlockWriter.Sync(
                 gitignorePath,

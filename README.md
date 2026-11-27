@@ -138,7 +138,7 @@ The linker manages:
 
 - stable/dev registry inspection
 - agent skill sync
-- Windows junction repair for `.claude/skills` and `.agents/skills`
+- link repair for `.claude/skills` and `.agents/skills` (directory junctions on Windows, symlinks on macOS and Linux)
 - managed fragments for Claude Code and Codex
 
 ### Updating agent skills
@@ -153,9 +153,11 @@ Update flow:
 2. Let Unity resolve the package.
 3. Open `Edit > Project Settings > U3D Dev Tools AI`.
 4. Press `Sync Agent Skills`.
-5. The linker copies skills to `.u3d-ai-linker/skills` and repairs junctions into `.claude/skills` and `.agents/skills`.
+5. The linker copies skills to `.u3d-ai-linker/skills` and repairs links into `.claude/skills` and `.agents/skills` (junctions on Windows, symlinks on macOS and Linux).
 
 The Settings panel reports each skill as `Synced`, `Stale`, `Missing`, `Conflict`, or `Source Missing`.
+
+Without the linker, `python <package-root>/Agent~/install_skills.py [skill ...] [--dest <dir>]` copies the bundled skills into `~/.claude/skills` (or `<dir>`), replacing each installed skill folder.
 
 ## Repository layout
 
@@ -170,7 +172,7 @@ Packages/com.sputnicyoji.u3d-dev-tools-ai/
 Registry/stable.json
 Registry/dev.json
 TestProjects/<fixture>/
-tools/run-editmode.ps1
+tools/run-editmode.py
 ```
 
 ## Validation
@@ -190,13 +192,18 @@ python tools/test-single-package-layout.py
 Run EditMode tests with an installed Unity Editor:
 
 ```powershell
-pwsh -File tools/run-editmode.ps1 -Project test-runner -Unity <path-to-Unity.exe>
-pwsh -File tools/run-editmode.ps1 -Project editor-debug -Unity <path-to-Unity.exe>
-pwsh -File tools/run-editmode.ps1 -Project lua-device-debug -Unity <path-to-Unity.exe>
-pwsh -File tools/run-editmode.ps1 -Project u3d-ai-linker -Unity <path-to-Unity.exe>
+python tools/run-editmode.py --project test-runner --unity <path-to-Unity>
+python tools/run-editmode.py --project editor-core --unity <path-to-Unity>
+python tools/run-editmode.py --project editor-debug --unity <path-to-Unity>
+python tools/run-editmode.py --project lua-device-debug --unity <path-to-Unity>
+python tools/run-editmode.py --project u3d-ai-linker --unity <path-to-Unity>
 ```
 
-You can also set `UNITY_EXE` or `UNITY_EDITOR_PATH` instead of passing `-Unity`.
+You can also set `UNITY_EXE` or `UNITY_EDITOR_PATH` instead of passing `--unity`.
+Without either, the script looks for the project's Editor version in the default Unity Hub folders on Windows and macOS (`/Applications/Unity/Hub/Editor/<version>/Unity.app`).
+`--editor-version <version>` runs with another installed Editor and restores every `ProjectSettings` file afterwards.
+
+Check the stable registry before a release with `python tools/check-u3d-linker-stable.py` (add `--require-remote-tags` to check `origin` too).
 
 ## Requirements
 
@@ -206,7 +213,7 @@ You can also set `UNITY_EXE` or `UNITY_EDITOR_PATH` instead of passing `-Unity`.
 - Python 3.8 or newer for agent clients.
 - Git on the machine that installs Git URL UPM packages.
 - Android SDK platform tools for Android `lua-device-debug` forwarding.
-- Windows for the first linker junction workflow.
+- Agent skill sync links skills with directory junctions on Windows and symlinks on macOS and Linux. The symlink path is verified on macOS; Linux is untested.
 
 ## Security model
 

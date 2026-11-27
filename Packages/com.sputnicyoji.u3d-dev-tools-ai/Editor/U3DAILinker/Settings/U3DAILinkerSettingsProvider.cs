@@ -319,7 +319,7 @@ namespace Yoji.U3DAILinker.Settings
         {
             try
             {
-                _agentSkillRows = AgentSkillStateModel.Build(ProjectRoot, PackageRoot, new WindowsJunctionManager());
+                _agentSkillRows = AgentSkillStateModel.Build(ProjectRoot, PackageRoot, JunctionManagers.ForCurrentPlatform());
                 _agentSkillError = null;
             }
             catch (System.Exception e)
@@ -501,7 +501,7 @@ namespace Yoji.U3DAILinker.Settings
                     _registry,
                     _project.EnabledToolIds,
                     new UnityResolvedPackagePathProvider());
-                var result = new AgentSyncOrchestrator(new WindowsJunctionManager()).Sync(
+                var result = new AgentSyncOrchestrator(JunctionManagers.ForCurrentPlatform()).Sync(
                     ProjectRoot,
                     targets,
                     NewOperationId());
@@ -794,7 +794,7 @@ namespace Yoji.U3DAILinker.Settings
 
             try
             {
-                var rows = AgentSkillStateModel.Build(projectRoot, packageRoot, new WindowsJunctionManager());
+                var rows = AgentSkillStateModel.Build(projectRoot, packageRoot, JunctionManagers.ForCurrentPlatform());
                 sb.AppendLine("Agent Skills:");
                 foreach (var row in rows)
                 {

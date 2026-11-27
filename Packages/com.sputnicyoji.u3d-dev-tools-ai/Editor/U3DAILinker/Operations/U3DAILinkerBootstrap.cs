@@ -80,7 +80,7 @@ namespace Yoji.U3DAILinker.Operations
                     registry,
                     projectSettings.EnabledToolIds,
                     new UnityResolvedPackagePathProvider());
-                var result = new AgentSyncOrchestrator(new WindowsJunctionManager()).Sync(
+                var result = new AgentSyncOrchestrator(JunctionManagers.ForCurrentPlatform()).Sync(
                     U3DAILinkerProjectPaths.ProjectRoot,
                     targets,
                     "post-install-" + System.Guid.NewGuid().ToString("N"));

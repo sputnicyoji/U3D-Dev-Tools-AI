@@ -1,7 +1,9 @@
+using UnityEngine;
+
 namespace Yoji.U3DAILinker.Operations
 {
-    /// Windows directory junction 的抽象，便于把真实 reparse-point 副作用与同步逻辑解耦。
-    /// 生产实现 = WindowsJunctionManager（P/Invoke）；测试用 FakeJunctionManager（内存）。
+    /// Directory link abstraction that keeps real file-system side effects out of the sync logic.
+    /// Production: JunctionManagers.ForCurrentPlatform() (Windows junctions, macOS/Linux symlinks); tests use FakeJunctionManager (in memory).
     internal interface IJunctionManager
     {
         /// linkPath 是否是一个 junction（reparse point）。不存在或是普通目录返回 false。
@@ -15,5 +17,13 @@ namespace Yoji.U3DAILinker.Operations
 
         /// 删除 junction 本身（不删除目标内容）。linkPath 不是 junction 时不应误删普通目录。
         void Delete(string linkPath);
+    }
+
+    internal static class JunctionManagers
+    {
+        public static IJunctionManager ForCurrentPlatform()
+            => Application.platform == RuntimePlatform.WindowsEditor
+                ? (IJunctionManager)new WindowsJunctionManager()
+                : new UnixSymlinkManager();
     }
 }

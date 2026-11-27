@@ -372,7 +372,7 @@ PanelStateModelTests or a new AgentSkillStateModelTests
 Unity validation:
 
 ```powershell
-pwsh -File tools/run-editmode.ps1 -Project u3d-ai-linker -Unity <unity.exe>
+python tools/run-editmode.py --project u3d-ai-linker --unity <unity.exe>
 ```
 
 If Unity Package Manager fails before script compilation with the known `path` undefined error, record the exact log and keep the fast checks as current verification.
