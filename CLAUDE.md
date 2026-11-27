@@ -27,7 +27,7 @@ Internal modules:
 ```powershell
 python -m py_compile <script.py>
 python -m json.tool <file.json>
-pwsh -File tools/run-editmode.ps1 -Project <tool> -Unity <path-to-Unity.exe>
+python tools/run-editmode.py --project <tool> --unity <path-to-Unity>
 ```
 
 ## Ports
