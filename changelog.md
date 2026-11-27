@@ -5,6 +5,14 @@ This log starts with the single-package release, 0.2.0. Release dates follow Git
 
 ## Unreleased
 
+### Fixed
+- Tests: `PackageShapeTests.ServerAssembly_IsMarkedAlwaysLinkAssembly` no longer looks for `LuaDeviceDebugPlayerBootstrap` in the Editor, where that type is never compiled (`DEVELOPMENT_BUILD && !UNITY_EDITOR`); it still asserts `[assembly: AlwaysLinkAssembly]`.
+- Tests: `UiObserverHttpTests` TearDown removes the Game view size it added by its total index, as `GameViewSizeGroup.RemoveCustomSize` expects. It used to fail with `Invalid index` and leave a "HTTP viewport test" size in the user-level Unity preferences.
+- editor-debug: `/ui/act` world targets resolved by `iid` go through the same version-branched object lookup as `/invoke`, removing the CS0618 `EditorUtility.InstanceIDToObject(int)` warning on Unity 6000.3.
+
+### Changed
+- README: list the validated Editors (2022.3.62f2c1, 6000.3.12f1, 2022.3.62f3c1, 6000.3.13f1) and state that 6000.4+ is unverified and 6000.5 is known incompatible until the `InstanceID` to `EntityId` migration.
+
 ## [0.2.23] - 2026-11-27
 
 ### Fixed
