@@ -127,5 +127,5 @@ python client.py errors --count 5
 3. **静态合规检查**：
    ```powershell
    python -m py_compile Packages/com.sputnicyoji.u3d-dev-tools-ai/Agent~/skills/unity-lua-device-debug/client.py
-   pwsh -File tools/run-editmode.ps1 -Project lua-device-debug
+   python tools/run-editmode.py --project lua-device-debug
    ```

@@ -436,7 +436,7 @@ Use temporary directories under `Path.GetTempPath()`, `FakeJunctionManager`, `Ow
 Run:
 
 ```powershell
-pwsh -File tools/run-editmode.ps1 -Project u3d-ai-linker -Unity <unity.exe>
+python tools/run-editmode.py --project u3d-ai-linker --unity <unity.exe>
 ```
 
 Expected in a clean Unity environment: compile failure because `AgentSkillStateModel` does not exist.
@@ -492,7 +492,7 @@ Rules:
 Run:
 
 ```powershell
-pwsh -File tools/run-editmode.ps1 -Project u3d-ai-linker -Unity <unity.exe>
+python tools/run-editmode.py --project u3d-ai-linker --unity <unity.exe>
 ```
 
 Expected in a clean Unity environment: `AgentSkillStateModelTests` pass.
@@ -580,7 +580,7 @@ Use `AgentSkillStateModel.Build(projectRoot, packageRoot, new WindowsJunctionMan
 Run:
 
 ```powershell
-pwsh -File tools/run-editmode.ps1 -Project u3d-ai-linker -Unity <unity.exe>
+python tools/run-editmode.py --project u3d-ai-linker --unity <unity.exe>
 ```
 
 Expected in a clean Unity environment: Settings provider tests pass.
@@ -642,7 +642,7 @@ Expected: all tests pass and `py_compile` exits 0.
 Run:
 
 ```powershell
-pwsh -File tools/run-editmode.ps1 -Project u3d-ai-linker -Unity <unity.exe>
+python tools/run-editmode.py --project u3d-ai-linker --unity <unity.exe>
 ```
 
 Expected in a clean Unity environment: exit code 0.
@@ -675,7 +675,7 @@ python -m py_compile Packages/com.sputnicyoji.u3d-dev-tools-ai/Agent~/skills/uni
 Then run, when Unity is usable:
 
 ```powershell
-pwsh -File tools/run-editmode.ps1 -Project u3d-ai-linker -Unity <unity.exe>
+python tools/run-editmode.py --project u3d-ai-linker --unity <unity.exe>
 ```
 
 Do not release a new tag unless Yoji explicitly asks for a release.

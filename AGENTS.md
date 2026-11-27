@@ -30,10 +30,10 @@ Internal modules:
 ```powershell
 python -m py_compile <script.py>
 python -m json.tool <file.json>
-pwsh -File tools/run-editmode.ps1 -Project <test-runner|editor-debug|lua-device-debug|u3d-ai-linker> -Unity <path-to-Unity.exe>
+python tools/run-editmode.py --project <test-runner|editor-core|editor-debug|lua-device-debug|u3d-ai-linker> --unity <path-to-Unity>
 ```
 
-`tools/run-editmode.ps1` accepts `-Unity`, `UNITY_EXE`, or `UNITY_EDITOR_PATH`.
+`tools/run-editmode.py` accepts `--unity`, `UNITY_EXE`, or `UNITY_EDITOR_PATH`, and otherwise looks in the default Unity Hub folders.
 
 ## Package boundaries
 

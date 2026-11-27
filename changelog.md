@@ -10,14 +10,25 @@ This log starts with the single-package release, 0.2.0. Release dates follow Git
 
 ### Fixed
 - U3D AI Linker: `Sync Agent Skills` installs skills and their links before it writes the `CLAUDE.md`/`AGENTS.md` managed blocks and the `.gitignore` block, so a failed skill sync no longer leaves managed blocks that point at skills that were never installed. Fragment order and duplicate-skill checks still run before any file is touched.
+- Agent clients on macOS and Linux find the global port registry: `port_resolver.py` reads `instances.json` from `$XDG_DATA_HOME` (or `~/.local/share`), where the Editor's `LocalApplicationData` folder is under Mono, instead of `~/AppData/Local`. Windows still uses `LOCALAPPDATA`.
+- `tools/run-editmode.py` reports a missing result XML as a license failure (exit 5) only for exit code 199 or a licensing timeout/abort line. The old pattern also matched the normal `LicensingClient` handshake that every log contains, so compile failures were reported as license failures.
+- `tools/run-editmode.py` leaves `Temp/UnityLockfile` alone and stops (exit 3) when a running Unity holds it; on macOS and Linux the old script would have deleted a live Editor's lockfile.
 - Tests: `PackageShapeTests.ServerAssembly_IsMarkedAlwaysLinkAssembly` no longer looks for `LuaDeviceDebugPlayerBootstrap` in the Editor, where that type is never compiled (`DEVELOPMENT_BUILD && !UNITY_EDITOR`); it still asserts `[assembly: AlwaysLinkAssembly]`.
 - Tests: `UiObserverHttpTests` TearDown removes the Game view size it added by its total index, as `GameViewSizeGroup.RemoveCustomSize` expects. It used to fail with `Invalid index` and leave a "HTTP viewport test" size in the user-level Unity preferences.
 - editor-debug: `/ui/act` world targets resolved by `iid` go through the same version-branched object lookup as `/invoke`, removing the CS0618 `EditorUtility.InstanceIDToObject(int)` warning on Unity 6000.3.
 
 ### Changed
 - README: describe agent skill links as junctions on Windows and symlinks on macOS and Linux instead of listing Windows as a requirement.
+- The PowerShell scripts are replaced by Python 3.8+ scripts that run on Windows, macOS and Linux; Windows users now run them with `python` too:
+  - `tools/run-editmode.py` (was `run-editmode.ps1`) keeps the options (`--project`, `--unity`, `--editor-version`, `--timeout-sec`), the ProjectSettings restore, the result paths and the exit codes, and also finds Editors in the macOS Unity Hub folder (`/Applications/Unity/Hub/Editor/<version>/Unity.app`). `U3D_EDITOR_ROOTS` is split on the platform path separator (`;` on Windows, `:` elsewhere).
+  - `tools/check-u3d-linker-stable.py` (was `check-u3d-linker-stable.ps1`) runs the same stable registry and tag checks.
+  - `Agent~/install_skills.py [skill ...] [--dest <dir>]` replaces the four per-skill `install.ps1` scripts and copies the same files to `~/.claude/skills/<skill>`.
+  - `unity-ui-observe` evidence is saved with `python evidence.py act|shot` on every platform.
 - U3D AI Linker: the `Run Windows Junction Smoke` menu item uses the platform link manager, so off Windows it would exercise symlinks (not run there); on Windows it is unchanged.
 - README: list the validated Editors (2022.3.62f2c1, 6000.3.12f1, 2022.3.62f3c1, 6000.3.13f1) and state that 6000.4+ is unverified and 6000.5 is known incompatible until the `InstanceID` to `EntityId` migration.
+
+### Removed
+- PowerShell scripts: the four `Agent~/skills/*/install.ps1`, `unity-ui-observe` `act.ps1` and `shot.ps1`, `tools/run-editmode.ps1` and `tools/check-u3d-linker-stable.ps1`. Use the Python scripts listed under Changed.
 
 ## [0.2.23] - 2026-11-27
 
