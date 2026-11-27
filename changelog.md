@@ -9,6 +9,7 @@ This log starts with the single-package release, 0.2.0. Release dates follow Git
 - U3D AI Linker: agent skill sync works on macOS and Linux. `.claude/skills/<name>` and `.agents/skills/<name>` become absolute symlinks to `.u3d-ai-linker/skills/<tool>` (created with libc `symlink`), while Windows keeps directory junctions. Previously the linker always used the Windows junction manager (`kernel32.dll`), so sync could not create links off Windows.
 
 ### Fixed
+- U3D AI Linker: `Sync Agent Skills` installs skills and their links before it writes the `CLAUDE.md`/`AGENTS.md` managed blocks and the `.gitignore` block, so a failed skill sync no longer leaves managed blocks that point at skills that were never installed. Fragment order and duplicate-skill checks still run before any file is touched.
 - Tests: `PackageShapeTests.ServerAssembly_IsMarkedAlwaysLinkAssembly` no longer looks for `LuaDeviceDebugPlayerBootstrap` in the Editor, where that type is never compiled (`DEVELOPMENT_BUILD && !UNITY_EDITOR`); it still asserts `[assembly: AlwaysLinkAssembly]`.
 - Tests: `UiObserverHttpTests` TearDown removes the Game view size it added by its total index, as `GameViewSizeGroup.RemoveCustomSize` expects. It used to fail with `Invalid index` and leave a "HTTP viewport test" size in the user-level Unity preferences.
 - editor-debug: `/ui/act` world targets resolved by `iid` go through the same version-branched object lookup as `/invoke`, removing the CS0618 `EditorUtility.InstanceIDToObject(int)` warning on Unity 6000.3.

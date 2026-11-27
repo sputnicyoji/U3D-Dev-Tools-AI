@@ -1,5 +1,6 @@
 using System.IO;
 using NUnit.Framework;
+using Yoji.U3DAILinker.Operations;
 using Yoji.U3DAILinker.Settings;
 
 namespace Yoji.U3DAILinker.Tests.Settings
@@ -75,6 +76,44 @@ namespace Yoji.U3DAILinker.Tests.Settings
             Assert.IsFalse(File.Exists(Path.Combine(m_ProjectRoot, "CLAUDE.md")));
             Assert.IsFalse(File.Exists(Path.Combine(m_ProjectRoot, "AGENTS.md")));
             Assert.IsFalse(File.Exists(Path.Combine(m_ProjectRoot, ".gitignore")));
+        }
+
+        [Test]
+        public void Sync_WhenSkillLinkFails_WritesNoManagedBlocksOrGitignore()
+        {
+            var result = new AgentSyncOrchestrator(new CreateThrowsJunctionManager()).Sync(
+                m_ProjectRoot,
+                new[] { Target("test-runner", "test-runner-mcp", "claude fragment", "agents fragment") },
+                operationId: "op1");
+
+            Assert.IsFalse(result.Success);
+            StringAssert.Contains("junction", result.Error);
+            Assert.IsFalse(Directory.Exists(Path.Combine(m_ProjectRoot, ".u3d-ai-linker", "skills", "test-runner")));
+            Assert.IsFalse(File.Exists(Path.Combine(m_ProjectRoot, "CLAUDE.md")));
+            Assert.IsFalse(File.Exists(Path.Combine(m_ProjectRoot, "AGENTS.md")));
+            Assert.IsFalse(File.Exists(Path.Combine(m_ProjectRoot, ".gitignore")));
+        }
+
+        [Test]
+        public void Sync_WhenFragmentOrderInvalid_FailsBeforeInstallingSkills()
+        {
+            var target = Target("test-runner", "test-runner-mcp", "claude fragment", "agents fragment");
+            target.Order = -1;
+
+            var result = new AgentSyncOrchestrator(m_Junctions).Sync(m_ProjectRoot, new[] { target }, operationId: "op1");
+
+            Assert.IsFalse(result.Success);
+            StringAssert.Contains("negative order", result.Error);
+            Assert.IsFalse(Directory.Exists(Path.Combine(m_ProjectRoot, ".u3d-ai-linker")));
+            Assert.AreEqual(0, m_Junctions.CreateCalls);
+        }
+
+        private sealed class CreateThrowsJunctionManager : IJunctionManager
+        {
+            public bool IsJunction(string linkPath) => false;
+            public string GetTarget(string linkPath) => null;
+            public void Create(string linkPath, string targetDir) => throw new IOException("link create failed");
+            public void Delete(string linkPath) { }
         }
 
         private AgentSyncTarget Target(string toolId, string skillName, string claude, string agents)
