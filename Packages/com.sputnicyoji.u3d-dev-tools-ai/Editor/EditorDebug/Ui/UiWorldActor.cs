@@ -674,7 +674,7 @@ namespace Yoji.EditorDebug.Ui
             reason = null;
             if (iid.HasValue)
             {
-                var obj = EditorUtility.InstanceIDToObject(iid.Value);
+                var obj = ArgumentCoercer.ResolveUnityObject(new JValue(iid.Value));
                 var t = obj is GameObject go ? go.transform : obj is Component c ? c.transform : null;
                 if (t == null || !t.gameObject.activeInHierarchy)
                 {

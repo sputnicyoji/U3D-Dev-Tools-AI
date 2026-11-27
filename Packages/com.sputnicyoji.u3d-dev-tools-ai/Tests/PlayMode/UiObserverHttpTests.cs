@@ -19,7 +19,7 @@ namespace Yoji.EditorDebug.Tests
         private UnityEditor.EditorWindow m_View;
         private object m_Group;
         private int m_PreviousSize;
-        private int m_CustomSize;
+        private int m_AddedSizeIndex;
 
         [TearDown]
         public void TearDown()
@@ -28,7 +28,8 @@ namespace Yoji.EditorDebug.Tests
             if (m_EventRoot != null) Object.DestroyImmediate(m_EventRoot);
             if (m_View == null) return;
             m_View.GetType().GetProperty("selectedSizeIndex", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic).SetValue(m_View, m_PreviousSize);
-            m_Group.GetType().GetMethod("RemoveCustomSize").Invoke(m_Group, new object[] { m_CustomSize });
+            // RemoveCustomSize takes a total index (builtin + custom), not a custom-list index.
+            m_Group.GetType().GetMethod("RemoveCustomSize").Invoke(m_Group, new object[] { m_AddedSizeIndex });
         }
 
         [UnityTest]
@@ -91,9 +92,9 @@ namespace Yoji.EditorDebug.Tests
             var kind = System.Enum.Parse(assembly.GetType("UnityEditor.GameViewSizeType"), "FixedResolution");
             var size = System.Activator.CreateInstance(sizeType, new object[] { kind, 1080, 1920, "HTTP viewport test" });
             m_Group = group;
-            m_CustomSize = (int)group.GetType().GetMethod("GetCustomCount").Invoke(group, null);
             group.GetType().GetMethod("AddCustomSize").Invoke(group, new[] { size });
             var count = (int)group.GetType().GetMethod("GetTotalCount").Invoke(group, null);
+            m_AddedSizeIndex = count - 1;
             var viewType = assembly.GetType("UnityEditor.GameView");
             var view = UnityEditor.EditorWindow.GetWindow(viewType);
             m_View = view;
