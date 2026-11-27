@@ -49,6 +49,7 @@ namespace Yoji.U3DAILinker.Tests.Agents
             var text = Norm(File.ReadAllText(m_File));
             StringAssert.StartsWith("# My Project\n\nUser notes line.\n", text);
             StringAssert.Contains("BODY", text);
+            Assert.IsFalse(File.Exists(m_File + ".u3dtmp"), "replacing an existing file must not leave the temp file");
         }
 
         [Test]
