@@ -1,4 +1,4 @@
-"""Agent~/install_skills.py installs the same file set the old per-skill install.ps1 scripts did."""
+"""Agent~/install_skills.py installs the same file set the old per-skill PowerShell installers did."""
 from __future__ import annotations
 
 import os
@@ -57,7 +57,7 @@ def test_reinstall_replaces_the_folder_and_only_unlinks_a_symlinked_destination(
     tmp = Path(tempfile.mkdtemp(prefix="install-skills-test-"))
     try:
         dest = tmp / "skills"
-        stale = dest / "unity-ui-observe" / "act.ps1"
+        stale = dest / "unity-ui-observe" / "stale.txt"
         stale.parent.mkdir(parents=True)
         stale.write_text("old")
         kept = tmp / "elsewhere" / "keep.txt"

@@ -18,7 +18,7 @@ import sys
 from pathlib import Path
 
 SKILLS_ROOT = Path(__file__).resolve().parent / "skills"
-# The old test-runner-mcp install.ps1 copied every reference file; the other skills copied *.md only.
+# The old PowerShell installer for test-runner-mcp copied every reference file; the other skills copied *.md only.
 COPY_ALL_REFERENCES = {"test-runner-mcp"}
 
 
