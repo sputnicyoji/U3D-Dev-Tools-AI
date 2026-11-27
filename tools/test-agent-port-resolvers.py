@@ -113,7 +113,8 @@ class PortResolverTests(unittest.TestCase):
         self.root = Path(self.tmp.name)
         self.project = make_project(self.root / "Project")
         self.local_appdata = self.root / "LocalAppData"
-        self.env = patch.dict(os.environ, {"LOCALAPPDATA": str(self.local_appdata)})
+        # LOCALAPPDATA is read on Windows, XDG_DATA_HOME elsewhere; both point at the temp dir so no test reads the real registry.
+        self.env = patch.dict(os.environ, {"LOCALAPPDATA": str(self.local_appdata), "XDG_DATA_HOME": str(self.local_appdata)})
         self.env.start()
         self.addCleanup(self.env.stop)
         self.resolver = load_resolver(RESOLVER_PATHS[0])
@@ -140,6 +141,24 @@ class PortResolverTests(unittest.TestCase):
             legacy_ports,
             explicit_port=explicit_port,
         )
+
+    def test_global_registry_folder_matches_mono_local_application_data(self) -> None:
+        home = self.root / "home"
+        cases = [
+            ("win32", {"LOCALAPPDATA": "C:/LocalAppData", "XDG_DATA_HOME": "/xdg"}, Path("C:/LocalAppData")),
+            ("win32", {"LOCALAPPDATA": "", "XDG_DATA_HOME": "/xdg"}, home / "AppData" / "Local"),
+            ("darwin", {"LOCALAPPDATA": "C:/LocalAppData", "XDG_DATA_HOME": "/xdg"}, Path("/xdg")),
+            ("darwin", {"LOCALAPPDATA": "C:/LocalAppData", "XDG_DATA_HOME": ""}, home / ".local" / "share"),
+            ("linux", {"LOCALAPPDATA": "", "XDG_DATA_HOME": "/xdg"}, Path("/xdg")),
+            ("linux", {"LOCALAPPDATA": "", "XDG_DATA_HOME": ""}, home / ".local" / "share"),
+        ]
+        for platform, env, expected in cases:
+            with self.subTest(platform=platform, env=env):
+                with patch.object(self.resolver.sys, "platform", platform), patch.dict(os.environ, env), patch.object(self.resolver.Path, "home", return_value=home):
+                    self.assertEqual(expected, self.resolver._local_appdata())
+        with patch.object(self.resolver.sys, "platform", "darwin"), patch.object(self.resolver.Path, "home", return_value=home):
+            os.environ.pop("XDG_DATA_HOME", None)
+            self.assertEqual(home / ".local" / "share", self.resolver._local_appdata())
 
     def test_all_resolver_copies_are_byte_identical(self) -> None:
         first = RESOLVER_PATHS[0].read_bytes()
