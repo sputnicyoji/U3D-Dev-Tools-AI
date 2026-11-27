@@ -138,7 +138,7 @@ The linker manages:
 
 - stable/dev registry inspection
 - agent skill sync
-- Windows junction repair for `.claude/skills` and `.agents/skills`
+- link repair for `.claude/skills` and `.agents/skills` (directory junctions on Windows, symlinks on macOS and Linux)
 - managed fragments for Claude Code and Codex
 
 ### Updating agent skills
@@ -153,7 +153,7 @@ Update flow:
 2. Let Unity resolve the package.
 3. Open `Edit > Project Settings > U3D Dev Tools AI`.
 4. Press `Sync Agent Skills`.
-5. The linker copies skills to `.u3d-ai-linker/skills` and repairs junctions into `.claude/skills` and `.agents/skills`.
+5. The linker copies skills to `.u3d-ai-linker/skills` and repairs links into `.claude/skills` and `.agents/skills` (junctions on Windows, symlinks on macOS and Linux).
 
 The Settings panel reports each skill as `Synced`, `Stale`, `Missing`, `Conflict`, or `Source Missing`.
 
@@ -206,7 +206,7 @@ You can also set `UNITY_EXE` or `UNITY_EDITOR_PATH` instead of passing `-Unity`.
 - Python 3.8 or newer for agent clients.
 - Git on the machine that installs Git URL UPM packages.
 - Android SDK platform tools for Android `lua-device-debug` forwarding.
-- Windows for the first linker junction workflow.
+- Agent skill sync links skills with directory junctions on Windows and symlinks on macOS and Linux. The symlink path is verified on macOS; Linux is untested.
 
 ## Security model
 

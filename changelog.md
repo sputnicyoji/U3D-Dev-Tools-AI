@@ -5,12 +5,17 @@ This log starts with the single-package release, 0.2.0. Release dates follow Git
 
 ## Unreleased
 
+### Added
+- U3D AI Linker: agent skill sync works on macOS and Linux. `.claude/skills/<name>` and `.agents/skills/<name>` become absolute symlinks to `.u3d-ai-linker/skills/<tool>` (created with libc `symlink`), while Windows keeps directory junctions. Previously the linker always used the Windows junction manager (`kernel32.dll`), so sync could not create links off Windows.
+
 ### Fixed
 - Tests: `PackageShapeTests.ServerAssembly_IsMarkedAlwaysLinkAssembly` no longer looks for `LuaDeviceDebugPlayerBootstrap` in the Editor, where that type is never compiled (`DEVELOPMENT_BUILD && !UNITY_EDITOR`); it still asserts `[assembly: AlwaysLinkAssembly]`.
 - Tests: `UiObserverHttpTests` TearDown removes the Game view size it added by its total index, as `GameViewSizeGroup.RemoveCustomSize` expects. It used to fail with `Invalid index` and leave a "HTTP viewport test" size in the user-level Unity preferences.
 - editor-debug: `/ui/act` world targets resolved by `iid` go through the same version-branched object lookup as `/invoke`, removing the CS0618 `EditorUtility.InstanceIDToObject(int)` warning on Unity 6000.3.
 
 ### Changed
+- README: describe agent skill links as junctions on Windows and symlinks on macOS and Linux instead of listing Windows as a requirement.
+- U3D AI Linker: the `Run Windows Junction Smoke` menu item uses the platform link manager, so on macOS and Linux it checks symlinks; on Windows it is unchanged.
 - README: list the validated Editors (2022.3.62f2c1, 6000.3.12f1, 2022.3.62f3c1, 6000.3.13f1) and state that 6000.4+ is unverified and 6000.5 is known incompatible until the `InstanceID` to `EntityId` migration.
 
 ## [0.2.23] - 2026-11-27

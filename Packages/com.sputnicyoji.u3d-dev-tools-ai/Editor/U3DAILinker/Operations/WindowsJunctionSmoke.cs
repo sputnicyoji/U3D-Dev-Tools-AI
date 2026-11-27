@@ -16,7 +16,7 @@ namespace Yoji.U3DAILinker.Operations
             Directory.CreateDirectory(target);
             File.WriteAllText(Path.Combine(target, "marker.txt"), "ok");
 
-            var junctions = new WindowsJunctionManager();
+            var junctions = JunctionManagers.ForCurrentPlatform();
             if (junctions.IsJunction(link))
                 junctions.Delete(link);
             else if (Directory.Exists(link) || File.Exists(link))
