@@ -6,7 +6,7 @@ This log starts with the single-package release, 0.2.0. Release dates follow Git
 ## Unreleased
 
 ### Added
-- U3D AI Linker: agent skill sync works on macOS and Linux. `.claude/skills/<name>` and `.agents/skills/<name>` become absolute symlinks to `.u3d-ai-linker/skills/<tool>` (created with libc `symlink`), while Windows keeps directory junctions. Previously the linker always used the Windows junction manager (`kernel32.dll`), so sync could not create links off Windows.
+- U3D AI Linker: agent skill sync works on macOS (verified on 6000.3.13f1) and uses the same code on Linux (untested). `.claude/skills/<name>` and `.agents/skills/<name>` become absolute symlinks to `.u3d-ai-linker/skills/<tool>` (created with libc `symlink`), while Windows keeps directory junctions. Previously the linker always used the Windows junction manager (`kernel32.dll`), so sync could not create links off Windows.
 
 ### Fixed
 - U3D AI Linker: `Sync Agent Skills` installs skills and their links before it writes the `CLAUDE.md`/`AGENTS.md` managed blocks and the `.gitignore` block, so a failed skill sync no longer leaves managed blocks that point at skills that were never installed. Fragment order and duplicate-skill checks still run before any file is touched.
@@ -16,7 +16,7 @@ This log starts with the single-package release, 0.2.0. Release dates follow Git
 
 ### Changed
 - README: describe agent skill links as junctions on Windows and symlinks on macOS and Linux instead of listing Windows as a requirement.
-- U3D AI Linker: the `Run Windows Junction Smoke` menu item uses the platform link manager, so on macOS and Linux it checks symlinks; on Windows it is unchanged.
+- U3D AI Linker: the `Run Windows Junction Smoke` menu item uses the platform link manager, so off Windows it would exercise symlinks (not run there); on Windows it is unchanged.
 - README: list the validated Editors (2022.3.62f2c1, 6000.3.12f1, 2022.3.62f3c1, 6000.3.13f1) and state that 6000.4+ is unverified and 6000.5 is known incompatible until the `InstanceID` to `EntityId` migration.
 
 ## [0.2.23] - 2026-11-27
