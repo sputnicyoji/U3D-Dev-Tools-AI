@@ -98,7 +98,7 @@ python client.py world --cell 12 34
 python client.py world --at 540 960 --action pinch --scale 1.5
 ```
 
-Requests that carry an `Origin` header are rejected by the Editor Debug service. `/ui/act` accepts only POST with `Content-Type: application/json`.
+`/ui/act` accepts only POST with `Content-Type: application/json`. See Security model for the rules every service applies.
 
 ### Lua Device Debug
 
@@ -221,6 +221,9 @@ Check the stable registry before a release with `python tools/check-u3d-linker-s
 - Debug services are intended for local development automation.
 - `lua-device-debug` starts in Player only for Android Development Builds; release builds do not contain the server assembly.
 - Mutating Lua commands require both a mutating descriptor and an explicit CLI flag.
+- Every HTTP service rejects a request that carries an `Origin` header, whatever its value (including `null`), so a web page cannot drive them.
+- State-changing routes accept POST only: test-runner `/recompile` and `/run-tests`; editor-debug `/invoke`, `/batch`, `/eval`, `/recompile` and `/ui/act`; lua-device-debug `/execute`. Read-only routes (`/ping`, `/describe`, `/console`, `/ui/snapshot`, `/ui/hit`, `/test-status`, `/list-tests`, `/commands`) still accept GET. Content-Type is not checked except on `/ui/act`, so `curl -d` keeps working.
+- The Editor services get Host checking from `HttpListener` (a foreign Host gets 400). lua-device-debug accepts only the Host names `127.0.0.1`, `localhost` and `[::1]`, with any port so adb-forwarded requests work.
 - No telemetry service is included.
 
 ## Publishing model

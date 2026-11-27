@@ -24,5 +24,26 @@ namespace Yoji.EditorDebug.Tests
             Assert.Throws<InvalidDataException>(
                 () => RequestBodyReader.ReadUtf8(stream, RequestBodyReader.MaxBodyBytes + 1));
         }
+
+        [TestCase("/invoke")]
+        [TestCase("/batch")]
+        [TestCase("/eval")]
+        [TestCase("/recompile")]
+        [TestCase("/ui/act")]
+        public void Guard_GetOnMutatingRoute_IsRejected(string path)
+        {
+            Assert.AreEqual(path + " requires POST", RequestGuard.Check("GET", path, null, EditorDebugMCP.MutatingRoutes));
+            Assert.IsNull(RequestGuard.Check("POST", path, null, EditorDebugMCP.MutatingRoutes));
+        }
+
+        [TestCase("/ping")]
+        [TestCase("/describe")]
+        [TestCase("/console")]
+        [TestCase("/ui/snapshot")]
+        [TestCase("/ui/hit")]
+        public void Guard_GetOnReadOnlyRoute_IsAllowed(string path)
+        {
+            Assert.IsNull(RequestGuard.Check("GET", path, null, EditorDebugMCP.MutatingRoutes));
+        }
     }
 }

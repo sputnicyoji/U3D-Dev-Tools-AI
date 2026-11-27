@@ -149,6 +149,77 @@ namespace Yoji.LuaDeviceDebug.Tests
             Assert.AreEqual("INVALID_REQUEST", response.Body["error"].Value<string>("code"));
         }
 
+        [TestCase("http://evil.example")]
+        [TestCase("null")]
+        public void AnyOrigin_IsRejected(string origin)
+        {
+            var response = RawRequest(
+                "POST /ping HTTP/1.1\r\n" +
+                "Host: 127.0.0.1\r\n" +
+                "Origin: " + origin + "\r\n" +
+                "Content-Length: 2\r\n" +
+                "\r\n{}");
+
+            Assert.AreEqual(403, response.Status);
+            Assert.AreEqual("ORIGIN_REJECTED", response.Body["error"].Value<string>("code"));
+        }
+
+        [TestCase("evil.example")]
+        [TestCase("evil.example:1234")]
+        [TestCase("127.0.0.1.evil.example")]
+        [TestCase("[::1]evil")]
+        [TestCase("")]
+        public void ForeignHost_IsRejected(string host)
+        {
+            var response = RawRequest(
+                "GET /ping HTTP/1.1\r\n" +
+                "Host: " + host + "\r\n" +
+                "\r\n");
+
+            Assert.AreEqual(403, response.Status);
+            Assert.AreEqual("HOST_REJECTED", response.Body["error"].Value<string>("code"));
+        }
+
+        [Test]
+        public void MissingHost_IsRejected()
+        {
+            var response = RawRequest("GET /ping HTTP/1.0\r\n\r\n");
+
+            Assert.AreEqual(403, response.Status);
+            Assert.AreEqual("HOST_REJECTED", response.Body["error"].Value<string>("code"));
+        }
+
+        [TestCase("127.0.0.1")]
+        [TestCase("localhost:65000")]
+        [TestCase("LOCALHOST")]
+        [TestCase("[::1]:8080")]
+        public void LoopbackHost_AnyPort_IsAccepted(string host)
+        {
+            var response = RawRequest(
+                "GET /ping HTTP/1.1\r\n" +
+                "Host: " + host + "\r\n" +
+                "\r\n");
+
+            Assert.AreEqual(200, response.Status);
+            Assert.IsTrue(response.Body.Value<bool>("ok"));
+        }
+
+        [Test]
+        public void GetExecute_IsRejectedWithoutExecuting()
+        {
+            var body = "{\"command\":\"system.info\",\"args\":{}}";
+            var response = RawRequest(
+                "GET /execute HTTP/1.1\r\n" +
+                "Host: 127.0.0.1\r\n" +
+                "Content-Length: " + body.Length + "\r\n" +
+                "\r\n" + body);
+
+            Assert.AreEqual(400, response.Status);
+            Assert.AreEqual("INVALID_REQUEST", response.Body["error"].Value<string>("code"));
+            Assert.AreEqual(0, m_Host.ExecuteCount);
+            Assert.AreEqual(0, m_Host.DescribeCount);
+        }
+
         private IEnumerator PostAsync(string path, string json, Action<HttpResult> onResult)
         {
             Exception error = null;

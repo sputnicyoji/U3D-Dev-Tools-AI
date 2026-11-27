@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Net;
 using System.Text;
 using System.Threading;
@@ -27,6 +28,10 @@ namespace Yoji.EditorDebug
             "EditorDebugMCP",
             1,
             new int[] { 21891, 21892, 21893 });
+        internal static readonly HashSet<string> MutatingRoutes = new HashSet<string>(StringComparer.Ordinal)
+        {
+            "/invoke", "/batch", "/eval", "/recompile", "/ui/act",
+        };
 
         private static HttpListener s_Listener;
         private static Thread s_Thread;
@@ -137,12 +142,13 @@ namespace Yoji.EditorDebug
             JObject envelope;
             try
             {
-                // 浏览器跨站请求必带 Origin；本服务只给本机 CLI/agent 用，带 Origin 一律拒（防网页 CSRF 打 loopback）。
-                // 不校验 Content-Type：现有调用方有 curl -d（form 编码）的用法。
-                // DNS rebinding 由 HttpListener 前缀兜住：Host 不是 127.0.0.1 时监听器直接回 400 Invalid host（实测）。
-                if (!string.IsNullOrEmpty(ctx.Request.Headers["Origin"]))
-                    throw new UnauthorizedAccessException("cross-origin request rejected");
+                // Reject any Origin and non-POST on mutating routes (RequestGuard). Content-Type is not checked
+                // outside /ui/act because existing callers use curl -d (form encoding).
+                // DNS rebinding is covered by the HttpListener prefix: a Host other than 127.0.0.1 gets 400 Invalid host.
                 var path = ctx.Request.Url.AbsolutePath;
+                var rejection = RequestGuard.Check(ctx.Request.HttpMethod, path, ctx.Request.Headers["Origin"], MutatingRoutes);
+                if (rejection != null)
+                    throw new UnauthorizedAccessException(rejection);
                 GuardUiWrite(path, ctx.Request.HttpMethod, ctx.Request.ContentType);
                 var body = RequestBodyReader.ReadUtf8(ctx.Request.InputStream, ctx.Request.ContentLength64);
                 var req = string.IsNullOrWhiteSpace(body) ? new JObject() : JObject.Parse(body);

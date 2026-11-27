@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Collections.Specialized;
 using System.IO;
 using System.Net;
@@ -26,6 +27,10 @@ namespace Yoji.TestRunner
             "TestRunnerMCP",
             0,
             new int[] { 21890, 21896, 21897 });
+        internal static readonly HashSet<string> MutatingRoutes = new HashSet<string>(StringComparer.Ordinal)
+        {
+            "/recompile", "/run-tests",
+        };
 
         private static HttpListener s_Listener;
         private static Thread s_Thread;
@@ -148,15 +153,22 @@ namespace Yoji.TestRunner
             {
                 var path = ctx.Request.Url.AbsolutePath;
                 var method = ctx.Request.HttpMethod;
-                JObject req = null;
-                if (method == "POST")
+                var rejection = RequestGuard.Check(method, path, ctx.Request.Headers["Origin"], MutatingRoutes);
+                if (rejection != null)
                 {
-                    var raw = RequestBodyReader.ReadUtf8(ctx.Request.InputStream, ctx.Request.ContentLength64);
-                    req = string.IsNullOrWhiteSpace(raw) ? new JObject() : JObject.Parse(raw);
+                    status = rejection == RequestGuard.CrossOriginRejected ? 403 : 400;
+                    body = Err(rejection);
                 }
-                var jobs = s_Jobs;
-                var service = s_Service;
-                (status, body) = Route(path, method, req, ctx.Request.QueryString, jobs, service);
+                else
+                {
+                    JObject req = null;
+                    if (method == "POST")
+                    {
+                        var raw = RequestBodyReader.ReadUtf8(ctx.Request.InputStream, ctx.Request.ContentLength64);
+                        req = string.IsNullOrWhiteSpace(raw) ? new JObject() : JObject.Parse(raw);
+                    }
+                    (status, body) = Route(path, req, ctx.Request.QueryString, s_Jobs, s_Service);
+                }
             }
             catch (JsonException e)
             {
@@ -178,7 +190,6 @@ namespace Yoji.TestRunner
 
         private static (int status, JObject body) Route(
             string path,
-            string method,
             JObject req,
             NameValueCollection query,
             JobStore jobs,
@@ -193,7 +204,6 @@ namespace Yoji.TestRunner
                     if (jobs == null) return (503, Err("service is stopping"));
                     return RecompileHandler.Run(jobs);
                 case "/run-tests":
-                    if (method != "POST") return (400, Err("/run-tests requires POST"));
                     if (service == null) return (503, Err("service is stopping"));
                     return RunTests(req, service);
                 case "/test-status":

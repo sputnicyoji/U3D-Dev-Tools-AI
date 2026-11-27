@@ -190,6 +190,15 @@ namespace Yoji.LuaDeviceDebug
         {
             if (request.Method != "POST" && request.Method != "GET")
                 return Error(400, null, "INVALID_REQUEST", "unsupported method: " + request.Method);
+            // Browsers send Origin on every cross-site non-GET request (sometimes the literal "null"); local clients send none.
+            if (!string.IsNullOrEmpty(request.Origin))
+                return Error(403, null, "ORIGIN_REJECTED", "cross-origin request rejected");
+            // DNS rebinding guard: hostname only, because adb-forwarded requests carry the forward port.
+            if (!IsLoopbackHost(request.Host))
+                return Error(403, null, "HOST_REJECTED", "host not allowed: " + request.Host);
+            // <img>/navigation GETs carry no Origin, so the state-changing route refuses anything but POST.
+            if (request.Path == "/execute" && request.Method != "POST")
+                return Error(400, null, "INVALID_REQUEST", "/execute requires POST");
 
             JObject body = string.IsNullOrWhiteSpace(request.Body) ? new JObject() : JObject.Parse(request.Body);
             JsonGuard.EnsureWithinLimits(body);
@@ -206,6 +215,27 @@ namespace Yoji.LuaDeviceDebug
                 default:
                     return Error(404, requestId, "INVALID_REQUEST", "unknown endpoint: " + request.Path);
             }
+        }
+
+        private static bool IsLoopbackHost(string host)
+        {
+            if (string.IsNullOrEmpty(host))
+                return false;
+            string name;
+            if (host[0] == '[')
+            {
+                var close = host.IndexOf(']');
+                if (close < 0 || (close + 1 < host.Length && host[close + 1] != ':')) return false;
+                name = host.Substring(0, close + 1);
+            }
+            else
+            {
+                var colon = host.IndexOf(':');
+                name = colon < 0 ? host : host.Substring(0, colon);
+            }
+            return string.Equals(name, "127.0.0.1", StringComparison.Ordinal) ||
+                   string.Equals(name, "localhost", StringComparison.OrdinalIgnoreCase) ||
+                   string.Equals(name, "[::1]", StringComparison.Ordinal);
         }
 
         private JObject PingJson()
@@ -353,6 +383,8 @@ namespace Yoji.LuaDeviceDebug
                 throw new LuaDeviceDebugException(400, "INVALID_REQUEST", "invalid request line");
 
             var contentLength = 0;
+            string origin = null;
+            string host = null;
             string line;
             while (!string.IsNullOrEmpty(line = ReadAsciiLine(stream)))
             {
@@ -366,6 +398,10 @@ namespace Yoji.LuaDeviceDebug
                         contentLength < 0)
                         throw new LuaDeviceDebugException(400, "INVALID_REQUEST", "invalid Content-Length");
                 }
+                else if (string.Equals(key, "Origin", StringComparison.OrdinalIgnoreCase))
+                    origin = value;
+                else if (string.Equals(key, "Host", StringComparison.OrdinalIgnoreCase))
+                    host = value;
             }
 
             if (contentLength > JsonGuard.MaxRequestBytes)
@@ -378,7 +414,7 @@ namespace Yoji.LuaDeviceDebug
                 body = Encoding.UTF8.GetString(bytes);
             }
 
-            return new DebugHttpRequest(parts[0], parts[1], body);
+            return new DebugHttpRequest(parts[0], parts[1], body, origin, host);
         }
 
         private static string ReadAsciiLine(Stream stream)
@@ -482,12 +518,16 @@ namespace Yoji.LuaDeviceDebug
             public readonly string Method;
             public readonly string Path;
             public readonly string Body;
+            public readonly string Origin;
+            public readonly string Host;
 
-            public DebugHttpRequest(string method, string path, string body)
+            public DebugHttpRequest(string method, string path, string body, string origin, string host)
             {
                 Method = method;
                 Path = path;
                 Body = body;
+                Origin = origin;
+                Host = host;
             }
         }
 
