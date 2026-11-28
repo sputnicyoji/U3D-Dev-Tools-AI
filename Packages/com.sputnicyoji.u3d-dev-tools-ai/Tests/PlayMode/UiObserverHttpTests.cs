@@ -56,11 +56,11 @@ namespace Yoji.EditorDebug.Tests
             var width = probe.Width;
             var height = probe.Height;
             Assert.That(probe.Top, Is.SameAs(button));
-            var port = (int)System.Type.GetType("Yoji.EditorDebug.EditorDebugMCP, Yoji.EditorDebug.Editor").GetField("s_Port", BindingFlags.NonPublic | BindingFlags.Static).GetValue(null);
-            var snapshotTask = Task.Run(() => Read(port, "/ui/snapshot"));
+            var port = Port();
+            var snapshotTask = Task.Run(() => Read(port, "/ui/snapshot", "snapshot"));
             while (!snapshotTask.IsCompleted) yield return null;
             var snapshot = snapshotTask.GetAwaiter().GetResult();
-            var hitTask = Task.Run(() => Read(port, "/ui/hit?x=" + width / 2 + "&y=" + height / 2));
+            var hitTask = Task.Run(() => Read(port, "/ui/hit?x=" + width / 2 + "&y=" + height / 2, "hit"));
             while (!hitTask.IsCompleted) yield return null;
             var hit = hitTask.GetAwaiter().GetResult();
             WriteReceipt("frame", new JObject { ["width"] = width, ["height"] = height, ["nativeTop"] = probe.Top.name });
@@ -73,11 +73,71 @@ namespace Yoji.EditorDebug.Tests
             Assert.That((int)hit["result"]["screen"]["w"], Is.EqualTo(width));
             Assert.That((int)hit["result"]["screen"]["h"], Is.EqualTo(height));
             Assert.That((string)hit["result"]["top"], Is.EqualTo("HttpViewport/Button"));
-            var node = ((JArray)snapshot["result"]["nodes"]).First;
-            foreach (var candidate in (JArray)snapshot["result"]["nodes"])
-                if ((string)candidate["id"] == "HttpViewport/Button") node = candidate;
-            Assert.That((string)node["id"], Is.EqualTo("HttpViewport/Button"));
+            var node = Node(snapshot, "HttpViewport/Button");
+            Assert.That(node, Is.Not.Null, snapshot.ToString());
             Assert.That((bool)node["hitTop"], Is.True);
+        }
+
+        [UnityTest]
+        public IEnumerator HttpAct_ClicksOffCentreButtonInGameFrame()
+        {
+            SetViewport();
+            yield return null;
+            yield return null;
+            var root = new GameObject("HttpAct", typeof(Canvas), typeof(GraphicRaycaster));
+            m_Root = root;
+            root.GetComponent<Canvas>().renderMode = RenderMode.ScreenSpaceOverlay;
+            root.GetComponent<Canvas>().sortingOrder = short.MaxValue;
+            // Off centre (Unity y = 1632 of 1920): a press checked against smaller Editor-window dimensions reads as offscreen.
+            var clicks = 0;
+            AddButton(root.transform, "Corner", new Vector2(.85f, .85f), Vector2.zero).onClick.AddListener(() => clicks++);
+            // Centre past the right edge: a press checked against a wider Editor-window width would click it.
+            var offscreenClicks = 0;
+            AddButton(root.transform, "Offscreen", new Vector2(1f, .85f), new Vector2(120, 0)).onClick.AddListener(() => offscreenClicks++);
+            m_EventRoot = EventSystem.current == null ? new GameObject("HttpEvents", typeof(EventSystem)) : null;
+            var probe = root.AddComponent<TestViewportProbe>();
+            // Screen as the Editor update tick (plain RunOnMain) sees it, kept in the receipt as evidence.
+            var editorTick = Vector2Int.zero;
+            UnityEditor.EditorApplication.CallbackFunction sample = () => editorTick = new Vector2Int(Screen.width, Screen.height);
+            UnityEditor.EditorApplication.update += sample;
+            var deadline = UnityEditor.EditorApplication.timeSinceStartup + 10;
+            while ((probe.Width != 1080 || probe.Height != 1920) && UnityEditor.EditorApplication.timeSinceStartup < deadline)
+                yield return null;
+            yield return null;
+            UnityEditor.EditorApplication.update -= sample;
+            Assert.That(new Vector2Int(probe.Width, probe.Height), Is.EqualTo(new Vector2Int(1080, 1920)));
+            var port = Port();
+            var snapshotTask = Task.Run(() => Read(port, "/ui/snapshot", "act-snapshot"));
+            while (!snapshotTask.IsCompleted) yield return null;
+            var snapshot = snapshotTask.GetAwaiter().GetResult();
+            Assert.That((bool)snapshot["ok"], Is.True, snapshot.ToString());
+            var corner = Node(snapshot, "HttpAct/Corner");
+            var offscreen = Node(snapshot, "HttpAct/Offscreen");
+            Assert.That(corner, Is.Not.Null, snapshot.ToString());
+            Assert.That(offscreen, Is.Not.Null, snapshot.ToString());
+            Assert.That((bool)corner["hitTop"], Is.True);
+
+            var actTask = Task.Run(() => Read(port, "/ui/act", "act", new JObject { ["id"] = (string)corner["id"] }));
+            while (!actTask.IsCompleted) yield return null;
+            var act = actTask.GetAwaiter().GetResult();
+            var refusedTask = Task.Run(() => Read(port, "/ui/act", "act-offscreen", new JObject { ["id"] = (string)offscreen["id"] }));
+            while (!refusedTask.IsCompleted) yield return null;
+            var refused = refusedTask.GetAwaiter().GetResult();
+            WriteReceipt("act-frame", new JObject { ["width"] = probe.Width, ["height"] = probe.Height, ["editorTickWidth"] = editorTick.x, ["editorTickHeight"] = editorTick.y });
+
+            Assert.That((bool)act["ok"], Is.True, act.ToString());
+            Assert.That((bool)act["result"]["acted"], Is.True, act.ToString());
+            Assert.That((string)act["result"]["top"], Is.EqualTo("HttpAct/Corner"));
+            Assert.That((string)act["result"]["clickHandler"], Is.EqualTo("HttpAct/Corner"));
+            var rect = corner["rect"];
+            Assert.That((int)act["result"]["at"]["x"], Is.EqualTo((int)rect["x"] + (int)rect["w"] / 2).Within(1), act.ToString());
+            Assert.That((int)act["result"]["at"]["y"], Is.EqualTo((int)rect["y"] + (int)rect["h"] / 2).Within(1), act.ToString());
+            Assert.That(clicks, Is.EqualTo(1));
+            Assert.That((bool)refused["ok"], Is.True, refused.ToString());
+            Assert.That((bool)refused["result"]["acted"], Is.False, refused.ToString());
+            Assert.That((string)refused["result"]["reason"], Is.EqualTo("offscreen"), refused.ToString());
+            Assert.That(offscreenClicks, Is.EqualTo(0));
+            Assert.That(clicks, Is.EqualTo(1));
         }
 
         private void SetViewport()
@@ -112,15 +172,45 @@ namespace Yoji.EditorDebug.Tests
             System.IO.File.WriteAllText(System.IO.Path.Combine(folder, name + ".json"), receipt.ToString());
         }
 
-        private static JObject Read(int port, string path)
+        private static int Port() =>
+            (int)System.Type.GetType("Yoji.EditorDebug.EditorDebugMCP, Yoji.EditorDebug.Editor").GetField("s_Port", BindingFlags.NonPublic | BindingFlags.Static).GetValue(null);
+
+        private static Button AddButton(Transform parent, string name, Vector2 anchor, Vector2 position)
+        {
+            var button = new GameObject(name, typeof(RectTransform), typeof(Image), typeof(Button));
+            button.transform.SetParent(parent, false);
+            var rect = button.GetComponent<RectTransform>();
+            rect.anchorMin = rect.anchorMax = anchor;
+            rect.anchoredPosition = position;
+            rect.sizeDelta = new Vector2(120, 120);
+            return button.GetComponent<Button>();
+        }
+
+        private static JToken Node(JObject snapshot, string id)
+        {
+            foreach (var candidate in (JArray)snapshot["result"]["nodes"])
+                if ((string)candidate["id"] == id) return candidate;
+            return null;
+        }
+
+        /// A null body sends GET; otherwise POST with a JSON body, as /ui/act requires.
+        private static JObject Read(int port, string path, string receipt, JObject body = null)
         {
             var request = WebRequest.CreateHttp("http://127.0.0.1:" + port + path);
             request.Timeout = 15000;
+            if (body != null)
+            {
+                request.Method = "POST";
+                request.ContentType = "application/json";
+                var bytes = System.Text.Encoding.UTF8.GetBytes(body.ToString());
+                using (var stream = request.GetRequestStream())
+                    stream.Write(bytes, 0, bytes.Length);
+            }
             using (var response = request.GetResponse())
             using (var reader = new System.IO.StreamReader(response.GetResponseStream()))
             {
                 var result = JObject.Parse(reader.ReadToEnd());
-                WriteReceipt(path.StartsWith("/ui/snapshot") ? "snapshot" : "hit", new JObject { ["request"] = path, ["response"] = result });
+                WriteReceipt(receipt, new JObject { ["request"] = path, ["body"] = body, ["response"] = result });
                 return result;
             }
         }

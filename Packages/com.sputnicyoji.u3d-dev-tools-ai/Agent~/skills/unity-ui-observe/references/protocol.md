@@ -62,6 +62,7 @@ Body: `{ "id": "<node id>", "action": "click" | "drag", "at": {x,y}?, "to": {x,y
 JSON `null` means absent; any other non-numeric value is an error naming the key.
 
 Before injecting, the hit at the press point is recomputed with the same rules as `snapshot`.
+In Play mode the act runs in a player frame, like `snapshot`, so it uses the Game view's screen size; a paused Editor fails it with `ok: false`.
 The request is refused with `ok: true`, `acted: false`, `reason`, `message` when a real touch could not reach the control:
 
 | reason | meaning |
@@ -107,6 +108,7 @@ The package does not inject into the game's input itself. The game registers an 
 (button phase, position, wheel delta, touches) per player frame, so the game's own tap rule, drag threshold and UI check run unchanged.
 Frames advance only when `Time.frameCount` does: `Down` and `Up` are each fed for exactly one frame (a click is Down, Held, Up, None),
 and a paused Editor stalls the gesture instead of repeating a frame.
+The gesture is planned in a player frame, like `snapshot`; starting one while the Editor is paused fails with `ok: false`.
 Each gesture installs a PlayerLoop callback immediately before `Update.ScriptRunBehaviourUpdate`, so input is applied before the game's `MonoBehaviour.Update` methods.
 Completion or cancellation removes only that gesture's callback, preserving other PlayerLoop nodes.
 The HTTP call returns when the gesture ends (at most 20 s, then `timeout`).
