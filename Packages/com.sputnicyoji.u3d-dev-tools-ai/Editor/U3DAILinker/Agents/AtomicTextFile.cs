@@ -16,8 +16,9 @@ namespace Yoji.U3DAILinker.Agents
                 Directory.CreateDirectory(dir);
             string tmp = filePath + ".u3dtmp";
             File.WriteAllText(tmp, content, new UTF8Encoding(false));
-            if (File.Exists(filePath)) File.Delete(filePath);
-            File.Move(tmp, filePath);
+            // File.Replace swaps in one step, so a crash never leaves the target missing.
+            if (File.Exists(filePath)) File.Replace(tmp, filePath, null);
+            else File.Move(tmp, filePath);
         }
     }
 }

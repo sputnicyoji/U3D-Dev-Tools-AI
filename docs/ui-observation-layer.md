@@ -66,7 +66,7 @@ MCP 管交互式操作与截图，都不碰"游戏 UI 语义真相"。
 ```
 
 `blocksBelow` = 这层有没有铺满屏幕的 raycast target 或遮罩挡住下面。引导遮罩
-(`SafehouseGuideClickMask`: `overrideSorting=true`, `sortingOrder=MaskSortingOrder`) 就作为一层出现，`blocksBelow=true`。
+(下游游戏的引导遮罩：`overrideSorting=true`, `sortingOrder=MaskSortingOrder`) 就作为一层出现，`blocksBelow=true`。
 
 ### nodes
 
@@ -97,7 +97,7 @@ MCP 管交互式操作与截图，都不碰"游戏 UI 语义真相"。
 （`Graphic.Raycast` 仍走 `ICanvasRaycastFilter` 与 CanvasGroup），depth 换成根 canvas 下的先序遍历序，比较器镜像
 `EventSystem.RaycastComparer`。不覆盖 PhysicsRaycaster 与 `blockingObjects` 物理遮挡。
 v0.2.13：`Graphic` 不 RequireComponent `CanvasRenderer`，世界空间 `TMPro.TextMeshPro`（走 MeshRenderer）也是 Graphic；
-没有 CanvasRenderer 的图元按不绘制处理（`UiContext.Culled`），否则 Cargo 内城的建筑名牌会让 snapshot 抛 `MissingComponentException`。
+没有 CanvasRenderer 的图元按不绘制处理（`UiContext.Culled`），否则下游游戏内城的建筑名牌会让 snapshot 抛 `MissingComponentException`。
 
 ### guide —— 引导抢占一次判清
 
@@ -108,9 +108,9 @@ v0.2.13：`Graphic` 不 RequireComponent `CanvasRenderer`，世界空间 `TMPro.
 引导遮罩是 `ICanvasRaycastFilter`，带 `screenHole`，除了洞哪儿都吃点击。那个"截图抓错状态"的 bug，
 靠这块一次判掉：`active=true` 且 `targetId != 期望面板` ⇒ 当前被引导抢占。
 
-#### 怎么识别（2026-10-12 补，对照 Cargo 实现）
+#### 怎么识别（2026-10-12 补，对照下游游戏实现）
 
-host 的洞和目标拿不到：Cargo `SafehouseGuideClickMask` 的 `screenHole` / `hasHole` / `finger` 全是 private，
+host 的洞和目标拿不到：下游游戏引导遮罩的 `screenHole` / `hasHole` / `finger` 全是 private，
 公开面只有 `IsRaycastLocationValid`。"host 零改动 + 不靠反射"下，guide 块只能**用 filter 本身探出来**：
 
 1. **候选遮罩**：激活且 `raycastTarget` 的 Graphic，实现 `ICanvasRaycastFilter`，**类型不在 `UnityEngine.UI`
@@ -118,9 +118,9 @@ host 的洞和目标拿不到：Cargo `SafehouseGuideClickMask` 的 `screenHole`
    无候选 ⇒ `active=false`。
 2. **探洞**：按步长 `S`（默认 24px）网格调 `IsRaycastLocationValid(p, eventCamera)`；返回 `false` 的点即洞
    （点击穿透）。`holeRect` = 这些点的包围盒，精度 ±`S`。全格都返回 `true` ⇒ 全屏吃点击，`holeRect=null`。
-   竖屏 1080x2400 约 4.5k 次调用，只在请求时跑，不进帧循环。Cargo 的 filter 每次调用重算洞，幂等，探测无副作用。
+   竖屏 1080x2400 约 4.5k 次调用，只在请求时跑，不进帧循环。下游游戏的 filter 每次调用重算洞，幂等，探测无副作用。
 3. **targetId**：`holeRect` 内中心命中、`hitTop=true` 的节点，取面积最小者。
-   **洞下没有 uGUI 控件 ⇒ `targetId=null` 而 `holeRect` 有值**：引导指向世界空间目标（Cargo 内城建筑
+   **洞下没有 uGUI 控件 ⇒ `targetId=null` 而 `holeRect` 有值**：引导指向世界空间目标（下游游戏内城建筑
    `GuidePos` 锚点，`finger.WorldTarget` 分支），这是正常态，不是识别失败。
 
 升级路径：探洞精度不够时，加 Runtime asmdef 定义 `IUiGuideMaskSource { bool TryGetHole(out Rect hole, out Transform target); }`
@@ -131,7 +131,7 @@ host 的洞和目标拿不到：Cargo `SafehouseGuideClickMask` 的 `screenHole`
 主 id = **canvas 相对的层级路径**，如 `CityHud/BottomBar/BtnHeroes`。同名兄弟才追加下标 `[i]`。
 不用 instanceID——实测几秒就失效（"no alive object"）。稳定边界分三类，写进文档不含糊：
 
-- **authored / 生成面板**（CityHudStep / SafehouseHudAuthoring 起了确定名字）：路径跨会话稳定。
+- **authored / 生成面板**（游戏的 HUD 构建代码起了确定名字）：路径跨会话稳定。
 - **运行时列表格子**（ScrollRect 里 N 个同构 cell）：按"父节点内位置下标 + 该格关键文字"标识；
   只在该列表内容不变时稳定。
 - **本地化文字**：`text` 随调试语言变，所以 id 走路径不走文字，`text` 只作信息。
@@ -162,8 +162,8 @@ Phase 2 的 act 是 EditorDebug 上第一个真正的写操作，mutation guard 
 - U3D 发 **v0.2.12**（additive 端点），走和 0.2.11 一样的发布仪式：改 `package.json` 版本 + 四个
   `Registry/*.json` revision + 打 tag `u3d-dev-tools-ai-v0.2.12` + 推 main 与 tag。
 - host 侧零改动——EditorDebug 读任意 uGUI，不挂游戏专属 host。
-- Cargo 侧两件（见 Cargo 票 `.scratch/ui-observation-layer/`）：UPM ref 升一行 + 装 `unity-ui-observe` skill +
-  路由规则写进 `cargo-client/CLAUDE.md`（工作树只读它）与根仓 `CLAUDE.md` "Unity 工具路由" 两处。**没有这一步，工具重蹈 U3D 现状"造了没人用"。**
+- 游戏侧两件（见游戏仓的票）：UPM ref 升一行 + 装 `unity-ui-observe` skill +
+  路由规则写进游戏客户端仓的 `CLAUDE.md`（工作树只读它）与根仓 `CLAUDE.md` "Unity 工具路由" 两处。**没有这一步，工具重蹈 U3D 现状"造了没人用"。**
 
 ## Phase 2：act（v0.2.14 实现）
 
@@ -176,7 +176,7 @@ Phase 2 的 act 是 EditorDebug 上第一个真正的写操作，mutation guard 
 - **拒绝按真人可达性判**：可交互性查在真正接事件的 Selectable（命中冒泡到的处理者）上，不查目标自身；不查 CanvasGroup alpha（射线不看 alpha）。
 - **跨场景同名根导致 id 重名**时回 `ambiguous`，用同一次 snapshot 的 `iid` 消歧。
 - 同一帧发完：长按、双击（`clickCount` 恒 1）、依赖帧间时间的处理不模拟。
-- Cargo 实机（6000.3.12f1）走通：壳选择页进基地、点掉对白推进 Cn1、摇杆拖拽（阈值内 `dragged=false`）、内城引导下 HUD/非目标行被拒 `covered`、
+- 下游游戏实机（6000.3.12f1）走通：壳选择页进基地、点掉对白推进 Cn1、摇杆拖拽（阈值内 `dragged=false`）、内城引导下 HUD/非目标行被拒 `covered`、
   扳手 -> `Row_1017` -> 世界空间建筑菜单 `Key_1` 一路推进到 Ct2:6。
 
 原速写：
@@ -192,15 +192,15 @@ observe 阶段把 `hitTop` 建对，act 阶段零额外判定直接复用。世�
 与 `ScriptedPointer.cs`，协议见 skill 的 `references/protocol.md`：
 
 - **U3D 不认识游戏的输入层。** 包里只有通用注册口 `ScriptedPointerRegistry` + `IScriptedPointer`（Begin / Apply / End / TryGetReportedHit），
-  游戏在 Editor 代码里注册自己的脚本指针（Cargo 是 `CargoScriptedPointerBridge` 包住 `CargoPointer` 的 `ScriptedPointerSource`）。
+  游戏在 Editor 代码里注册自己的脚本指针（例如一个桥接类包住游戏指针的 `ScriptedPointerSource`）。
 - **按场景路径 + instanceId 指定物体**，不收屏幕坐标；用目标相机 `WorldToScreenPoint` 现算屏幕点（渲染包围盒中心）。
 - **逐帧喂**：每个手势在 PlayerLoop 的 `Update.ScriptRunBehaviourUpdate` 前安装回调，先 Apply 再由游戏的 `MonoBehaviour.Update` 消费。
   一次 act 是一串 `ScriptedPointerFrame`，每当 `Time.frameCount` 前进才 Apply 下一帧，游戏自己的 tap 判定、拖动阈值、UI 遮挡判定原样跑。
   Down 与 Up 各只喂一帧（点击 = Down、Held、Up、None）；编辑器暂停时计划停住，不会把 Down / Up 喂两帧变成双击。
   完成或取消时只移除本手势的回调，不重置其他 PlayerLoop 节点。
-  Cargo 侧再加一道：Down / Up / 滚轮归第一个读到它的帧，之后的帧读到的是 Held / None / 0。
+  游戏侧再加一道：Down / Up / 滚轮归第一个读到它的帧，之后的帧读到的是 Held / None / 0。
 - **拒绝**：相机背后 `behind_camera`、屏幕外 `offscreen`、被 UI 挡住 `covered` + `coveredBy`（与 `hitTop` 同一套 GraphicRaycaster 命中）。
-- **以游戏实际命中为准**：游戏的 tap 处理上报它判中的物体（Cargo `CargoPointer.ReportTap`），与目标不一致回 `hit_mismatch`；
+- **以游戏实际命中为准**：游戏的 tap 处理上报它判中的物体（游戏指针的 `ReportTap`），与目标不一致回 `hit_mismatch`；
   游戏正常返回但没上报才退回物理射线，什么都没有回 `unverified`。上报异常不走物理兜底，不默认成功。
 - **相机约束**：自动选取、显式 `camera` 与格子 `CellCamera` 均须激活、输出到 display 0、没有 `targetTexture`；
   物体目标还要求 `cullingMask` 包含目标层。不符合回 `no_camera`，不喂指针。
@@ -221,10 +221,10 @@ observe 阶段把 `hitTop` 建对，act 阶段零额外判定直接复用。世�
 ### 04：大地图格子目标
 
 - `target: {cell: {x, y}}`，只支持 click。U3D 不认识游戏的格子：注册的脚本指针可选实现 `IScriptedPointerCells`
-  （`CellCamera` / `TryCellToWorld` / `TryScreenToCell` / `TryGetReportedCell`），Cargo 用 `WorldMapSpatial.CellCenter` 与大地图相机实现。
+  （`CellCamera` / `TryCellToWorld` / `TryScreenToCell` / `TryGetReportedCell`），下游游戏用自己的格子中心换算与大地图相机实现。
 - 按下前往返自检：格子中心 -> 屏幕点 -> 游戏判格，回不到同一格回 `ambiguous_cell`，不喂指针。
 - 拒绝：`no_cell_target`、`no_camera`、`out_of_map`、`behind_camera`、`offscreen`、`ambiguous_cell`、`covered` + `coveredBy`。
 - 输入阻塞（06）：游戏整块吞掉地图输入时（例如打开的面板让地图不收点击，哪怕面板没盖住按下点），指针可再实现可选的 `IScriptedPointerInputBlocker`。act 在按下前问一次，有阻塞者就回 `blocked`，`coveredBy` 给出阻塞者，不喂指针。物体目标和格子目标的 click、drag、scroll、pinch 都适用。
-- 核对：以游戏上报的格子为准（Cargo `CargoPointer.ReportCell`，与 `ReportTap` 分开）。不一致或判出无格回 `cell_mismatch`，
+- 核对：以游戏上报的格子为准（游戏指针的 `ReportCell`，与 `ReportTap` 分开）。不一致或判出无格回 `cell_mismatch`，
   没上报回 `unverified`；格子上有单位时 `ReportTap` 也上报，结果合并成 `cell` + `unit {path, iid}`。
 - 点击照旧逐帧喂 Down、Held、Up、None，Down / Up 各一帧。

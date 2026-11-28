@@ -201,5 +201,39 @@ namespace Yoji.TestRunner.Tests
             Assert.AreEqual("completed", s.Find(id).Status);
             Assert.AreEqual(updated, s.Find(id).UpdatedMs);
         }
+
+        [Test] public void FailOrphanedJobs_MarksRunningRecordFromPreviousDomainAsError()
+        {
+            var id = JobStore.NewJobId();
+            var before = New();
+            before.StartJob(id);
+            long started = before.Find(id).StartedMs;
+            m_Now += 5_000;
+            var after = New(); // same dir, empty memory: the store a domain reload rebuilds
+            after.FailOrphanedJobs("orphaned by reload");
+            var rec = after.Find(id);
+            Assert.AreEqual("error", rec.Status);
+            Assert.AreEqual("Error", rec.OverallResult);
+            Assert.AreEqual("orphaned by reload", rec.Message);
+            Assert.AreEqual(m_Now, rec.UpdatedMs);
+            Assert.AreEqual(started, rec.StartedMs);
+            Assert.IsTrue(after.IsIdle);
+            Assert.AreEqual("error", New().Find(id).Status); // persisted, not just cached
+        }
+
+        [Test] public void FailOrphanedJobs_LeavesFinishedJobs_ActiveJob_AndBadFilesAlone()
+        {
+            var s = New();
+            var done = JobStore.NewJobId();
+            s.StartJob(done);
+            s.CompleteJob(done, 1, 0, 0, "Passed", "x", null);
+            var active = JobStore.NewJobId();
+            s.StartJob(active);
+            File.WriteAllText(Path.Combine(m_Dir, "job_corrupt.json"), "not json");
+            s.FailOrphanedJobs("orphaned");
+            Assert.AreEqual(ServiceState.Running, s.State);
+            Assert.AreEqual("running", New().Find(active).Status);
+            Assert.AreEqual("completed", New().Find(done).Status);
+        }
     }
 }

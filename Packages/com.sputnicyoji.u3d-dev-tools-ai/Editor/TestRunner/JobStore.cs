@@ -158,6 +158,27 @@ namespace Yoji.TestRunner
             }
         }
 
+        /// Service start after a domain reload: RunFinished of an older domain can no longer complete its
+        /// job (TestRunService.m_ActiveJobId died with that domain), so every on-disk record still 'running'
+        /// that is not this store's active job is marked error; otherwise pollers would wait on it forever.
+        public void FailOrphanedJobs(string message)
+        {
+            lock (m_Lock)
+            {
+                string[] paths;
+                try { paths = Directory.GetFiles(m_Dir, "job_*.json"); }
+                catch { return; }
+                foreach (var path in paths)
+                {
+                    var rec = ReadRecord(path);
+                    if (rec == null || rec.Status != "running" || IsActive(rec.JobId)) continue;
+                    rec.Status = "error"; rec.OverallResult = "Error";
+                    rec.Message = message; rec.UpdatedMs = m_NowMs();
+                    Persist(rec);
+                }
+            }
+        }
+
         // 已持锁：jobId 是否就是当前活跃任务。Find / Touch / Target 共用同一条身份判定。
         private bool IsActive(string jobId) => m_Current != null && m_Current.JobId == jobId;
 
@@ -185,9 +206,10 @@ namespace Yoji.TestRunner
             catch { /* 持久化失败不致命，内存仍可用 */ }
         }
 
-        private JobRecord LoadFromDisk(string jobId)
+        private JobRecord LoadFromDisk(string jobId) => ReadRecord(PathFor(jobId));
+
+        private static JobRecord ReadRecord(string path)
         {
-            var path = PathFor(jobId);
             if (!File.Exists(path)) return null;
             try { return JsonConvert.DeserializeObject<JobRecord>(File.ReadAllText(path)); }
             catch { return null; }

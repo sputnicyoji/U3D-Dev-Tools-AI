@@ -1,13 +1,12 @@
 # Lua 运行时白盒化设计方案 (Lua Runtime Whitebox)
 
 Date: 2026-10-14  
-Repo: `G:\Side_Projects\U3D-Dev-Tools-AI`  
 Package: `com.sputnicyoji.u3d-dev-tools-ai`  
 Status: Approved for planning, ready for implementation  
 
 ## 1. 背景与核心价值
 
-在 Cargo 这类以 **C# 为引擎底层、Lua 为重度业务逻辑** 的 U3D 项目中，AI Agent 与 Pipeline CLI 的调试闭环存在显著痛点：
+在以 **C# 为引擎底层、Lua 为重度业务逻辑** 的 U3D 项目中，AI Agent 与 Pipeline CLI 的调试闭环存在显著痛点：
 1. **代码修改缺乏免重启反馈**：Agent 修改 `.lua` 代码后，Unity Editor 无法感知并热重载，必须重启 Play 模式或重新导航进入游戏场景，单次调试耗时 30~60 秒。
 2. **错误定位与真实源文件割裂**：运行时抛出 Lua 异常时，控制台通常被 C# pcall 包装异常淹没，缺少结构化的源文件路径与行号。
 3. **业务状态不可见（黑盒）**：金币、内城建筑等级、大地图坐标、任务进度等核心业务数据存放在 Lua 内存中，Agent 缺少只读状态探针，无法在修改后断言因果。

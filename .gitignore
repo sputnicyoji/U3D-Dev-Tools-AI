@@ -7,6 +7,7 @@ TestProjects/*/Temp/
 TestProjects/*/obj/
 TestProjects/*/Assets/
 TestProjects/*/.vs/
+TestProjects/*/Packages/packages-lock.json
 
 # Generated per machine by the package when a test project opens
 .u3d-ai-linker/
@@ -21,7 +22,6 @@ __pycache__/
 # Local planning and agent workspace state
 _planning/
 progress.md
-docs/superpowers/
 .agents/
 .claude/
 .codex/

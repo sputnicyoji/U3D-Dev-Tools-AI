@@ -1,0 +1,40 @@
+# Python and JSON checks only; Unity tests run locally (tools/run-editmode.py).
+name: CI
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  checks:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.x"
+
+      - name: Tools tests
+        run: |
+          for test in tools/test-*.py; do
+            echo "== $test"
+            python "$test"
+          done
+
+      - name: Compile Python sources
+        run: find tools "Packages/com.sputnicyoji.u3d-dev-tools-ai/Agent~" -name '*.py' -print0 | xargs -0 python -m py_compile
+
+      - name: Validate JSON
+        run: |
+          for file in Registry/*.json Packages/com.sputnicyoji.u3d-dev-tools-ai/package.json Packages/com.sputnicyoji.u3d-dev-tools-ai/Registry/*.json; do
+            echo "== $file"
+            python -m json.tool "$file" > /dev/null
+          done

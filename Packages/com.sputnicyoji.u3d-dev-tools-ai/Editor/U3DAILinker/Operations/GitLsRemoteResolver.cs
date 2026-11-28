@@ -1,6 +1,7 @@
 using System;
 using System.Diagnostics;
 using System.Text.RegularExpressions;
+using System.Threading.Tasks;
 
 namespace Yoji.U3DAILinker.Operations
 {
@@ -11,10 +12,13 @@ namespace Yoji.U3DAILinker.Operations
         private static readonly Regex Sha40 = new Regex("^[0-9a-f]{40}$", RegexOptions.Compiled);
 
         private readonly string _repoUrl;
+        private readonly int _timeoutMs;
 
-        public GitLsRemoteResolver(string repoUrl)
+        // Called on the main thread by the settings panel, so a stalled remote must not freeze the Editor.
+        public GitLsRemoteResolver(string repoUrl, int timeoutMs = 15000)
         {
             _repoUrl = repoUrl;
+            _timeoutMs = timeoutMs;
         }
 
         public string ResolveBranchSha(string branch)
@@ -37,34 +41,53 @@ namespace Yoji.U3DAILinker.Operations
 
         private string ResolveRefSha(string gitRef, bool allowMissing = false)
         {
+            var stdout = RunLsRemote(gitRef);
+            var sha = ExtractSha(stdout);
+            if (string.IsNullOrEmpty(sha) && allowMissing)
+                return null;
+            if (!Sha40.IsMatch(sha))
+                throw new InvalidOperationException("git ls-remote returned non-SHA output: " + stdout);
+            return sha;
+        }
+
+        private string RunLsRemote(string gitRef)
+        {
             var psi = new ProcessStartInfo
             {
                 FileName = "git",
-                Arguments = "ls-remote " + _repoUrl + " " + gitRef,
+                Arguments = "ls-remote \"" + _repoUrl + "\" " + gitRef,
                 RedirectStandardOutput = true,
                 RedirectStandardError = true,
                 UseShellExecute = false,
                 CreateNoWindow = true,
             };
+            // Fail instead of waiting for a credential prompt nobody can answer.
+            psi.EnvironmentVariables["GIT_TERMINAL_PROMPT"] = "0";
 
             using (var process = Process.Start(psi))
             {
                 if (process == null)
                     throw new InvalidOperationException("Failed to start git process.");
 
-                var stdout = process.StandardOutput.ReadToEnd();
-                var stderr = process.StandardError.ReadToEnd();
-                process.WaitForExit();
+                // Drain both pipes at once so a full stderr buffer cannot stall git.
+                var stdoutTask = Task.Run(() => process.StandardOutput.ReadToEnd());
+                var stderrTask = Task.Run(() => process.StandardError.ReadToEnd());
+
+                // git can exit while a child it spawned (e.g. an ssh ControlPersist master) still holds a pipe, so the
+                // reads are bounded too, by the same deadline: the main thread never waits longer than _timeoutMs.
+                var clock = Stopwatch.StartNew();
+                if (!process.WaitForExit(_timeoutMs)
+                    || !Task.WaitAll(new Task[] { stdoutTask, stderrTask }, Math.Max(0, _timeoutMs - (int)clock.ElapsedMilliseconds)))
+                {
+                    try { process.Kill(); }
+                    catch (Exception) { /* best effort: it may have exited already */ }
+                    throw new InvalidOperationException(
+                        "git ls-remote timed out after " + _timeoutMs + " ms: " + _repoUrl + " " + gitRef);
+                }
 
                 if (process.ExitCode != 0)
-                    throw new InvalidOperationException("git ls-remote failed: " + stderr);
-
-                var sha = ExtractSha(stdout);
-                if (string.IsNullOrEmpty(sha) && allowMissing)
-                    return null;
-                if (!Sha40.IsMatch(sha))
-                    throw new InvalidOperationException("git ls-remote returned non-SHA output: " + stdout);
-                return sha;
+                    throw new InvalidOperationException("git ls-remote failed: " + stderrTask.Result);
+                return stdoutTask.Result;
             }
         }
 
