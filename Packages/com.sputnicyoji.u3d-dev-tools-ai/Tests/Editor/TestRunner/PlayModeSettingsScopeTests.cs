@@ -81,5 +81,36 @@ namespace Yoji.TestRunner.Tests
             next.Restore();
             AssertOriginals();
         }
+
+        // Restore put the originals back but could not delete the backup; the user then changed the settings.
+        private void LeaveStaleBackupThenChangeSettings()
+        {
+            var scope = New();
+            scope.Apply();
+            var leftover = File.ReadAllText(m_BackupPath);
+            scope.Restore();
+            File.WriteAllText(m_BackupPath, leftover);
+            m_Enabled = true;
+            m_Options = EnterPlayModeOptions.None;
+        }
+
+        [Test] public void Restore_WithStaleBackup_KeepsUserChange_AndDropsBackup()
+        {
+            LeaveStaleBackupThenChangeSettings();
+            var writes = m_Writes;
+            New().Restore(); // next service start
+            Assert.AreEqual(writes, m_Writes);
+            Assert.IsFalse(File.Exists(m_BackupPath));
+        }
+
+        [Test] public void Apply_WithStaleBackup_SnapshotsLiveSettings()
+        {
+            LeaveStaleBackupThenChangeSettings();
+            var scope = New();
+            scope.Apply();   // next PlayMode run
+            scope.Restore();
+            Assert.IsTrue(m_Enabled);
+            Assert.AreEqual(EnterPlayModeOptions.None, m_Options);
+        }
     }
 }

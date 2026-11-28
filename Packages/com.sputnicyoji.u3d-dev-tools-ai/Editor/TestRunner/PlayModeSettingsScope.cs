@@ -48,21 +48,35 @@ namespace Yoji.TestRunner
         public void Apply()
         {
             // A pending snapshot or backup already holds the user's value; the live settings may be our override.
-            m_Saved = m_Saved ?? LoadBackup() ?? m_Read();
+            m_Saved = m_Saved ?? LoadPendingBackup() ?? m_Read();
             WriteBackup(m_Saved);
-            // Add to the user's options (e.g. keep DisableSceneReload) instead of replacing them.
-            m_Write(new PlayModeSettings { Enabled = true, Options = m_Saved.Options | EnterPlayModeOptions.DisableDomainReload });
+            m_Write(Override(m_Saved));
         }
 
-        /// Puts the originals back and drops the backup; no-op when nothing is pending.
+        /// Puts the originals back and drops the backup (a stale one too); writes nothing when nothing is pending.
         public void Restore()
         {
-            var original = m_Saved ?? LoadBackup();
-            if (original == null) return;
+            var original = m_Saved ?? LoadPendingBackup();
             m_Saved = null;
-            m_Write(original);
+            if (original != null) m_Write(original);
+            if (!File.Exists(m_BackupPath)) return;
             try { File.Delete(m_BackupPath); }
             catch (Exception e) { Debug.LogWarning("[TestRunnerMCP] could not delete the Play Mode settings backup: " + e.Message); }
+        }
+
+        // Add to the user's options (e.g. keep DisableSceneReload) instead of replacing them.
+        private static PlayModeSettings Override(PlayModeSettings original) =>
+            new PlayModeSettings { Enabled = true, Options = original.Options | EnterPlayModeOptions.DisableDomainReload };
+
+        // A backup is pending only while the override it implies is still live. One left behind by a failed delete
+        // is stale and must not undo later user changes (a user who picks exactly that override cannot be told apart).
+        private PlayModeSettings LoadPendingBackup()
+        {
+            var backup = LoadBackup();
+            if (backup == null) return null;
+            var live = m_Read();
+            var expected = Override(backup);
+            return live.Enabled == expected.Enabled && live.Options == expected.Options ? backup : null;
         }
 
         private void WriteBackup(PlayModeSettings settings)
