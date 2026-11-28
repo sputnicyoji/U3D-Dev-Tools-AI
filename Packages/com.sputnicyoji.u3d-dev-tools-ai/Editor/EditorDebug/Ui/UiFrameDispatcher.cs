@@ -28,7 +28,7 @@ namespace Yoji.EditorDebug.Ui
                 if (!EditorApplication.isPlaying)
                     Complete(request);
                 else if (EditorApplication.isPaused)
-                    request.Completion.TrySetException(new InvalidOperationException("UI observation requires an advancing PlayMode frame; resume the Editor"));
+                    request.Completion.TrySetException(new InvalidOperationException("PlayMode UI observation and act require an advancing frame; resume the Editor"));
                 else
                 {
                     Install();
@@ -40,7 +40,7 @@ namespace Yoji.EditorDebug.Ui
             if (!request.Completion.Task.Wait(TimeSpan.FromSeconds(10)))
             {
                 request.Completion.TrySetCanceled();
-                throw new TimeoutException("PlayMode did not produce a UI observation frame within 10 seconds");
+                throw new TimeoutException("PlayMode did not produce a UI frame within 10 seconds");
             }
             elapsedMs = timer.ElapsedMilliseconds;
             return request.Completion.Task.GetAwaiter().GetResult();

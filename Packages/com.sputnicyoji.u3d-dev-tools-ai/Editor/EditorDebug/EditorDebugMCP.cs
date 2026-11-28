@@ -193,7 +193,7 @@ namespace Yoji.EditorDebug
                 case "/ui/act":
                     if (UiWorldActor.IsWorldRequest(req))
                         return RunWorldAct(req);
-                    return RunOnMain(() => UiActor.Act(req, live: true));
+                    return RunOnMain(() => UiActor.Act(req, live: true), gameFrame: true);
                 default:
                     return ErrorEnvelope(new ArgumentException("unknown endpoint: " + path));
             }
@@ -275,8 +275,9 @@ namespace Yoji.EditorDebug
         private static JObject RunWorldAct(JObject req)
         {
             UiWorldActor.Session session = null;
+            // Start reads Screen like /ui/act, so it runs in the game frame too; the later steps already do (PlayerLoop driver).
             var started = RunOnMain(() =>
-                (object)UiWorldActor.Start(req, live: true, ScriptedPointerRegistry.Current, null, out session) ?? new JObject());
+                (object)UiWorldActor.Start(req, live: true, ScriptedPointerRegistry.Current, null, out session) ?? new JObject(), gameFrame: true);
             if (session == null)
                 return started;
             if (!session.Done.Wait(k_WorldActTimeoutMs))

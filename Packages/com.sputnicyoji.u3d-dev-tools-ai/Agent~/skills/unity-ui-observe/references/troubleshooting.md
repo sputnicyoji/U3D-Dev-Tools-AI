@@ -31,4 +31,4 @@ A control whose handler needs a held press or several frames reacts differently 
 
 ## PlayMode observation waits or refuses
 
-HTTP snapshot and hit sample in an advancing player frame so Screen and native raycasts share the GameView viewport. Resume a paused Editor before observing. If no player frame arrives within ten seconds, the request fails instead of returning Editor-window coordinates. EditMode keeps the existing editor-thread behavior.
+HTTP snapshot, hit and act (canvas act, and the start of a world act) run in an advancing player frame so Screen and native raycasts share the GameView viewport. Resume a paused Editor before observing or acting; a paused Editor makes these requests fail with `ok: false`. If no player frame arrives within ten seconds, the request fails instead of returning Editor-window coordinates. EditMode keeps the existing editor-thread behavior.
