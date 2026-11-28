@@ -48,6 +48,10 @@ def main() -> None:
         "waiting for git must be bounded"
     )
     assert "Kill()" in run, "a timed-out git process must be killed"
+    wait_all = next(line for line in run.splitlines() if "Task.WaitAll(" in line)
+    assert "_timeoutMs - " in wait_all, (
+        "the pipe drain must get only the time the process wait left, not a second full timeout"
+    )
 
 
 if __name__ == "__main__":

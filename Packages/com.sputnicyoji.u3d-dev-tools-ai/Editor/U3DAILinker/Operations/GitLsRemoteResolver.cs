@@ -73,8 +73,11 @@ namespace Yoji.U3DAILinker.Operations
                 var stdoutTask = Task.Run(() => process.StandardOutput.ReadToEnd());
                 var stderrTask = Task.Run(() => process.StandardError.ReadToEnd());
 
-                // A killed git can leave its transport helper holding the pipes, so the reads are bounded too.
-                if (!process.WaitForExit(_timeoutMs) || !Task.WaitAll(new Task[] { stdoutTask, stderrTask }, _timeoutMs))
+                // git can exit while a child it spawned (e.g. an ssh ControlPersist master) still holds a pipe, so the
+                // reads are bounded too, by the same deadline: the main thread never waits longer than _timeoutMs.
+                var clock = Stopwatch.StartNew();
+                if (!process.WaitForExit(_timeoutMs)
+                    || !Task.WaitAll(new Task[] { stdoutTask, stderrTask }, Math.Max(0, _timeoutMs - (int)clock.ElapsedMilliseconds)))
                 {
                     try { process.Kill(); }
                     catch (Exception) { /* best effort: it may have exited already */ }
