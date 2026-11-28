@@ -69,9 +69,11 @@ namespace Yoji.TestRunner
                 var resultDir = Path.Combine(projectPath, "Temp", "TestRunnerMCP");
 
                 s_Jobs = new JobStore(resultDir, () => DateTimeOffset.UtcNow.ToUnixTimeMilliseconds());
-                // A fresh domain tracks no run, so anything still 'running' was cut off (Unity empties Temp on launch,
-                // so these records only come from reloads within this editor session).
-                s_Jobs.FailOrphanedJobs("orphaned: a domain reload interrupted the run before it reported a result");
+                // Reached only when this domain creates the service (the early return above). A run's identity
+                // (TestRunService.m_ActiveJobId, JobStore.m_Current) is memory-only, so a run that crossed a reload can
+                // never be completed here, even if the Test Framework resumes it: close its record instead of leaving it
+                // 'running' forever. Unity empties Temp on launch, so these records only come from reloads in this session.
+                s_Jobs.FailOrphanedJobs("orphaned: a domain reload dropped this run's tracking before it reported a result");
                 var playModeSettings = PlayModeSettingsScope.ForEditor(
                     Path.Combine(projectPath, "Library", "TestRunnerMCP", "playmode-settings-backup.json"));
                 playModeSettings.Restore(); // undo a PlayMode run's override left by a reload or crash mid-run
