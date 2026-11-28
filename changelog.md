@@ -35,7 +35,7 @@ This log starts with the single-package release, 0.2.0. Release dates follow Git
 - README: list the validated Editors (2022.3.62f2c1, 6000.3.12f1, 2022.3.62f3c1, 6000.3.13f1) and state that 6000.4+ is unverified and 6000.5 is known incompatible until the `InstanceID` to `EntityId` migration.
 - Test projects: every `TestProjects/*/Packages/packages-lock.json` is ignored, and `TestProjects/editor-debug/Packages/packages-lock.json` is no longer tracked. This reverses the 0.2.19 change that committed it: only one fixture had a tracked lock, the test-runner one was neither tracked nor ignored, and Unity rewrites the lock for each Editor version.
 - CI: a GitHub Actions workflow (`.github/workflows/ci.yml`, ubuntu-latest, on push and pull request) runs `tools/test-*.py`, byte-compiles the Python under `tools/` and `Agent~`, and checks `Registry/*.json`, the package's `package.json` and its `Registry/*.json` with `python -m json.tool`. Unity tests still run locally.
-- Docs: removed local absolute repo paths and a downstream project name from `docs/`, the `unity-ui-observe` protocol reference and test comments. `docs/superpowers/` is no longer in `.gitignore`, since its files are tracked.
+- Docs: removed local absolute repo paths, a downstream project name and its class names from `docs/`, the `unity-ui-observe` protocol reference and test comments. `docs/superpowers/` is no longer in `.gitignore`, since its files are tracked.
 
 ### Removed
 - PowerShell scripts: the four `Agent~/skills/*/install.ps1`, `unity-ui-observe` `act.ps1` and `shot.ps1`, `tools/run-editmode.ps1` and `tools/check-u3d-linker-stable.ps1`. Use the Python scripts listed under Changed.

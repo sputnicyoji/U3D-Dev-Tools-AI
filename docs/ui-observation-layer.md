@@ -66,7 +66,7 @@ MCP 管交互式操作与截图，都不碰"游戏 UI 语义真相"。
 ```
 
 `blocksBelow` = 这层有没有铺满屏幕的 raycast target 或遮罩挡住下面。引导遮罩
-(`SafehouseGuideClickMask`: `overrideSorting=true`, `sortingOrder=MaskSortingOrder`) 就作为一层出现，`blocksBelow=true`。
+(下游游戏的引导遮罩：`overrideSorting=true`, `sortingOrder=MaskSortingOrder`) 就作为一层出现，`blocksBelow=true`。
 
 ### nodes
 
@@ -110,7 +110,7 @@ v0.2.13：`Graphic` 不 RequireComponent `CanvasRenderer`，世界空间 `TMPro.
 
 #### 怎么识别（2026-10-12 补，对照下游游戏实现）
 
-host 的洞和目标拿不到：下游游戏 `SafehouseGuideClickMask` 的 `screenHole` / `hasHole` / `finger` 全是 private，
+host 的洞和目标拿不到：下游游戏引导遮罩的 `screenHole` / `hasHole` / `finger` 全是 private，
 公开面只有 `IsRaycastLocationValid`。"host 零改动 + 不靠反射"下，guide 块只能**用 filter 本身探出来**：
 
 1. **候选遮罩**：激活且 `raycastTarget` 的 Graphic，实现 `ICanvasRaycastFilter`，**类型不在 `UnityEngine.UI`
@@ -131,7 +131,7 @@ host 的洞和目标拿不到：下游游戏 `SafehouseGuideClickMask` 的 `scre
 主 id = **canvas 相对的层级路径**，如 `CityHud/BottomBar/BtnHeroes`。同名兄弟才追加下标 `[i]`。
 不用 instanceID——实测几秒就失效（"no alive object"）。稳定边界分三类，写进文档不含糊：
 
-- **authored / 生成面板**（CityHudStep / SafehouseHudAuthoring 起了确定名字）：路径跨会话稳定。
+- **authored / 生成面板**（游戏的 HUD 构建代码起了确定名字）：路径跨会话稳定。
 - **运行时列表格子**（ScrollRect 里 N 个同构 cell）：按"父节点内位置下标 + 该格关键文字"标识；
   只在该列表内容不变时稳定。
 - **本地化文字**：`text` 随调试语言变，所以 id 走路径不走文字，`text` 只作信息。
@@ -221,7 +221,7 @@ observe 阶段把 `hitTop` 建对，act 阶段零额外判定直接复用。世�
 ### 04：大地图格子目标
 
 - `target: {cell: {x, y}}`，只支持 click。U3D 不认识游戏的格子：注册的脚本指针可选实现 `IScriptedPointerCells`
-  （`CellCamera` / `TryCellToWorld` / `TryScreenToCell` / `TryGetReportedCell`），下游游戏用 `WorldMapSpatial.CellCenter` 与大地图相机实现。
+  （`CellCamera` / `TryCellToWorld` / `TryScreenToCell` / `TryGetReportedCell`），下游游戏用自己的格子中心换算与大地图相机实现。
 - 按下前往返自检：格子中心 -> 屏幕点 -> 游戏判格，回不到同一格回 `ambiguous_cell`，不喂指针。
 - 拒绝：`no_cell_target`、`no_camera`、`out_of_map`、`behind_camera`、`offscreen`、`ambiguous_cell`、`covered` + `coveredBy`。
 - 输入阻塞（06）：游戏整块吞掉地图输入时（例如打开的面板让地图不收点击，哪怕面板没盖住按下点），指针可再实现可选的 `IScriptedPointerInputBlocker`。act 在按下前问一次，有阻塞者就回 `blocked`，`coveredBy` 给出阻塞者，不喂指针。物体目标和格子目标的 click、drag、scroll、pinch 都适用。
